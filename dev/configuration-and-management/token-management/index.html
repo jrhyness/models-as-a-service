@@ -14,7 +14,7 @@
         <link rel="prev" href="../tier-concepts/">
       
       
-        <link rel="next" href="../model-setup/">
+        <link rel="next" href="../tls-configuration/">
       
       
         
@@ -609,69 +609,15 @@
   
   
   
-    
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_4_1_2" id="__nav_4_1_2_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Operators
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_1_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_1_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Operators
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
     <li class="md-nav__item">
-      <a href="../../install/odh-setup/" class="md-nav__link">
+      <a href="../../install/platform-setup/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Open Data Hub
+    Operator Setup
   
 
     
@@ -680,42 +626,6 @@
   
 
       </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../install/rhoai-setup/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Red Hat OpenShift AI
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -1119,6 +1029,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#model-discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model Discovery
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Model Discovery">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#practical-usage" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1194,6 +1132,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tls-configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TLS Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1717,6 +1683,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#model-discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Model Discovery
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Model Discovery">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#practical-usage" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1821,6 +1815,7 @@ See <a href="../tier-configuration/">Configuring Subscription Tiers</a> for setu
 <ol>
 <li><a href="#overview">Overview</a></li>
 <li><a href="#how-token-issuance-works">How Token Issuance Works</a></li>
+<li><a href="#model-discovery">Model Discovery</a></li>
 <li><a href="#practical-usage">Practical Usage</a></li>
 <li><a href="#token-lifecycle-management">Token Lifecycle Management</a></li>
 <li><a href="#frequently-asked-questions-faq">Frequently Asked Questions (FAQ)</a></li>
@@ -1884,6 +1879,29 @@ purpose-built identity in the form of a Kubernetes Service Account.</p>
     Model--&gt;&gt;Gateway: Response
     Gateway--&gt;&gt;User: Response</code></pre>
 <hr />
+<h2 id="model-discovery">Model Discovery</h2>
+<p>The <code>/v1/models</code> endpoint allows you to discover which models you're authorized to access. This endpoint works with any valid authentication token - you don't need to create an API key first.</p>
+<h3 id="how-it-works">How It Works</h3>
+<p>When you call <code>/v1/models</code>, the system checks your authorization against each model's endpoint. If your token doesn't have the correct audience for these internal checks, the API automatically exchanges it for a short-lived service account token.</p>
+<pre class="mermaid"><code>flowchart LR
+    A[Your Token] --&gt; B{Has correct&lt;br/&gt;audience?}
+    B --&gt;|Yes| D[Use as-is]
+    B --&gt;|No| C[Auto-exchange]
+    C --&gt; D
+    D --&gt; E[Check model&lt;br/&gt;authorization]
+    E --&gt; F[Return&lt;br/&gt;authorized models]</code></pre>
+<p>This means you can:</p>
+<ol>
+<li><strong>Authenticate with OpenShift or OIDC</strong> - use your existing identity</li>
+<li><strong>Call <code>/v1/models</code> immediately</strong> - see available models without creating an API key first</li>
+</ol>
+<div class="admonition info">
+<p class="admonition-title">Security Note</p>
+<p>The token exchange is an internal implementation detail. Authentication is still fully handled by Authorino - 
+the API only peeks at the token's audience claim to decide if exchange is needed. Your identity always comes 
+from Authorino's validated headers, not from parsing the token.</p>
+</div>
+<hr />
 <h2 id="practical-usage">Practical Usage</h2>
 <p>For step-by-step instructions on obtaining and using tokens to access models, including practical examples and troubleshooting, see the <a href="../../user-guide/self-service-model-access/">Self-Service Model Access Guide</a>.</p>
 <p>That guide provides:</p>
@@ -1941,6 +1959,15 @@ are in the correct user group, which should be mapped to your desired tier in th
 <p><strong>Q: Can I use one token to access multiple different models?</strong></p>
 <p>A: Yes. Your token grants you access based on your tier's RBAC permissions. If your tier is authorized to use multiple models, a single token will work for all of them.</p>
 <hr />
+<p><strong>Q: What's the difference between my OpenShift token and an API key?</strong></p>
+<p>A: Your <strong>OpenShift token</strong> is your identity token from authentication (e.g. OpenShift or OIDC). It proves who you are but may not have the correct audience for model access. An <strong>API key</strong> (issued via <code>/v1/tokens</code>) is a service account token with the correct audience and permissions for accessing models. You can use either to list models, but only API keys work for model inference.</p>
+<hr />
+<p><strong>Q: Do I need an API key to list available models?</strong></p>
+<p>A: No. You can call <code>/v1/models</code> with your OpenShift/OIDC token directly. The API automatically handles token exchange if needed. This lets you discover available models before deciding which API keys to create.</p>
+<hr />
+<p><strong>Q: What is "token audience" and why does it matter?</strong></p>
+<p>A: Token audience identifies the intended recipient of a token. Model endpoints expect tokens with a specific audience (<code>{tenant}-sa</code>). OpenShift/OIDC tokens have different audiences, so the API exchanges them internally when needed for authorization checks.</p>
+<hr />
 <h2 id="related-documentation">Related Documentation</h2>
 <ul>
 <li><strong><a href="../tier-configuration/">Configuring Subscription Tiers</a></strong>: For operators - tier setup, RBAC, and rate limiting configuration</li>
@@ -1968,7 +1995,7 @@ are in the correct user group, which should be mapped to your desired tier in th
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="January 5, 2026 13:03:17 UTC">January 5, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="January 16, 2026 21:20:36 UTC">January 16, 2026</span>
   </span>
 
     
