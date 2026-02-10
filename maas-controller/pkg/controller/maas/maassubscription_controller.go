@@ -27,9 +27,12 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -83,8 +86,10 @@ func (r *MaaSSubscriptionReconciler) reconcileTokenRateLimitPolicies(ctx context
 		// Find the MaaSModel to determine HTTPRoute name and namespace
 		httpRouteName, httpRouteNS, err := r.findHTTPRouteForModel(ctx, log, subscription.Namespace, modelRef.Name)
 		if err != nil {
-			log.Error(err, "failed to find HTTPRoute for model", "model", modelRef.Name)
-			return fmt.Errorf("failed to find HTTPRoute for model %s: %w", modelRef.Name, err)
+			// If model is not found (deleted), skip it and clean up its generated policy
+			log.Info("skipping model (not found or being deleted), cleaning up generated policy", "model", modelRef.Name, "error", err)
+			r.deleteGeneratedTRLPForModel(ctx, log, subscription, modelRef.Name)
+			continue
 		}
 
 		policyName := fmt.Sprintf("subscription-%s-model-%s", subscription.Name, modelRef.Name)
@@ -105,6 +110,7 @@ func (r *MaaSSubscriptionReconciler) reconcileTokenRateLimitPolicies(ctx context
 		labels := map[string]string{
 			"maas.opendatahub.io/subscription":    subscription.Name,
 			"maas.opendatahub.io/subscription-ns": subscription.Namespace,
+			"maas.opendatahub.io/model":           modelRef.Name,
 			"app.kubernetes.io/managed-by":        "maas-controller",
 			"app.kubernetes.io/part-of":           "maas-subscription",
 			"app.kubernetes.io/component":         "token-rate-limit-policy",
@@ -237,26 +243,53 @@ func (r *MaaSSubscriptionReconciler) reconcileTokenRateLimitPolicies(ctx context
 		} else if err != nil {
 			return fmt.Errorf("failed to get existing TokenRateLimitPolicy: %w", err)
 		} else {
-			// Update existing - preserve labels and owner references
-			existing.SetAnnotations(policy.GetAnnotations())
-			existing.SetLabels(policy.GetLabels())
-			// Update owner references if in same namespace
-			if httpRouteNS == subscription.Namespace {
-				if err := controllerutil.SetControllerReference(subscription, existing, r.Scheme); err != nil {
-					return fmt.Errorf("failed to update controller reference: %w", err)
+			// Skip update if the generated policy has opted out of management
+			if existing.GetAnnotations()["maas.opendatahub.io/managed"] == "false" {
+				log.Info("TokenRateLimitPolicy has maas.opendatahub.io/managed=false, skipping update", "name", policyName, "model", modelRef.Name)
+			} else {
+				existing.SetAnnotations(policy.GetAnnotations())
+				existing.SetLabels(policy.GetLabels())
+				// Update owner references if in same namespace
+				if httpRouteNS == subscription.Namespace {
+					if err := controllerutil.SetControllerReference(subscription, existing, r.Scheme); err != nil {
+						return fmt.Errorf("failed to update controller reference: %w", err)
+					}
 				}
+				if err := unstructured.SetNestedMap(existing.Object, spec, "spec"); err != nil {
+					return fmt.Errorf("failed to update spec: %w", err)
+				}
+				if err := r.Update(ctx, existing); err != nil {
+					return fmt.Errorf("failed to update TokenRateLimitPolicy for model %s: %w", modelRef.Name, err)
+				}
+				log.Info("TokenRateLimitPolicy updated", "name", policyName, "model", modelRef.Name, "httpRoute", httpRouteName, "namespace", httpRouteNS)
 			}
-			if err := unstructured.SetNestedMap(existing.Object, spec, "spec"); err != nil {
-				return fmt.Errorf("failed to update spec: %w", err)
-			}
-			if err := r.Update(ctx, existing); err != nil {
-				return fmt.Errorf("failed to update TokenRateLimitPolicy for model %s: %w", modelRef.Name, err)
-			}
-			log.Info("TokenRateLimitPolicy updated", "name", policyName, "model", modelRef.Name, "httpRoute", httpRouteName, "namespace", httpRouteNS)
 		}
 	}
 
 	return nil
+}
+
+// deleteGeneratedTRLPForModel deletes the generated TokenRateLimitPolicy for a specific model
+// that no longer exists (e.g. MaaSModel was deleted).
+func (r *MaaSSubscriptionReconciler) deleteGeneratedTRLPForModel(ctx context.Context, log logr.Logger, subscription *maasv1alpha1.MaaSSubscription, modelName string) {
+	policyList := &unstructured.UnstructuredList{}
+	policyList.SetGroupVersionKind(schema.GroupVersionKind{Group: "kuadrant.io", Version: "v1alpha1", Kind: "TokenRateLimitPolicyList"})
+	labelSelector := client.MatchingLabels{
+		"maas.opendatahub.io/model":        modelName,
+		"maas.opendatahub.io/subscription": subscription.Name,
+		"app.kubernetes.io/managed-by":     "maas-controller",
+	}
+	if err := r.List(ctx, policyList, labelSelector); err != nil {
+		log.Error(err, "failed to list TokenRateLimitPolicies for cleanup", "model", modelName)
+		return
+	}
+	for i := range policyList.Items {
+		p := &policyList.Items[i]
+		log.Info("Deleting orphaned TokenRateLimitPolicy for deleted model", "name", p.GetName(), "namespace", p.GetNamespace(), "model", modelName)
+		if err := r.Delete(ctx, p); err != nil && !apierrors.IsNotFound(err) {
+			log.Error(err, "failed to delete orphaned TokenRateLimitPolicy", "name", p.GetName())
+		}
+	}
 }
 
 // findHTTPRouteForModel finds the HTTPRoute for a given model name
@@ -272,6 +305,10 @@ func (r *MaaSSubscriptionReconciler) findHTTPRouteForModel(ctx context.Context, 
 	var maasModel *maasv1alpha1.MaaSModel
 	for i := range maasModelList.Items {
 		if maasModelList.Items[i].Name == modelName {
+			// Skip models that are being deleted
+			if !maasModelList.Items[i].GetDeletionTimestamp().IsZero() {
+				continue
+			}
 			// Prefer the one in defaultNS if it exists
 			if maasModelList.Items[i].Namespace == defaultNS {
 				maasModel = &maasModelList.Items[i]
@@ -410,7 +447,106 @@ func (r *MaaSSubscriptionReconciler) updateStatus(ctx context.Context, subscript
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *MaaSSubscriptionReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Watch generated TokenRateLimitPolicies so we re-reconcile when someone manually edits them.
+	generatedTRLP := &unstructured.Unstructured{}
+	generatedTRLP.SetGroupVersionKind(schema.GroupVersionKind{Group: "kuadrant.io", Version: "v1alpha1", Kind: "TokenRateLimitPolicy"})
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&maasv1alpha1.MaaSSubscription{}).
+		// Watch HTTPRoutes so we re-reconcile when KServe creates/updates a route
+		// (fixes race condition where MaaSSubscription is created before HTTPRoute exists).
+		Watches(&gatewayapiv1.HTTPRoute{}, handler.EnqueueRequestsFromMapFunc(
+			r.mapHTTPRouteToMaaSSubscriptions,
+		)).
+		// Watch MaaSModels so we re-reconcile when a model is created or deleted.
+		Watches(&maasv1alpha1.MaaSModel{}, handler.EnqueueRequestsFromMapFunc(
+			r.mapMaaSModelToMaaSSubscriptions,
+		)).
+		// Watch generated TokenRateLimitPolicies so manual edits get overwritten by the controller.
+		Watches(generatedTRLP, handler.EnqueueRequestsFromMapFunc(
+			r.mapGeneratedTRLPToParent,
+		)).
 		Complete(r)
+}
+
+// mapGeneratedTRLPToParent maps a generated TokenRateLimitPolicy back to its parent
+// MaaSSubscription using the labels set at creation time.
+func (r *MaaSSubscriptionReconciler) mapGeneratedTRLPToParent(_ context.Context, obj client.Object) []reconcile.Request {
+	labels := obj.GetLabels()
+	if labels["app.kubernetes.io/managed-by"] != "maas-controller" {
+		return nil // not a generated policy
+	}
+	subName := labels["maas.opendatahub.io/subscription"]
+	subNS := labels["maas.opendatahub.io/subscription-ns"]
+	if subName == "" || subNS == "" {
+		return nil
+	}
+	return []reconcile.Request{{
+		NamespacedName: types.NamespacedName{Name: subName, Namespace: subNS},
+	}}
+}
+
+// mapMaaSModelToMaaSSubscriptions returns reconcile requests for all MaaSSubscriptions
+// that reference the given MaaSModel.
+func (r *MaaSSubscriptionReconciler) mapMaaSModelToMaaSSubscriptions(ctx context.Context, obj client.Object) []reconcile.Request {
+	model, ok := obj.(*maasv1alpha1.MaaSModel)
+	if !ok {
+		return nil
+	}
+	var subscriptions maasv1alpha1.MaaSSubscriptionList
+	if err := r.List(ctx, &subscriptions); err != nil {
+		return nil
+	}
+	var requests []reconcile.Request
+	for _, s := range subscriptions.Items {
+		for _, ref := range s.Spec.ModelRefs {
+			if ref.Name == model.Name {
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{Name: s.Name, Namespace: s.Namespace},
+				})
+				break
+			}
+		}
+	}
+	return requests
+}
+
+// mapHTTPRouteToMaaSSubscriptions returns reconcile requests for all MaaSSubscriptions
+// that reference models whose LLMInferenceService lives in the HTTPRoute's namespace.
+func (r *MaaSSubscriptionReconciler) mapHTTPRouteToMaaSSubscriptions(ctx context.Context, obj client.Object) []reconcile.Request {
+	route, ok := obj.(*gatewayapiv1.HTTPRoute)
+	if !ok {
+		return nil
+	}
+	// Find MaaSModels in this namespace
+	var models maasv1alpha1.MaaSModelList
+	if err := r.List(ctx, &models); err != nil {
+		return nil
+	}
+	modelNamesInNS := map[string]bool{}
+	for _, m := range models.Items {
+		if m.Spec.ModelRef.Namespace == route.Namespace {
+			modelNamesInNS[m.Name] = true
+		}
+	}
+	if len(modelNamesInNS) == 0 {
+		return nil
+	}
+	// Find MaaSSubscriptions that reference any of these models
+	var subscriptions maasv1alpha1.MaaSSubscriptionList
+	if err := r.List(ctx, &subscriptions); err != nil {
+		return nil
+	}
+	var requests []reconcile.Request
+	for _, s := range subscriptions.Items {
+		for _, ref := range s.Spec.ModelRefs {
+			if modelNamesInNS[ref.Name] {
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{Name: s.Name, Namespace: s.Namespace},
+				})
+				break
+			}
+		}
+	}
+	return requests
 }
