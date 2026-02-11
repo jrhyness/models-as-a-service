@@ -18,10 +18,10 @@ echo "=== Installing MaaS examples and simulator LLMInferenceService ==="
 
 # 1. Install the simulator LLMInferenceService from docs samples
 if [[ -d "$SIMULATOR_DIR" ]]; then
-  echo "Deploying LLMInferenceService from docs/samples/models/simulator ..."
-  (cd "$REPO_PARENT" && kustomize build docs/samples/models/simulator) | kubectl apply -f -
   echo "Ensuring namespace llm exists ..."
   kubectl get namespace llm &>/dev/null || kubectl create namespace llm
+  echo "Deploying LLMInferenceService from docs/samples/models/simulator ..."
+  (cd "$REPO_PARENT" && kustomize build docs/samples/models/simulator) | kubectl apply -f -
 else
   echo "Warning: $SIMULATOR_DIR not found. Run from models-as-a-service repo or set REPO_PARENT. Skipping LLMInferenceService."
 fi

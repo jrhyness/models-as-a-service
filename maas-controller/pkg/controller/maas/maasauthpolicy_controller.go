@@ -28,9 +28,12 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -87,8 +90,10 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 	for _, modelName := range policy.Spec.ModelRefs {
 		httpRouteName, httpRouteNS, err := r.findHTTPRouteForModel(ctx, log, policy.Namespace, modelName)
 		if err != nil {
-			log.Error(err, "failed to find HTTPRoute for model", "model", modelName)
-			return nil, fmt.Errorf("failed to find HTTPRoute for model %s: %w", modelName, err)
+			// If model is not found (deleted), skip it and clean up its generated policy
+			log.Info("skipping model (not found or being deleted), cleaning up generated policy", "model", modelName, "error", err)
+			r.deleteGeneratedAuthPolicyForModel(ctx, log, policy, modelName)
+			continue
 		}
 		refs = append(refs, authPolicyRef{
 			Name:      fmt.Sprintf("maas-auth-%s-model-%s", policy.Name, modelName),
@@ -105,6 +110,7 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 		labels := map[string]string{
 			"maas.opendatahub.io/auth-policy":    policy.Name,
 			"maas.opendatahub.io/auth-policy-ns": policy.Namespace,
+			"maas.opendatahub.io/model":          modelName,
 			"app.kubernetes.io/managed-by":       "maas-controller",
 			"app.kubernetes.io/part-of":          "maas-auth-policy",
 			"app.kubernetes.io/component":        "auth-policy",
@@ -219,20 +225,25 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 		} else if err != nil {
 			return nil, fmt.Errorf("failed to get existing AuthPolicy: %w", err)
 		} else {
-			existing.SetAnnotations(authPolicy.GetAnnotations())
-			existing.SetLabels(authPolicy.GetLabels())
-			if httpRouteNS == policy.Namespace {
-				if err := controllerutil.SetControllerReference(policy, existing, r.Scheme); err != nil {
-					return nil, fmt.Errorf("failed to update controller reference: %w", err)
+			// Skip update if the generated policy has opted out of management
+			if existing.GetAnnotations()["maas.opendatahub.io/managed"] == "false" {
+				log.Info("AuthPolicy has maas.opendatahub.io/managed=false, skipping update", "name", authPolicyName, "model", modelName)
+			} else {
+				existing.SetAnnotations(authPolicy.GetAnnotations())
+				existing.SetLabels(authPolicy.GetLabels())
+				if httpRouteNS == policy.Namespace {
+					if err := controllerutil.SetControllerReference(policy, existing, r.Scheme); err != nil {
+						return nil, fmt.Errorf("failed to update controller reference: %w", err)
+					}
 				}
+				if err := unstructured.SetNestedMap(existing.Object, spec, "spec"); err != nil {
+					return nil, fmt.Errorf("failed to update spec: %w", err)
+				}
+				if err := r.Update(ctx, existing); err != nil {
+					return nil, fmt.Errorf("failed to update AuthPolicy for model %s: %w", modelName, err)
+				}
+				log.Info("AuthPolicy updated", "name", authPolicyName, "model", modelName, "httpRoute", httpRouteName, "namespace", httpRouteNS)
 			}
-			if err := unstructured.SetNestedMap(existing.Object, spec, "spec"); err != nil {
-				return nil, fmt.Errorf("failed to update spec: %w", err)
-			}
-			if err := r.Update(ctx, existing); err != nil {
-				return nil, fmt.Errorf("failed to update AuthPolicy for model %s: %w", modelName, err)
-			}
-			log.Info("AuthPolicy updated", "name", authPolicyName, "model", modelName, "httpRoute", httpRouteName, "namespace", httpRouteNS)
 		}
 	}
 	return refs, nil
@@ -254,6 +265,10 @@ func (r *MaaSAuthPolicyReconciler) findHTTPRouteForModel(ctx context.Context, lo
 	var maasModel *maasv1alpha1.MaaSModel
 	for i := range maasModelList.Items {
 		if maasModelList.Items[i].Name == modelName {
+			// Skip models that are being deleted
+			if !maasModelList.Items[i].GetDeletionTimestamp().IsZero() {
+				continue
+			}
 			if maasModelList.Items[i].Namespace == defaultNS {
 				maasModel = &maasModelList.Items[i]
 				break
@@ -305,6 +320,29 @@ func (r *MaaSAuthPolicyReconciler) findHTTPRouteForModel(ctx context.Context, lo
 		return "", "", fmt.Errorf("failed to get HTTPRoute %s/%s: %w", httpRouteNS, httpRouteName, err)
 	}
 	return httpRouteName, httpRouteNS, nil
+}
+
+// deleteGeneratedAuthPolicyForModel deletes the generated AuthPolicy for a specific model
+// that no longer exists (e.g. MaaSModel was deleted).
+func (r *MaaSAuthPolicyReconciler) deleteGeneratedAuthPolicyForModel(ctx context.Context, log logr.Logger, policy *maasv1alpha1.MaaSAuthPolicy, modelName string) {
+	policyList := &unstructured.UnstructuredList{}
+	policyList.SetGroupVersionKind(schema.GroupVersionKind{Group: "kuadrant.io", Version: "v1", Kind: "AuthPolicyList"})
+	labelSelector := client.MatchingLabels{
+		"maas.opendatahub.io/model":      modelName,
+		"maas.opendatahub.io/auth-policy": policy.Name,
+		"app.kubernetes.io/managed-by":   "maas-controller",
+	}
+	if err := r.List(ctx, policyList, labelSelector); err != nil {
+		log.Error(err, "failed to list AuthPolicies for cleanup", "model", modelName)
+		return
+	}
+	for i := range policyList.Items {
+		p := &policyList.Items[i]
+		log.Info("Deleting orphaned AuthPolicy for deleted model", "name", p.GetName(), "namespace", p.GetNamespace(), "model", modelName)
+		if err := r.Delete(ctx, p); err != nil && !apierrors.IsNotFound(err) {
+			log.Error(err, "failed to delete orphaned AuthPolicy", "name", p.GetName())
+		}
+	}
 }
 
 func (r *MaaSAuthPolicyReconciler) handleDeletion(ctx context.Context, log logr.Logger, policy *maasv1alpha1.MaaSAuthPolicy) (ctrl.Result, error) {
@@ -395,7 +433,106 @@ func (r *MaaSAuthPolicyReconciler) updateStatus(ctx context.Context, policy *maa
 }
 
 func (r *MaaSAuthPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Watch generated AuthPolicies so we re-reconcile when someone manually edits them.
+	generatedAuthPolicy := &unstructured.Unstructured{}
+	generatedAuthPolicy.SetGroupVersionKind(schema.GroupVersionKind{Group: "kuadrant.io", Version: "v1", Kind: "AuthPolicy"})
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&maasv1alpha1.MaaSAuthPolicy{}).
+		// Watch HTTPRoutes so we re-reconcile when KServe creates/updates a route
+		// (fixes race condition where MaaSAuthPolicy is created before HTTPRoute exists).
+		Watches(&gatewayapiv1.HTTPRoute{}, handler.EnqueueRequestsFromMapFunc(
+			r.mapHTTPRouteToMaaSAuthPolicies,
+		)).
+		// Watch MaaSModels so we re-reconcile when a model is created or deleted.
+		Watches(&maasv1alpha1.MaaSModel{}, handler.EnqueueRequestsFromMapFunc(
+			r.mapMaaSModelToMaaSAuthPolicies,
+		)).
+		// Watch generated AuthPolicies so manual edits get overwritten by the controller.
+		Watches(generatedAuthPolicy, handler.EnqueueRequestsFromMapFunc(
+			r.mapGeneratedAuthPolicyToParent,
+		)).
 		Complete(r)
+}
+
+// mapGeneratedAuthPolicyToParent maps a generated AuthPolicy back to its parent
+// MaaSAuthPolicy using the labels set at creation time.
+func (r *MaaSAuthPolicyReconciler) mapGeneratedAuthPolicyToParent(_ context.Context, obj client.Object) []reconcile.Request {
+	labels := obj.GetLabels()
+	if labels["app.kubernetes.io/managed-by"] != "maas-controller" {
+		return nil // not a generated policy
+	}
+	policyName := labels["maas.opendatahub.io/auth-policy"]
+	policyNS := labels["maas.opendatahub.io/auth-policy-ns"]
+	if policyName == "" || policyNS == "" {
+		return nil
+	}
+	return []reconcile.Request{{
+		NamespacedName: types.NamespacedName{Name: policyName, Namespace: policyNS},
+	}}
+}
+
+// mapMaaSModelToMaaSAuthPolicies returns reconcile requests for all MaaSAuthPolicies
+// that reference the given MaaSModel.
+func (r *MaaSAuthPolicyReconciler) mapMaaSModelToMaaSAuthPolicies(ctx context.Context, obj client.Object) []reconcile.Request {
+	model, ok := obj.(*maasv1alpha1.MaaSModel)
+	if !ok {
+		return nil
+	}
+	var policies maasv1alpha1.MaaSAuthPolicyList
+	if err := r.List(ctx, &policies); err != nil {
+		return nil
+	}
+	var requests []reconcile.Request
+	for _, p := range policies.Items {
+		for _, ref := range p.Spec.ModelRefs {
+			if ref == model.Name {
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{Name: p.Name, Namespace: p.Namespace},
+				})
+				break
+			}
+		}
+	}
+	return requests
+}
+
+// mapHTTPRouteToMaaSAuthPolicies returns reconcile requests for all MaaSAuthPolicies
+// that reference models whose LLMInferenceService lives in the HTTPRoute's namespace.
+func (r *MaaSAuthPolicyReconciler) mapHTTPRouteToMaaSAuthPolicies(ctx context.Context, obj client.Object) []reconcile.Request {
+	route, ok := obj.(*gatewayapiv1.HTTPRoute)
+	if !ok {
+		return nil
+	}
+	// Find MaaSModels in this namespace
+	var models maasv1alpha1.MaaSModelList
+	if err := r.List(ctx, &models); err != nil {
+		return nil
+	}
+	modelNamesInNS := map[string]bool{}
+	for _, m := range models.Items {
+		if m.Spec.ModelRef.Namespace == route.Namespace {
+			modelNamesInNS[m.Name] = true
+		}
+	}
+	if len(modelNamesInNS) == 0 {
+		return nil
+	}
+	// Find MaaSAuthPolicies that reference any of these models
+	var policies maasv1alpha1.MaaSAuthPolicyList
+	if err := r.List(ctx, &policies); err != nil {
+		return nil
+	}
+	var requests []reconcile.Request
+	for _, p := range policies.Items {
+		for _, ref := range p.Spec.ModelRefs {
+			if modelNamesInNS[ref] {
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{Name: p.Name, Namespace: p.Namespace},
+				})
+				break
+			}
+		}
+	}
+	return requests
 }
