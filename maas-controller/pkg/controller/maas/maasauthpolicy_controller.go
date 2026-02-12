@@ -159,27 +159,42 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 			},
 		}
 
-		var exclConditions []interface{}
+		// Build authorization rule: user must be in at least one allowed group or be a named user.
+		// Uses positive "incl" check instead of the old "excl + empty-value deny" approach,
+		// which broke because Kuadrant strips value: "" when converting AuthPolicy to AuthConfig.
+		var membershipConditions []interface{}
 		for _, g := range groupNames {
-			exclConditions = append(exclConditions, map[string]interface{}{
-				"operator": "excl", "selector": "auth.identity.user.groups", "value": g,
+			membershipConditions = append(membershipConditions, map[string]interface{}{
+				"operator": "incl", "selector": "auth.identity.user.groups", "value": g,
 			})
 		}
-		denyWhen := []interface{}{map[string]interface{}{"all": exclConditions}}
-		if len(exclConditions) == 0 {
-			denyWhen = []interface{}{}
+		for _, user := range policy.Spec.Subjects.Users {
+			membershipConditions = append(membershipConditions, map[string]interface{}{
+				"operator": "eq", "selector": "auth.identity.user.username", "value": user,
+			})
 		}
-		rule["authorization"] = map[string]interface{}{
-			"deny-not-in-allowed-groups": map[string]interface{}{
-				"metrics": false,
-				"patternMatching": map[string]interface{}{
-					"patterns": []interface{}{map[string]interface{}{
-						"operator": "eq", "selector": "auth.identity.user.username", "value": "",
-					}},
+
+		if len(membershipConditions) > 0 {
+			// Single condition: use directly. Multiple conditions: wrap in "any" for OR semantics
+			// (user must match at least one group or username). If none match → 403.
+			var patterns []interface{}
+			if len(membershipConditions) == 1 {
+				patterns = membershipConditions
+			} else {
+				patterns = []interface{}{map[string]interface{}{"any": membershipConditions}}
+			}
+			rule["authorization"] = map[string]interface{}{
+				"require-group-membership": map[string]interface{}{
+					"metrics":  false,
+					"priority": int64(0),
+					"patternMatching": map[string]interface{}{
+						"patterns": patterns,
+					},
 				},
-				"priority": int64(0), "when": denyWhen,
-			},
+			}
 		}
+		// If no groups/users specified, skip authorization — all authenticated users are allowed.
+		// Access control is still enforced by the TRLP deny-unsubscribed catch-all rule (429).
 
 		groupsFilterExpr := "auth.identity.user.groups"
 		if len(groupNames) > 0 {

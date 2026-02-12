@@ -201,6 +201,53 @@ func (r *MaaSSubscriptionReconciler) reconcileTokenRateLimitPolicies(ctx context
 			predicate = pathCheck + " && " + subscriptionIDCheck
 		}
 
+		// Build the limits map with the subscription's rate limit rule
+		limitsMap := map[string]interface{}{
+			limitKey: map[string]interface{}{
+				"rates": rates,
+				"when": []interface{}{
+					map[string]interface{}{
+						"predicate": predicate,
+					},
+				},
+				"counters": []interface{}{
+					map[string]interface{}{
+						"expression": "auth.identity.userid",
+					},
+				},
+			},
+		}
+
+		// Add deny-unsubscribed catch-all rule.
+		// When a per-route TRLP exists, it completely overrides the gateway-level
+		// default-deny (Kuadrant atomic defaults strategy). Without this catch-all,
+		// users who don't match the subscription's group/user predicates would get
+		// NO rate limit at all (effectively unlimited access).
+		// This rule ensures those users still get 429 (0 tokens).
+		if len(ownerChecks) > 0 {
+			denyOwnerPredicate := "!(" + strings.Join(ownerChecks, " || ") + ")"
+			denyPredicate := pathCheck + " && " + denyOwnerPredicate
+			denyLimitKey := fmt.Sprintf("%s-%s-deny-unsubscribed", subscription.Name, modelRef.Name)
+			limitsMap[denyLimitKey] = map[string]interface{}{
+				"rates": []interface{}{
+					map[string]interface{}{
+						"limit":  int64(0),
+						"window": "1m",
+					},
+				},
+				"when": []interface{}{
+					map[string]interface{}{
+						"predicate": denyPredicate,
+					},
+				},
+				"counters": []interface{}{
+					map[string]interface{}{
+						"expression": "auth.identity.userid",
+					},
+				},
+			}
+		}
+
 		// Build the spec - target the HTTPRoute
 		spec := map[string]interface{}{
 			"targetRef": map[string]interface{}{
@@ -208,21 +255,7 @@ func (r *MaaSSubscriptionReconciler) reconcileTokenRateLimitPolicies(ctx context
 				"kind":  "HTTPRoute",
 				"name":  httpRouteName,
 			},
-			"limits": map[string]interface{}{
-				limitKey: map[string]interface{}{
-					"rates": rates,
-					"when": []interface{}{
-						map[string]interface{}{
-							"predicate": predicate,
-						},
-					},
-					"counters": []interface{}{
-						map[string]interface{}{
-							"expression": "auth.identity.userid",
-						},
-					},
-				},
-			},
+			"limits": limitsMap,
 		}
 
 		if err := unstructured.SetNestedMap(policy.Object, spec, "spec"); err != nil {
