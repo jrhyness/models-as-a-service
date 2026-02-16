@@ -1,7 +1,7 @@
 # MaaS Controller Makefile
 # Build and deploy the MaaS control plane (MaaSModel, MaaSAuthPolicy, MaaSSubscription)
 
-.PHONY: build run test tidy install uninstall image-build image-push help
+.PHONY: build run test tidy install uninstall image-build image-push docker-build help
 
 help:
 	@echo "MaaS Controller make targets:"
