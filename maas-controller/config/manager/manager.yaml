@@ -29,6 +29,7 @@ spec:
           - --health-probe-bind-address=:8081
           - --gateway-name=$(GATEWAY_NAME)
           - --gateway-namespace=$(GATEWAY_NAMESPACE)
+          - --maas-api-namespace=opendatahub
         env:
           - name: GATEWAY_NAME
             value: "maas-default-gateway"

@@ -43,6 +43,9 @@ import (
 type MaaSAuthPolicyReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	// MaaSAPINamespace is the namespace where maas-api service is deployed.
+	// Used to construct the subscription selector endpoint URL.
+	MaaSAPINamespace string
 }
 
 //+kubebuilder:rbac:groups=maas.opendatahub.io,resources=maasauthpolicies,verbs=get;list;watch;create;update;patch;delete
@@ -145,7 +148,34 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 		}
 
 		audiences := []interface{}{"maas-default-gateway-sa", "https://kubernetes.default.svc"}
+
+		// Construct subscription selector URL using configured namespace
+		subscriptionSelectorURL := fmt.Sprintf("https://maas-api.%s.svc.cluster.local:8443/v1/subscriptions/select", r.MaaSAPINamespace)
+
 		rule := map[string]interface{}{
+			"metadata": map[string]interface{}{
+				// Call subscription selector endpoint to determine user's subscription
+				"subscription-info": map[string]interface{}{
+					"http": map[string]interface{}{
+						"url":         subscriptionSelectorURL,
+						"contentType": "application/json",
+						"method":      "POST",
+						"body": map[string]interface{}{
+							"expression": `{
+  "groups": auth.identity.user.groups,
+  "username": auth.identity.user.username,
+  "requestedSubscription": "x-maas-subscription" in request.headers ? request.headers["x-maas-subscription"] : ""
+}`,
+						},
+					},
+					"cache": map[string]interface{}{
+						"key": map[string]interface{}{"selector": "auth.identity.user.username"},
+						"ttl": int64(60),
+					},
+					"metrics":  false,
+					"priority": int64(0),
+				},
+			},
 			"authentication": map[string]interface{}{
 				"service-accounts": map[string]interface{}{
 					"cache": map[string]interface{}{
@@ -179,6 +209,7 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 
 		// Pass ALL user groups unfiltered in the response so TRLP predicates can
 		// match against subscription groups (which may differ from auth policy groups).
+		// Also inject subscription metadata from subscription-info for Limitador metrics.
 		rule["response"] = map[string]interface{}{
 			"success": map[string]interface{}{
 				"filters": map[string]interface{}{
@@ -189,6 +220,19 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 								"groups_str": map[string]interface{}{"expression": `auth.identity.user.groups.join(",")`},
 								"userid": map[string]interface{}{
 									"selector": "auth.identity.userid",
+								},
+								// Subscription metadata from /v1/subscriptions/select endpoint
+								"selected_subscription": map[string]interface{}{
+									"expression": `has(auth.metadata["subscription-info"].name) ? auth.metadata["subscription-info"].name : ""`,
+								},
+								"organizationId": map[string]interface{}{
+									"expression": `has(auth.metadata["subscription-info"].organizationId) ? auth.metadata["subscription-info"].organizationId : ""`,
+								},
+								"costCenter": map[string]interface{}{
+									"expression": `has(auth.metadata["subscription-info"].costCenter) ? auth.metadata["subscription-info"].costCenter : ""`,
+								},
+								"subscription_labels": map[string]interface{}{
+									"expression": `has(auth.metadata["subscription-info"].labels) ? auth.metadata["subscription-info"].labels : {}`,
 								},
 							},
 						},
