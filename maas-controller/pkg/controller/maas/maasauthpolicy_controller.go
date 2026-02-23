@@ -25,6 +25,7 @@ import (
 	"github.com/go-logr/logr"
 	maasv1alpha1 "github.com/opendatahub-io/models-as-a-service/maas-controller/api/maas/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -187,7 +188,7 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 								"groups":     map[string]interface{}{"expression": "auth.identity.user.groups"},
 								"groups_str": map[string]interface{}{"expression": `auth.identity.user.groups.join(",")`},
 								"userid": map[string]interface{}{
-									"expression": "auth.identity.user.username", "selector": "auth.identity.userid",
+									"selector": "auth.identity.userid",
 								},
 							},
 						},
@@ -275,6 +276,9 @@ func (r *MaaSAuthPolicyReconciler) deleteModelAuthPolicy(ctx context.Context, lo
 		"app.kubernetes.io/part-of":    "maas-auth-policy",
 	}
 	if err := r.List(ctx, policyList, labelSelector); err != nil {
+		if apierrors.IsNotFound(err) || apimeta.IsNoMatchError(err) {
+			return nil
+		}
 		return fmt.Errorf("failed to list AuthPolicies for cleanup: %w", err)
 	}
 	for i := range policyList.Items {

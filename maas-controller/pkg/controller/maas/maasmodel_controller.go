@@ -24,6 +24,7 @@ import (
 	"github.com/go-logr/logr"
 	maasv1alpha1 "github.com/opendatahub-io/models-as-a-service/maas-controller/api/maas/v1alpha1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -189,8 +190,7 @@ func (r *MaaSModelReconciler) deleteGeneratedPoliciesByLabel(ctx context.Context
 	}
 
 	if err := r.List(ctx, policyList, labelSelector); err != nil {
-		// If the CRD doesn't exist, skip (e.g. TokenRateLimitPolicy might not be installed)
-		if apierrors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) || apimeta.IsNoMatchError(err) {
 			return nil
 		}
 		return fmt.Errorf("failed to list %s resources for model %s: %w", kind, modelName, err)
