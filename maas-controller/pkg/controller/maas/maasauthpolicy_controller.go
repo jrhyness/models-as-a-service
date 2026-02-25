@@ -46,6 +46,27 @@ type MaaSAuthPolicyReconciler struct {
 	// MaaSAPINamespace is the namespace where maas-api service is deployed.
 	// Used to construct the subscription selector endpoint URL.
 	MaaSAPINamespace string
+
+	// GatewayName is the name of the Gateway used for model HTTPRoutes (configurable via flags).
+	GatewayName string
+
+	// ClusterAudience is the OIDC audience of the cluster (configurable via flags).
+	// Standard clusters use "https://kubernetes.default.svc"; HyperShift/ROSA use a custom OIDC provider URL.
+	ClusterAudience string
+}
+
+func (r *MaaSAuthPolicyReconciler) gatewayName() string {
+	if r.GatewayName != "" {
+		return r.GatewayName
+	}
+	return defaultGatewayName
+}
+
+func (r *MaaSAuthPolicyReconciler) clusterAudience() string {
+	if r.ClusterAudience != "" {
+		return r.ClusterAudience
+	}
+	return defaultClusterAudience
 }
 
 //+kubebuilder:rbac:groups=maas.opendatahub.io,resources=maasauthpolicies,verbs=get;list;watch;create;update;patch;delete
@@ -147,9 +168,9 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 			}
 		}
 
-		audiences := []interface{}{"maas-default-gateway-sa", "https://kubernetes.default.svc"}
-
-		// Construct subscription selector URL using configured namespace
+		audiences := []interface{}{fmt.Sprintf("%s-sa", r.gatewayName()), r.clusterAudience()}
+    
+    // Construct subscription selector URL using configured namespace
 		subscriptionSelectorURL := fmt.Sprintf("https://maas-api.%s.svc.cluster.local:8443/v1/subscriptions/select", r.MaaSAPINamespace)
 
 		rule := map[string]interface{}{
@@ -347,7 +368,15 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 					mergedAnnotations[k] = v
 				}
 				existing.SetAnnotations(mergedAnnotations)
-				existing.SetLabels(authPolicy.GetLabels())
+
+				mergedLabels := existing.GetLabels()
+				if mergedLabels == nil {
+					mergedLabels = make(map[string]string)
+				}
+				for k, v := range authPolicy.GetLabels() {
+					mergedLabels[k] = v
+				}
+				existing.SetLabels(mergedLabels)
 				if err := unstructured.SetNestedMap(existing.Object, spec, "spec"); err != nil {
 					return nil, fmt.Errorf("failed to update spec: %w", err)
 				}
