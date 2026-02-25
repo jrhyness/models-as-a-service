@@ -233,6 +233,94 @@ func TestHandler_SelectSubscription_InvalidRequest(t *testing.T) {
 	}
 }
 
+func TestHandler_SelectSubscription_SingleSubscriptionAutoSelect(t *testing.T) {
+	// Create a scenario where user only has access to one subscription
+	subscriptions := []*unstructured.Unstructured{
+		createTestSubscription("basic-sub", []string{"basic-users"}, 10, "org-basic", "cc-basic"),
+		createTestSubscription("premium-sub", []string{"premium-users"}, 20, "org-premium", "cc-premium"),
+		createTestSubscription("enterprise-sub", []string{"enterprise-users"}, 30, "org-enterprise", "cc-enterprise"),
+	}
+
+	lister := &mockLister{subscriptions: subscriptions}
+	router := setupTestRouter(lister)
+
+	tests := []struct {
+		name          string
+		groups        []string
+		username      string
+		expectedName  string
+		expectedOrgID string
+		expectedCode  int
+		description   string
+	}{
+		{
+			name:          "auto-select single accessible subscription - basic",
+			groups:        []string{"basic-users"},
+			username:      "alice",
+			expectedName:  "basic-sub",
+			expectedOrgID: "org-basic",
+			expectedCode:  http.StatusOK,
+			description:   "User only has access to basic-sub, should auto-select it",
+		},
+		{
+			name:          "auto-select single accessible subscription - premium",
+			groups:        []string{"premium-users"},
+			username:      "bob",
+			expectedName:  "premium-sub",
+			expectedOrgID: "org-premium",
+			expectedCode:  http.StatusOK,
+			description:   "User only has access to premium-sub, should auto-select it",
+		},
+		{
+			name:          "auto-select single accessible subscription - enterprise",
+			groups:        []string{"enterprise-users"},
+			username:      "charlie",
+			expectedName:  "enterprise-sub",
+			expectedOrgID: "org-enterprise",
+			expectedCode:  http.StatusOK,
+			description:   "User only has access to enterprise-sub, should auto-select it",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reqBody := subscription.SelectRequest{
+				Groups:   tt.groups,
+				Username: tt.username,
+			}
+			jsonBody, err := json.Marshal(reqBody)
+			if err != nil {
+				t.Fatalf("failed to marshal request: %v", err)
+			}
+
+			req := httptest.NewRequest(http.MethodPost, "/subscriptions/select", bytes.NewBuffer(jsonBody))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			if w.Code != tt.expectedCode {
+				t.Errorf("%s: expected status %d, got %d", tt.description, tt.expectedCode, w.Code)
+			}
+
+			if w.Code == http.StatusOK {
+				var response subscription.SelectResponse
+				if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+					t.Fatalf("failed to unmarshal response: %v", err)
+				}
+
+				if response.Name != tt.expectedName {
+					t.Errorf("%s: expected subscription %q, got %q", tt.description, tt.expectedName, response.Name)
+				}
+
+				if response.OrganizationID != tt.expectedOrgID {
+					t.Errorf("%s: expected orgID %q, got %q", tt.description, tt.expectedOrgID, response.OrganizationID)
+				}
+			}
+		})
+	}
+}
+
 func createTestSubscriptionWithLimit(name string, groups []string, priority int32, tokenLimit int64, orgID, costCenter string) *unstructured.Unstructured {
 	groupsSlice := make([]any, len(groups))
 	for i, g := range groups {
@@ -275,8 +363,8 @@ func createTestSubscriptionWithLimit(name string, groups []string, priority int3
 	}
 }
 
-func TestHandler_SelectSubscription_QuotaBasedSelection(t *testing.T) {
-	// Create subscriptions with different rate limits
+func TestHandler_SelectSubscription_MultipleSubscriptions(t *testing.T) {
+	// Create subscriptions with different rate limits that both have the same group
 	subscriptions := []*unstructured.Unstructured{
 		createTestSubscriptionWithLimit("free-tier", []string{"system:authenticated"}, 10, 100, "org-free", "cc-free"),
 		createTestSubscriptionWithLimit("premium-tier", []string{"system:authenticated"}, 10, 1000, "org-premium", "cc-premium"),
@@ -296,16 +384,14 @@ func TestHandler_SelectSubscription_QuotaBasedSelection(t *testing.T) {
 		description           string
 	}{
 		{
-			name:          "auto-select highest quota subscription",
-			groups:        []string{"system:authenticated"},
-			username:      "alice",
-			expectedName:  "premium-tier",
-			expectedOrgID: "org-premium",
-			expectedCode:  http.StatusOK,
-			description:   "User has access to both free (100 tokens/min) and premium (1000 tokens/min). Should auto-select premium.",
+			name:         "multiple subscriptions without explicit selection",
+			groups:       []string{"system:authenticated"},
+			username:     "alice",
+			expectedCode: http.StatusBadRequest,
+			description:  "User has access to both free and premium. Should return error requiring explicit selection.",
 		},
 		{
-			name:                  "explicit override to lower quota",
+			name:                  "explicit selection with multiple available",
 			groups:                []string{"system:authenticated"},
 			username:              "bob",
 			requestedSubscription: "free-tier",
@@ -315,7 +401,7 @@ func TestHandler_SelectSubscription_QuotaBasedSelection(t *testing.T) {
 			description:           "User explicitly requests free tier despite premium being available. Should honor explicit selection.",
 		},
 		{
-			name:                  "explicit selection of higher quota",
+			name:                  "explicit selection of premium with multiple available",
 			groups:                []string{"system:authenticated"},
 			username:              "charlie",
 			requestedSubscription: "premium-tier",
@@ -360,6 +446,17 @@ func TestHandler_SelectSubscription_QuotaBasedSelection(t *testing.T) {
 
 				if response.OrganizationID != tt.expectedOrgID {
 					t.Errorf("%s: expected orgID %q, got %q", tt.description, tt.expectedOrgID, response.OrganizationID)
+				}
+			}
+
+			if w.Code == http.StatusBadRequest {
+				var errResponse subscription.ErrorResponse
+				if err := json.Unmarshal(w.Body.Bytes(), &errResponse); err != nil {
+					t.Fatalf("failed to unmarshal error response: %v", err)
+				}
+
+				if errResponse.Error != "multiple_subscriptions" {
+					t.Errorf("expected error code 'multiple_subscriptions', got %q", errResponse.Error)
 				}
 			}
 		})

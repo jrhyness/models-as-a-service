@@ -78,27 +78,28 @@ func (s *Selector) Select(groups []string, username string, requestedSubscriptio
 		return nil, &SubscriptionNotFoundError{Subscription: requestedSubscription}
 	}
 
-	// Branch 2: Auto-selection (priority-based)
-	for i, sub := range subscriptions {
-		if !userHasAccess(&sub, username, groups) {
-			continue
-		}
-
-		// Check if user is in any higher-priority subscription
-		inHigherPriority := false
-		for j := range i {
-			if userHasAccess(&subscriptions[j], username, groups) {
-				inHigherPriority = true
-				break
-			}
-		}
-
-		if !inHigherPriority {
-			return toResponse(&sub), nil
+	// Branch 2: Auto-selection (only if user has exactly one subscription)
+	var accessibleSubs []subscription
+	for _, sub := range subscriptions {
+		if userHasAccess(&sub, username, groups) {
+			accessibleSubs = append(accessibleSubs, sub)
 		}
 	}
 
-	return nil, &NoSubscriptionError{}
+	if len(accessibleSubs) == 0 {
+		return nil, &NoSubscriptionError{}
+	}
+
+	if len(accessibleSubs) == 1 {
+		return toResponse(&accessibleSubs[0]), nil
+	}
+
+	// User has multiple subscriptions - require explicit selection
+	subNames := make([]string, len(accessibleSubs))
+	for i, sub := range accessibleSubs {
+		subNames[i] = sub.Name
+	}
+	return nil, &MultipleSubscriptionsError{Subscriptions: subNames}
 }
 
 // loadSubscriptions fetches and parses MaaSSubscription resources.
@@ -265,4 +266,13 @@ type AccessDeniedError struct {
 
 func (e *AccessDeniedError) Error() string {
 	return fmt.Sprintf("access denied to subscription %q", e.Subscription)
+}
+
+// MultipleSubscriptionsError indicates user has access to multiple subscriptions and must explicitly select one.
+type MultipleSubscriptionsError struct {
+	Subscriptions []string
+}
+
+func (e *MultipleSubscriptionsError) Error() string {
+	return fmt.Sprintf("user has access to multiple subscriptions [%s], must specify subscription using X-MaaS-Subscription header", strings.Join(e.Subscriptions, ", "))
 }

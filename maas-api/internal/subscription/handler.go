@@ -28,7 +28,8 @@ func NewHandler(selector *Selector) *Handler {
 //
 // Selection logic:
 //  1. If requestedSubscription is provided, validate user has access and return it
-//  2. Otherwise, auto-select the highest priority subscription the user belongs to
+//  2. Otherwise, if user belongs to only one subscription, return it
+//  3. If user belongs to multiple subscriptions, require explicit selection via header
 //
 // This endpoint is protected by NetworkPolicy and should only be accessible from
 // Authorino pods. No additional authentication is needed as the groups/username
@@ -48,6 +49,7 @@ func (h *Handler) SelectSubscription(c *gin.Context) {
 		var noSubErr *NoSubscriptionError
 		var notFoundErr *SubscriptionNotFoundError
 		var accessDeniedErr *AccessDeniedError
+		var multipleSubsErr *MultipleSubscriptionsError
 
 		if errors.As(err, &noSubErr) {
 			c.JSON(http.StatusNotFound, ErrorResponse{
@@ -68,6 +70,14 @@ func (h *Handler) SelectSubscription(c *gin.Context) {
 		if errors.As(err, &accessDeniedErr) {
 			c.JSON(http.StatusForbidden, ErrorResponse{
 				Error:   "access_denied",
+				Message: err.Error(),
+			})
+			return
+		}
+
+		if errors.As(err, &multipleSubsErr) {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error:   "multiple_subscriptions",
 				Message: err.Error(),
 			})
 			return
