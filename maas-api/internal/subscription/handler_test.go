@@ -70,7 +70,7 @@ func setupTestRouter(lister subscription.Lister) *gin.Engine {
 
 	log := logger.New(false)
 	selector := subscription.NewSelector(log, lister)
-	handler := subscription.NewHandler(selector)
+	handler := subscription.NewHandler(log, selector)
 
 	router.POST("/subscriptions/select", handler.SelectSubscription)
 	return router

@@ -178,7 +178,7 @@ func registerHandlers(ctx context.Context, log *logger.Logger, router *gin.Engin
 	v1Routes.POST("/tiers/lookup", tier.NewHandler(tierMapper).TierLookup)
 
 	subscriptionSelector := subscription.NewSelector(log, cluster.MaaSSubscriptionLister)
-	v1Routes.POST("/subscriptions/select", subscription.NewHandler(subscriptionSelector).SelectSubscription)
+	v1Routes.POST("/subscriptions/select", subscription.NewHandler(log, subscriptionSelector).SelectSubscription)
 
 	modelManager, err := models.NewManager(log)
 	if err != nil {

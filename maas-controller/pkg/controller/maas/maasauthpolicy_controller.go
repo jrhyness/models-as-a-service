@@ -168,8 +168,14 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 }`,
 						},
 					},
+					// Cache subscription selection results keyed by username, groups, and requested subscription.
+					// Key format: "username|groups-hash|requested-subscription" ensures different cache entries
+					// when the same user has different groups or requests different subscriptions.
+					// Groups are joined with commas to create a stable string representation.
 					"cache": map[string]interface{}{
-						"key": map[string]interface{}{"selector": "auth.identity.user.username"},
+						"key": map[string]interface{}{
+							"selector": `auth.identity.user.username + "|" + auth.identity.user.groups.join(",") + "|" + ("x-maas-subscription" in request.headers ? request.headers["x-maas-subscription"] : "")`,
+						},
 						"ttl": int64(60),
 					},
 					"metrics":  false,
