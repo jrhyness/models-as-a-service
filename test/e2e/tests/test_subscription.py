@@ -285,13 +285,16 @@ def _get_subscriptions_for_model(model_ref, namespace=None):
 
 def _list_crs(kind, namespace=None):
     """List all CRs of a given kind.
-    
+
     Args:
         kind: CR kind (e.g., 'maasmodel', 'maasauthpolicy')
         namespace: Namespace to search (defaults to _ns())
-    
+
     Returns:
         List of CR dictionaries
+
+    Raises:
+        RuntimeError: If kubectl command fails with contextual error details
     """
     namespace = namespace or _ns()
     plural = {
@@ -299,13 +302,24 @@ def _list_crs(kind, namespace=None):
         "maasauthpolicy": "maasauthpolicies",
         "maassubscription": "maassubscriptions",
     }.get(kind, f"{kind}s")
-    
+
+    cmd = ["kubectl", "get", plural, "-n", namespace, "-o", "json"]
     result = subprocess.run(
-        ["kubectl", "get", plural, "-n", namespace, "-o", "json"],
+        cmd,
         capture_output=True,
         text=True,
-        check=True
+        check=False
     )
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Failed to list {plural} in namespace '{namespace}'.\n"
+            f"Command: {' '.join(cmd)}\n"
+            f"Exit code: {result.returncode}\n"
+            f"Stderr: {result.stderr}\n"
+            f"Guidance: Ensure the CRD exists, namespace is correct, and you have permissions."
+        )
+
     return json.loads(result.stdout).get("items", [])
 
 
