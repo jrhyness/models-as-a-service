@@ -36,6 +36,7 @@ import os
 import subprocess
 import time
 from typing import Optional
+from urllib.parse import urlparse
 
 import pytest
 import requests
@@ -863,7 +864,6 @@ class TestCascadeDeletion:
         Note: This test deletes the existing simulator-subscription and verifies
         that requests are denied when no subscriptions exist.
         """
-        ns = _ns()
         sa = "e2e-test-delete-sub"
 
         # Snapshot existing subscription to restore later
@@ -1038,7 +1038,6 @@ class TestE2ESubscriptionFlow:
             endpoint = _wait_for_maas_model_ready(model_ref, timeout=120)  # Wait for model to be Ready!
 
             # Extract path from endpoint (e.g., https://maas.../llm/facebook-opt-125m-simulated -> /llm/facebook-opt-125m-simulated)
-            from urllib.parse import urlparse
             model_path = urlparse(endpoint).path
 
             _create_test_auth_policy(auth_policy_name, model_ref, users=[sa_user])
@@ -1121,7 +1120,7 @@ class TestE2ESubscriptionFlow:
             # Create two service accounts:
             # - sa_with_auth: in auth policy (so the policy exists)
             # - sa_with_sub: in subscription but NOT in auth policy
-            token_with_auth = _create_sa_token(sa_with_auth, namespace=ns)
+            _ = _create_sa_token(sa_with_auth, namespace=ns)  # SA creation only - token unused
             token_with_sub = _create_sa_token(sa_with_sub, namespace="default")  # Different namespace
 
             sa_with_auth_user = _sa_to_user(sa_with_auth, namespace=ns)
@@ -1339,7 +1338,7 @@ class TestE2ESubscriptionFlow:
         try:
             # Create two service accounts
             token_user = _create_sa_token(sa_user, namespace=ns)
-            token_other = _create_sa_token(sa_other, namespace=ns)
+            _ = _create_sa_token(sa_other, namespace=ns)  # SA creation only - token unused
 
             user_principal = _sa_to_user(sa_user, namespace=ns)
             other_principal = _sa_to_user(sa_other, namespace=ns)
