@@ -81,7 +81,7 @@ func TestMaaSAuthPolicyReconciler_CrossNamespace(t *testing.T) {
 
 	c := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithRESTMapper(authPolicyTestRESTMapper()).
+		WithRESTMapper(testRESTMapper()).
 		WithObjects(modelA, routeA, modelB, routeB, maasPolicy).
 		WithStatusSubresource(&maasv1alpha1.MaaSAuthPolicy{}).
 		Build()
@@ -180,7 +180,7 @@ func TestMaaSAuthPolicyReconciler_SameNameDifferentNamespaces(t *testing.T) {
 
 	c := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithRESTMapper(authPolicyTestRESTMapper()).
+		WithRESTMapper(testRESTMapper()).
 		WithObjects(modelA, routeA, modelB, routeB, policyA, policyB).
 		WithStatusSubresource(&maasv1alpha1.MaaSAuthPolicy{}).
 		Build()
@@ -278,7 +278,7 @@ func TestMaaSSubscriptionReconciler_CrossNamespace(t *testing.T) {
 
 	c := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithRESTMapper(trlpTestRESTMapper()).
+		WithRESTMapper(testRESTMapper()).
 		WithObjects(modelA, routeA, modelB, routeB, maasSub).
 		WithStatusSubresource(&maasv1alpha1.MaaSSubscription{}).
 		Build()
@@ -350,7 +350,7 @@ func TestMaaSModelRefDeletion_CrossNamespaceIsolation(t *testing.T) {
 
 	c := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithRESTMapper(authPolicyTestRESTMapper()).
+		WithRESTMapper(testRESTMapper()).
 		WithObjects(modelA, modelB, authPolicyA, authPolicyB).
 		WithStatusSubresource(&maasv1alpha1.MaaSModelRef{}).
 		Build()
