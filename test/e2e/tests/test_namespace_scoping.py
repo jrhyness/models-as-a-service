@@ -439,7 +439,7 @@ class TestCrossNamespaceSubscription:
         Verify that inference requests work with rate limiting.
         """
         subscription_name = f"cross-ns-sub-{uuid.uuid4().hex[:6]}"
-        auth_policy_name = f"cross-ns-auth-for-sub-{uuid.uuid4().hex[:6]}"
+        maas_auth_policy_name = f"cross-ns-auth-for-sub-{uuid.uuid4().hex[:6]}"
 
         log.info(f"Creating cross-namespace MaaSSubscription {subscription_name}")
         log.info(f"  Subscription namespace: {policy_namespace}")
@@ -449,7 +449,7 @@ class TestCrossNamespaceSubscription:
         _apply_cr({
             "apiVersion": "maas.opendatahub.io/v1alpha1",
             "kind": "MaaSAuthPolicy",
-            "metadata": {"name": auth_policy_name, "namespace": policy_namespace},
+            "metadata": {"name": maas_auth_policy_name, "namespace": policy_namespace},
             "spec": {
                 "modelRefs": [{"name": MODEL_REF, "namespace": MODEL_NAMESPACE}],
                 "subjects": {"groups": [{"name": "system:authenticated"}]},
@@ -516,7 +516,7 @@ class TestCrossNamespaceSubscription:
 
         finally:
             _delete_cr("MaaSSubscription", subscription_name, policy_namespace)
-            _delete_cr("MaaSAuthPolicy", auth_policy_name, policy_namespace)
+            _delete_cr("MaaSAuthPolicy", maas_auth_policy_name, policy_namespace)
 
     def test_multiple_subscriptions_different_namespaces_same_model(self, policy_namespace, api_key):
         """
@@ -526,7 +526,7 @@ class TestCrossNamespaceSubscription:
         """
         sub1_name = f"multi-ns-sub1-{uuid.uuid4().hex[:6]}"
         sub2_name = f"multi-ns-sub2-{uuid.uuid4().hex[:6]}"
-        auth_policy_name = f"multi-ns-auth-{uuid.uuid4().hex[:6]}"
+        maas_auth_policy_name = f"multi-ns-auth-{uuid.uuid4().hex[:6]}"
         test_group = f"test-group-{uuid.uuid4().hex[:4]}"
 
         # Create second subscription namespace
@@ -540,7 +540,7 @@ class TestCrossNamespaceSubscription:
             _apply_cr({
                 "apiVersion": "maas.opendatahub.io/v1alpha1",
                 "kind": "MaaSAuthPolicy",
-                "metadata": {"name": auth_policy_name, "namespace": policy_namespace},
+                "metadata": {"name": maas_auth_policy_name, "namespace": policy_namespace},
                 "spec": {
                     "modelRefs": [{"name": MODEL_REF, "namespace": MODEL_NAMESPACE}],
                     "subjects": {"groups": [{"name": "system:authenticated"}]},
@@ -639,7 +639,7 @@ class TestCrossNamespaceSubscription:
         finally:
             _delete_cr("MaaSSubscription", sub1_name, policy_namespace)
             _delete_cr("MaaSSubscription", sub2_name, sub_namespace2)
-            _delete_cr("MaaSAuthPolicy", auth_policy_name, policy_namespace)
+            _delete_cr("MaaSAuthPolicy", maas_auth_policy_name, policy_namespace)
             _delete_namespace(sub_namespace2)
 
 
@@ -682,9 +682,19 @@ class TestAuthorizationBoundary:
             auth_policy = _get_cr("AuthPolicy", auth_policy_name, MODEL_NAMESPACE)
             assert auth_policy is not None, "AuthPolicy should exist for specified model"
 
-            # The key security property: this policy won't affect models it doesn't list
-            # This is implicit in the controller's design - it only creates AuthPolicies
-            # for models in spec.modelRefs[]
+            # Negative test: Verify the policy did NOT affect other models
+            # Check that the premium model (which exists but wasn't in spec.modelRefs) was not affected
+            premium_model_ref = "premium-simulated-simulated-premium"
+            premium_auth_policy = _get_cr("AuthPolicy", f"maas-auth-{premium_model_ref}", MODEL_NAMESPACE)
+            if premium_auth_policy:
+                # If the AuthPolicy exists (from other policies), verify our group is NOT in it
+                premium_policy_yaml = subprocess.run(
+                    ["oc", "get", "authpolicy", f"maas-auth-{premium_model_ref}", "-n", MODEL_NAMESPACE, "-o", "yaml"],
+                    capture_output=True, text=True
+                )
+                assert isolated_group not in premium_policy_yaml.stdout, \
+                    f"Isolated group should NOT be in premium model's AuthPolicy"
+                log.info(f"✓ Verified isolated group not in premium model AuthPolicy")
 
             log.info("✓ Authorization boundary test passed - policies only affect listed models")
 

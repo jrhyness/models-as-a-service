@@ -429,6 +429,7 @@ run_e2e_tests() {
     # from its own namespace, but models are deployed in 'llm' namespace.
     # TODO: Fix maas-api to list MaaSModelRefs from ALL namespaces (pass "" to ListFromMaaSModelRefLister)
     export MODEL_NAME="facebook-opt-125m-simulated"
+    export E2E_MODEL_NAMESPACE="llm"
     # TOKEN and ADMIN_OC_TOKEN are already exported by setup_test_tokens()
 
     local test_dir="$PROJECT_ROOT/test/e2e"
