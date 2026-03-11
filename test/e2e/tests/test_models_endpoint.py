@@ -381,14 +381,14 @@ class TestModelsEndpoint:
                 ], capture_output=True, text=True)
 
                 if sa_user in result.stdout:
-                users = json.loads(result.stdout) if result.stdout and result.stdout.strip() else []
-                users = [u for u in users if u != sa_user]
-                subprocess.run([
-                    "kubectl", "patch", "maassubscription", "premium-simulator-subscription",
-                    "-n", maas_ns,
-                    "--type=merge",
-                    "-p", json.dumps({"spec": {"owner": {"users": users}}})
-                ], check=True)
+                    users = json.loads(result.stdout) if result.stdout and result.stdout.strip() else []
+                    users = [u for u in users if u != sa_user]
+                    subprocess.run([
+                        "kubectl", "patch", "maassubscription", "premium-simulator-subscription",
+                        "-n", maas_ns,
+                        "--type=merge",
+                        "-p", json.dumps({"spec": {"owner": {"users": users}}})
+                    ], check=True)
 
             _delete_sa(sa_name, namespace=sa_ns)
             _wait_reconcile()
