@@ -1072,6 +1072,7 @@ class TestModelsEndpoint:
         log.info("Test 9: Empty model list returns empty array")
 
         # Use a subscription that exists but has no accessible models
+        sa_ns = _ns()
         oc_token = _create_sa_token("empty-model-test-sa")
         subscription_name = "simulator-subscription"
 
@@ -1106,7 +1107,7 @@ class TestModelsEndpoint:
             log.info(f"✅ Empty model list → {r.status_code} with data={models} (array, not null)")
 
         finally:
-            _delete_sa("empty-model-test-sa", namespace="default")
+            _delete_sa("empty-model-test-sa", namespace=sa_ns)
 
     def test_response_schema_matches_openapi(self):
         """
@@ -1459,7 +1460,7 @@ class TestModelsEndpoint:
                 if "type" in error:
                     assert error["type"] == "authentication_error", \
                         f"Expected error type 'authentication_error', got {error.get('type')}"
-        except Exception:
+        except (json.JSONDecodeError, ValueError):
             # Response might not be JSON, which is acceptable for 401
             pass
 
