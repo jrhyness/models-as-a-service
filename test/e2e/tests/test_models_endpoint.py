@@ -96,7 +96,7 @@ class TestModelsEndpoint:
     7. test_multiple_distinct_models_in_subscription
        → Different modelRefs with different IDs returns 2 entries (no duplicates)
 
-    8. test_empty_model_list (xfail - null bug)
+    8. test_empty_model_list
        → Empty model list should return [] not null
 
     9. test_response_schema_matches_openapi
@@ -174,7 +174,6 @@ class TestModelsEndpoint:
         log.info("✅ All prerequisites validated - proceeding with /v1/models tests")
         log.info("=" * 60)
 
-    @pytest.mark.xfail(reason="/v1/models returns all accessible models regardless of subscription; needs filtering by selected subscription", strict=True)
     def test_single_subscription_auto_select(self):
         """
         Test: User with exactly one accessible subscription can list models without
@@ -296,7 +295,6 @@ class TestModelsEndpoint:
             _delete_sa(sa_name, namespace=sa_ns)
             _wait_reconcile()
 
-    @pytest.mark.xfail(reason="/v1/models returns all accessible models regardless of subscription; needs filtering by selected subscription", strict=True)
     def test_explicit_subscription_header(self):
         """
         Test: User with multiple subscriptions can list models by providing
@@ -1004,7 +1002,6 @@ class TestModelsEndpoint:
             _delete_sa(sa_name, namespace=sa_ns)
             _wait_reconcile()
 
-    @pytest.mark.xfail(reason="Known bug: API returns null instead of []", strict=False)
     def test_empty_model_list(self):
         """
         Test 9: Empty model list should return [] not null.
