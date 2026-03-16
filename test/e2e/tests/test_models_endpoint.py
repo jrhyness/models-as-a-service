@@ -849,7 +849,6 @@ class TestModelsEndpoint:
             _delete_sa(sa_name, namespace=sa_ns)
             _wait_reconcile()
 
-    @pytest.mark.xfail(reason="/v1/models returns all accessible models regardless of subscription; needs filtering by selected subscription", strict=True)
     def test_multiple_distinct_models_in_subscription(self):
         """
         Test 8: Multiple distinct models should return exactly 2 entries (1 per unique ID).
