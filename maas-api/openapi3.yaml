@@ -65,7 +65,9 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/ErrorResponse'
                             example:
-                                error: "Cannot specify both X-MaaS-Subscription and X-MaaS-Return-All-Models headers"
+                                error:
+                                    message: "Cannot specify both X-MaaS-Subscription and X-MaaS-Return-All-Models headers"
+                                    type: "invalid_request_error"
                 "403":
                     description: Forbidden. User has multiple subscriptions but didn't specify which one.
                     content:
@@ -73,7 +75,9 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/ErrorResponse'
                             example:
-                                error: "user has access to multiple subscriptions, must specify subscription using X-MaaS-Subscription header"
+                                error:
+                                    message: "user has access to multiple subscriptions, must specify subscription using X-MaaS-Subscription header"
+                                    type: "permission_error"
                 "200":
                     description: OK response.
                     content:
@@ -534,9 +538,20 @@ components:
             type: object
             properties:
                 error:
-                    type: string
-                    description: Error message
-                    example: Failed to retrieve models
+                    type: object
+                    description: Error details
+                    properties:
+                        message:
+                            type: string
+                            description: Human-readable error message
+                            example: Failed to retrieve models
+                        type:
+                            type: string
+                            description: Error type classification
+                            example: server_error
+                    required:
+                        - message
+                        - type
             required:
                 - error
         
