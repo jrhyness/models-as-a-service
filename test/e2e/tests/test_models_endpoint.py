@@ -720,7 +720,7 @@ class TestModelsEndpoint:
             assert isinstance(sub.get("displayName", ""), str), "displayName should be string if present"
             assert isinstance(sub.get("description", ""), str), "description should be string if present"
 
-            log.info(f"✅ API correctly deduplicated same modelRef listed 2x → 1 entry with subscription info")
+            log.info("✅ API correctly deduplicated same modelRef listed 2x → 1 entry with subscription info")
 
         finally:
             # Cleanup
@@ -888,7 +888,7 @@ class TestModelsEndpoint:
                 assert model["subscriptions"][0]["name"] == subscription_name, \
                     f"Expected subscription '{subscription_name}', got '{model['subscriptions'][0]['name']}'"
 
-            log.info(f"✅ API correctly returned 2 separate entries (different URLs) for same model ID")
+            log.info("✅ API correctly returned 2 separate entries (different URLs) for same model ID")
 
         finally:
             # Cleanup
@@ -1192,7 +1192,7 @@ class TestModelsEndpoint:
             assert "cannot specify both" in data["error"]["message"].lower(), \
                 f"Error message should mention conflicting headers: {data['error']['message']}"
 
-            log.info(f"✅ Conflicting headers correctly returned 400")
+            log.info("✅ Conflicting headers correctly returned 400")
 
         finally:
             _delete_sa(sa_name, namespace=sa_ns)

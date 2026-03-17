@@ -65,9 +65,7 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/ErrorResponse'
                             example:
-                                error:
-                                    message: "Cannot specify both X-MaaS-Subscription and X-MaaS-Return-All-Models headers"
-                                    type: "invalid_request_error"
+                                error: "Cannot specify both X-MaaS-Subscription and X-MaaS-Return-All-Models headers"
                 "403":
                     description: Forbidden. User has multiple subscriptions but didn't specify which one.
                     content:
@@ -75,9 +73,7 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/ErrorResponse'
                             example:
-                                error:
-                                    message: "user has access to multiple subscriptions, must specify subscription using X-MaaS-Subscription header"
-                                    type: "permission_error"
+                                error: "user has access to multiple subscriptions, must specify subscription using X-MaaS-Subscription header"
                 "200":
                     description: OK response.
                     content:

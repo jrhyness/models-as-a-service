@@ -30,7 +30,7 @@ The MaaS (Models as a Service) API provides a tier-based token management system
 | Endpoint              | Method | Purpose                                      | Request Body      | Response                    |
 |-----------------------|--------|----------------------------------------------|-------------------|-----------------------------|
 | `/health`             | GET    | Service health check                         | None              | Health status               |
-| `/v1/models`          | GET    | List available models (from MaaSModelRef CRs or LLMInferenceServices) | `X-MaaS-Subscription` (optional)<br>`X-MaaS-Return-All-Models` (optional) | None | OpenAI-compatible list with subscription info |
+| `/v1/models`          | GET    | List available models (from MaaSModelRef CRs or LLMInferenceServices) | Headers: `X-MaaS-Subscription` (optional), `X-MaaS-Return-All-Models` (optional) | OpenAI-compatible list with subscription info |
 | `/v1/api-keys`        | POST   | Create hash-based API key (sk-oai-*)         | `{"name", "description", "expiresIn"}` | API key (shown once) |
 | `/v1/api-keys`        | GET    | List all API keys for user                   | None              | Array of API key metadata   |
 | `/v1/api-keys/{id}`   | GET    | Get specific API key by ID                   | None              | API key metadata            |

@@ -256,39 +256,35 @@ For production deployments, see the [Database Prerequisites](../docs/content/ins
 
 The `/v1/models` endpoint supports subscription filtering and aggregation:
 
-```shell
-HOST="$(kubectl get gateway -l app.kubernetes.io/instance=maas-default-gateway -n openshift-ingress -o jsonpath='{.items[0].status.addresses[0].value}')"
+    HOST="$(kubectl get gateway -l app.kubernetes.io/instance=maas-default-gateway -n openshift-ingress -o jsonpath='{.items[0].status.addresses[0].value}')"
 
-# List models from all accessible subscriptions
-curl ${HOST}/v1/models \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer $TOKEN" \
-    -H "X-MaaS-Return-All-Models: true" | jq .
+    # List models from all accessible subscriptions
+    curl ${HOST}/v1/models \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TOKEN" \
+        -H "X-MaaS-Return-All-Models: true" | jq .
 
-# List models from a specific subscription
-curl ${HOST}/v1/models \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer $TOKEN" \
-    -H "X-MaaS-Subscription: my-subscription" | jq .
-```
+    # List models from a specific subscription
+    curl ${HOST}/v1/models \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TOKEN" \
+        -H "X-MaaS-Subscription: my-subscription" | jq .
 
 **Subscription Aggregation**: When the same model (same ID and URL) is accessible via multiple subscriptions, it appears once in the response with an array of all subscriptions providing access:
 
-```json
-{
-  "object": "list",
-  "data": [
     {
-      "id": "model-name",
-      "url": "https://...",
-      "subscriptions": [
-        {"name": "subscription-a", "displayName": "Subscription A"},
-        {"name": "subscription-b", "displayName": "Subscription B"}
+      "object": "list",
+      "data": [
+        {
+          "id": "model-name",
+          "url": "https://...",
+          "subscriptions": [
+            {"name": "subscription-a", "displayName": "Subscription A"},
+            {"name": "subscription-b", "displayName": "Subscription B"}
+          ]
+        }
       ]
     }
-  ]
-}
-```
 
 #### Calling the model and hitting the rate limit
 
