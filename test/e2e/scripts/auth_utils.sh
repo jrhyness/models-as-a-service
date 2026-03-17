@@ -203,8 +203,10 @@ run_auth_debug_report() {
 
   _section "maas-controller"
   _run "maas-controller pods" "kubectl get pods -n $DEPLOYMENT_NAMESPACE -l app=maas-controller -o wide 2>/dev/null || true"
-  _run "maas-controller MAAS_API_NAMESPACE" \
-    "kubectl get deployment maas-controller -n $DEPLOYMENT_NAMESPACE -o jsonpath='{.spec.template.spec.containers[0].env}' 2>/dev/null | jq -r '.[] | select(.name==\"MAAS_API_NAMESPACE\") | \"\(.name)=\(.value // .valueFrom.fieldRef.fieldPath // \"N/A\")\"' 2>/dev/null || echo 'N/A'"
+
+  local env_display
+  env_display=$(kubectl get deployment maas-controller -n $DEPLOYMENT_NAMESPACE -o jsonpath='{.spec.template.spec.containers[0].env}' 2>/dev/null | jq -r '.[] | select(.name=="MAAS_API_NAMESPACE") | if .value then "\(.name)=\(.value)" elif .valueFrom.fieldRef.fieldPath then "\(.name)=\(.valueFrom.fieldRef.fieldPath) (resolves to: '"$DEPLOYMENT_NAMESPACE"')" else "\(.name)=N/A" end' 2>/dev/null || echo 'MAAS_API_NAMESPACE=N/A')
+  _run "maas-controller MAAS_API_NAMESPACE" "echo '$env_display'"
   _append ""
 
   _section "Kuadrant AuthPolicies"
@@ -226,14 +228,54 @@ run_auth_debug_report() {
   _run "Authorino pods" "kubectl get pods -n $AUTHORINO_NAMESPACE -l 'app.kubernetes.io/name=authorino' --no-headers 2>/dev/null; kubectl get pods -n openshift-ingress -l 'app.kubernetes.io/name=authorino' --no-headers 2>/dev/null; echo '---'; kubectl get pods -A -l 'app.kubernetes.io/name=authorino' -o wide 2>/dev/null || true"
   _append ""
 
-  # Determine maas-api namespace
+  # Determine maas-api namespace from controller deployment
   local maas_api_ns
-  maas_api_ns=$(kubectl get deployment maas-controller -n $DEPLOYMENT_NAMESPACE -o jsonpath='{.spec.template.spec.containers[0].env}' 2>/dev/null | jq -r '.[] | select(.name=="MAAS_API_NAMESPACE") | .value' 2>/dev/null || echo "$DEPLOYMENT_NAMESPACE")
+  local env_json
+  env_json=$(kubectl get deployment maas-controller -n $DEPLOYMENT_NAMESPACE -o jsonpath='{.spec.template.spec.containers[0].env}' 2>/dev/null || echo "[]")
+
+  # Try to get direct .value first
+  maas_api_ns=$(echo "$env_json" | jq -r '.[] | select(.name=="MAAS_API_NAMESPACE") | .value // empty' 2>/dev/null)
+
+  # If empty, check if using fieldRef (downward API)
+  if [[ -z "$maas_api_ns" ]]; then
+    local field_path
+    field_path=$(echo "$env_json" | jq -r '.[] | select(.name=="MAAS_API_NAMESPACE") | .valueFrom.fieldRef.fieldPath // empty' 2>/dev/null)
+    if [[ "$field_path" == "metadata.namespace" ]]; then
+      # Using downward API - the value is the controller's namespace
+      maas_api_ns="$DEPLOYMENT_NAMESPACE"
+    fi
+  fi
+
+  # Fallback to deployment namespace if still empty
   [[ -z "$maas_api_ns" ]] && maas_api_ns="$DEPLOYMENT_NAMESPACE"
 
   local sub_select_url="https://maas-api.${maas_api_ns}.svc.cluster.local:8443/internal/v1/subscriptions/select"
   _section "Subscription Selector Endpoint Validation"
   _append "Expected URL (from maas-controller config): $sub_select_url"
+  _append "  (MAAS_API_NAMESPACE resolved to: $maas_api_ns)"
+  _append ""
+
+  # Verify actual AuthPolicy configuration
+  _append "--- Sample AuthPolicy subscription-info configuration ---"
+  local sample_policy
+  sample_policy=$(kubectl get authpolicies -A -l 'app.kubernetes.io/managed-by=maas-controller' -o name 2>/dev/null | head -1)
+  if [[ -n "$sample_policy" ]]; then
+    local actual_url
+    actual_url=$(kubectl get "$sample_policy" -o jsonpath='{.spec.rules.metadata.subscription-info.http.url}' 2>/dev/null || echo "N/A")
+    _append "  Actual URL in AuthPolicy: $actual_url"
+
+    local request_body
+    request_body=$(kubectl get "$sample_policy" -o jsonpath='{.spec.rules.metadata.subscription-info.http.body.expression}' 2>/dev/null || echo "N/A")
+    if echo "$request_body" | grep -q "requestedModel"; then
+      _append "  ✅ Request body includes requestedModel field"
+    else
+      _append "  ❌ Request body MISSING requestedModel field (should include model namespace/name)"
+    fi
+    _append "  Request body preview:"
+    _append "$(echo "$request_body" | head -5 | sed 's/^/    /')"
+  else
+    _append "  No managed AuthPolicies found"
+  fi
   _append ""
 
   local curl_ns="$AUTHORINO_NAMESPACE"
