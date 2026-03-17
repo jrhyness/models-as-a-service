@@ -45,11 +45,19 @@ type subscription struct {
 	OrganizationID string
 	CostCenter     string
 	Labels         map[string]string
+	ModelRefs      []modelRef
+}
+
+// modelRef represents a reference to a model in a subscription.
+type modelRef struct {
+	Namespace string
+	Name      string
 }
 
 // Select implements the subscription selection logic.
 // Returns the selected subscription or an error if none found.
-func (s *Selector) Select(groups []string, username string, requestedSubscription string) (*SelectResponse, error) {
+// If requestedModel is provided, validates that the selected subscription includes that model.
+func (s *Selector) Select(groups []string, username string, requestedSubscription string, requestedModel string) (*SelectResponse, error) {
 	if len(groups) == 0 && username == "" {
 		return nil, errors.New("either groups or username must be provided")
 	}
@@ -72,10 +80,14 @@ func (s *Selector) Select(groups []string, username string, requestedSubscriptio
 		for _, sub := range subscriptions {
 			qualifiedName := fmt.Sprintf("%s/%s", sub.Namespace, sub.Name)
 			if qualifiedName == requestedSubscription || sub.Name == requestedSubscription {
-				if userHasAccess(&sub, username, groups) {
-					return toResponse(&sub), nil
+				if !userHasAccess(&sub, username, groups) {
+					return nil, &AccessDeniedError{Subscription: requestedSubscription}
 				}
-				return nil, &AccessDeniedError{Subscription: requestedSubscription}
+				// Validate subscription includes the requested model
+				if requestedModel != "" && !subscriptionIncludesModel(&sub, requestedModel) {
+					return nil, &ModelNotInSubscriptionError{Subscription: requestedSubscription, Model: requestedModel}
+				}
+				return toResponse(&sub), nil
 			}
 		}
 		return nil, &SubscriptionNotFoundError{Subscription: requestedSubscription}
@@ -85,6 +97,10 @@ func (s *Selector) Select(groups []string, username string, requestedSubscriptio
 	var accessibleSubs []subscription
 	for _, sub := range subscriptions {
 		if userHasAccess(&sub, username, groups) {
+			// If model is specified, only include subscriptions that contain that model
+			if requestedModel != "" && !subscriptionIncludesModel(&sub, requestedModel) {
+				continue
+			}
 			accessibleSubs = append(accessibleSubs, sub)
 		}
 	}
@@ -167,10 +183,18 @@ func parseSubscription(obj *unstructured.Unstructured) (subscription, error) {
 		}
 	}
 
-	// Parse modelRefs to calculate maxLimit
-	if modelRefs, found, _ := unstructured.NestedSlice(spec, "modelRefs"); found {
-		for _, modelRef := range modelRefs {
-			if modelMap, ok := modelRef.(map[string]any); ok {
+	// Parse modelRefs to calculate maxLimit and extract model references
+	if modelRefsRaw, found, _ := unstructured.NestedSlice(spec, "modelRefs"); found {
+		for _, refRaw := range modelRefsRaw {
+			if modelMap, ok := refRaw.(map[string]any); ok {
+				// Extract namespace and name for model validation
+				ns, _ := modelMap["namespace"].(string)
+				name, _ := modelMap["name"].(string)
+				if ns != "" && name != "" {
+					sub.ModelRefs = append(sub.ModelRefs, modelRef{Namespace: ns, Name: name})
+				}
+
+				// Calculate maxLimit
 				if limits, found, _ := unstructured.NestedSlice(modelMap, "tokenRateLimits"); found {
 					for _, limitRaw := range limits {
 						if limitMap, ok := limitRaw.(map[string]any); ok {
@@ -221,6 +245,31 @@ func userHasAccess(sub *subscription, username string, groups []string) bool {
 			if userGroup == subGroup {
 				return true
 			}
+		}
+	}
+
+	return false
+}
+
+// subscriptionIncludesModel checks if the subscription's modelRefs includes the requested model.
+// requestedModel format: "namespace/name"
+func subscriptionIncludesModel(sub *subscription, requestedModel string) bool {
+	if requestedModel == "" {
+		return true // no model specified, so subscription is valid
+	}
+
+	// Parse the requested model (format: "namespace/name")
+	parts := strings.SplitN(requestedModel, "/", 2)
+	if len(parts) != 2 {
+		return false // invalid format
+	}
+	requestedNS := parts[0]
+	requestedName := parts[1]
+
+	// Check if any modelRef in the subscription matches
+	for _, ref := range sub.ModelRefs {
+		if ref.Namespace == requestedNS && ref.Name == requestedName {
+			return true
 		}
 	}
 
@@ -280,4 +329,14 @@ type MultipleSubscriptionsError struct {
 
 func (e *MultipleSubscriptionsError) Error() string {
 	return "user has access to multiple subscriptions, must specify subscription using X-MaaS-Subscription header"
+}
+
+// ModelNotInSubscriptionError indicates the requested model is not included in the subscription.
+type ModelNotInSubscriptionError struct {
+	Subscription string
+	Model        string
+}
+
+func (e *ModelNotInSubscriptionError) Error() string {
+	return fmt.Sprintf("subscription %s does not include model %s", e.Subscription, e.Model)
 }

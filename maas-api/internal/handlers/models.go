@@ -86,7 +86,7 @@ func (h *ModelsHandler) ListLLMs(c *gin.Context) {
 			return
 		}
 
-		result, err := h.subscriptionSelector.Select(userContext.Groups, userContext.Username, requestedSubscription)
+		result, err := h.subscriptionSelector.Select(userContext.Groups, userContext.Username, requestedSubscription, "")
 		if err != nil {
 			var multipleSubsErr *subscription.MultipleSubscriptionsError
 			var accessDeniedErr *subscription.AccessDeniedError

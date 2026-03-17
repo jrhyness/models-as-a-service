@@ -202,20 +202,21 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 						"contentType": "application/json",
 						"method":      "POST",
 						"body": map[string]interface{}{
-							"expression": `{
+							"expression": fmt.Sprintf(`{
   "groups": auth.metadata.apiKeyValidation.groups,
   "username": auth.metadata.apiKeyValidation.username,
-  "requestedSubscription": "x-maas-subscription" in request.headers ? request.headers["x-maas-subscription"] : ""
-}`,
+  "requestedSubscription": "x-maas-subscription" in request.headers ? request.headers["x-maas-subscription"] : "",
+  "requestedModel": "%s/%s"
+}`, ref.Namespace, ref.Name),
 						},
 					},
-					// Cache subscription selection results keyed by username, groups, and requested subscription.
-					// Key format: "username|groups-hash|requested-subscription" ensures different cache entries
-					// when the same user has different groups or requests different subscriptions.
+					// Cache subscription selection results keyed by username, groups, requested subscription, and model.
+					// Each model has its own cache entry since subscription validation is model-specific.
+					// Key format: "username|groups-hash|requested-subscription|model-namespace/model-name"
 					// Groups are joined with commas to create a stable string representation.
 					"cache": map[string]interface{}{
 						"key": map[string]interface{}{
-							"selector": `auth.metadata.apiKeyValidation.username + "|" + auth.metadata.apiKeyValidation.groups.join(",") + "|" + ("x-maas-subscription" in request.headers ? request.headers["x-maas-subscription"] : "")`,
+							"selector": fmt.Sprintf(`auth.metadata.apiKeyValidation.username + "|" + auth.metadata.apiKeyValidation.groups.join(",") + "|" + ("x-maas-subscription" in request.headers ? request.headers["x-maas-subscription"] : "") + "|%s/%s"`, ref.Namespace, ref.Name),
 						},
 						"ttl": int64(60),
 					},

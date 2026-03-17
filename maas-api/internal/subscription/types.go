@@ -5,6 +5,7 @@ type SelectRequest struct {
 	Groups                []string `json:"groups"`                                // User's group memberships (optional if username provided)
 	Username              string   `binding:"required"           json:"username"` // User's username
 	RequestedSubscription string   `json:"requestedSubscription"`                 // Optional explicit subscription name
+	RequestedModel        string   `json:"requestedModel"`                        // Optional model reference (format: namespace/name) to validate subscription includes this model
 }
 
 // SelectResponse contains the selected subscription details or error information.
