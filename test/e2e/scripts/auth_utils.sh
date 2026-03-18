@@ -319,24 +319,6 @@ EOF
   fi
   _append ""
 
-  _section "Configuration Summary"
-  _append "This summary helps compare local vs CI runs:"
-  _append ""
-  local total_models total_subs total_authpolicies total_kuadrant_authpolicies
-  total_models=$(echo "$models_json" | jq '. | length' 2>/dev/null || echo "0")
-  total_subs=$(echo "$subscriptions_json" | jq '. | length' 2>/dev/null || echo "0")
-  total_authpolicies=$(kubectl get maasauthpolicies -n $MAAS_SUBSCRIPTION_NAMESPACE -o json 2>/dev/null | jq -r '.items | length' 2>/dev/null || echo "0")
-  total_kuadrant_authpolicies=$(kubectl get authpolicies -A -l 'app.kubernetes.io/managed-by=maas-controller' -o json 2>/dev/null | jq -r '.items | length' 2>/dev/null || echo "0")
-
-  _append "  MaaSModelRefs (all namespaces): $total_models"
-  _append "  MaaSSubscriptions ($MAAS_SUBSCRIPTION_NAMESPACE): $total_subs"
-  _append "  MaaSAuthPolicies ($MAAS_SUBSCRIPTION_NAMESPACE): $total_authpolicies"
-  _append "  Generated Kuadrant AuthPolicies: $total_kuadrant_authpolicies"
-  _append ""
-  _append "  Subscription selector URL: $sub_select_url"
-  _append "  Test user: $(oc whoami 2>/dev/null || echo 'N/A')"
-  _append ""
-
   _section "Gateway / HTTPRoutes"
   _run "Gateway" "kubectl get gateway -n openshift-ingress maas-default-gateway -o wide 2>/dev/null || kubectl get gateway -A 2>/dev/null | head -10 || true"
   _run "HTTPRoutes (maas-api)" "kubectl get httproute maas-api-route -n $DEPLOYMENT_NAMESPACE -o wide 2>/dev/null || true"
@@ -431,6 +413,24 @@ EOF
   dns_out=$(kubectl run "debug-dns-$(date +%s)" --rm --restart=Never --image=busybox:1.36 -n "$curl_ns" -- \
     nslookup "maas-api.${maas_api_ns}.svc.cluster.local" 2>&1) || dns_out="nslookup failed"
   _append "$dns_out"
+  _append ""
+
+  _section "Configuration Summary"
+  _append "This summary helps compare local vs CI runs:"
+  _append ""
+  local total_models total_subs total_authpolicies total_kuadrant_authpolicies
+  total_models=$(echo "$models_json" | jq '. | length' 2>/dev/null || echo "0")
+  total_subs=$(echo "$subscriptions_json" | jq '. | length' 2>/dev/null || echo "0")
+  total_authpolicies=$(kubectl get maasauthpolicies -n $MAAS_SUBSCRIPTION_NAMESPACE -o json 2>/dev/null | jq -r '.items | length' 2>/dev/null || echo "0")
+  total_kuadrant_authpolicies=$(kubectl get authpolicies -A -l 'app.kubernetes.io/managed-by=maas-controller' -o json 2>/dev/null | jq -r '.items | length' 2>/dev/null || echo "0")
+
+  _append "  MaaSModelRefs (all namespaces): $total_models"
+  _append "  MaaSSubscriptions ($MAAS_SUBSCRIPTION_NAMESPACE): $total_subs"
+  _append "  MaaSAuthPolicies ($MAAS_SUBSCRIPTION_NAMESPACE): $total_authpolicies"
+  _append "  Generated Kuadrant AuthPolicies: $total_kuadrant_authpolicies"
+  _append ""
+  _append "  Subscription selector URL: $sub_select_url"
+  _append "  Test user: $(oc whoami 2>/dev/null || echo 'N/A')"
   _append ""
 
   echo "$OUTPUT"
