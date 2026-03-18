@@ -257,17 +257,29 @@ run_auth_debug_report() {
 
   # Verify actual AuthPolicy configuration
   _append "--- Sample AuthPolicy subscription-info configuration ---"
-  local sample_policy
-  sample_policy=$(kubectl get authpolicies -A -l 'app.kubernetes.io/managed-by=maas-controller' -o name 2>/dev/null | head -1)
-  if [[ -n "$sample_policy" ]]; then
+  local sample_policy_json
+  sample_policy_json=$(kubectl get authpolicies -A -l 'app.kubernetes.io/managed-by=maas-controller' -o json 2>/dev/null | jq -r '.items[0] // empty' 2>/dev/null)
+
+  if [[ -n "$sample_policy_json" ]]; then
+    local policy_name policy_ns
+    policy_name=$(echo "$sample_policy_json" | jq -r '.metadata.name // "unknown"')
+    policy_ns=$(echo "$sample_policy_json" | jq -r '.metadata.namespace // "unknown"')
+    _append "  Inspecting: $policy_ns/$policy_name"
+
     local actual_url
-    actual_url=$(kubectl get "$sample_policy" -o jsonpath='{.spec.rules.metadata.subscription-info.http.url}' 2>/dev/null || echo "N/A")
+    actual_url=$(echo "$sample_policy_json" | jq -r '.spec.rules.metadata."subscription-info".http.url // "N/A"' 2>/dev/null)
     _append "  Actual URL in AuthPolicy: $actual_url"
 
     local request_body
-    request_body=$(kubectl get "$sample_policy" -o jsonpath='{.spec.rules.metadata.subscription-info.http.body.expression}' 2>/dev/null || echo "N/A")
+    request_body=$(echo "$sample_policy_json" | jq -r '.spec.rules.metadata."subscription-info".http.body.expression // "N/A"' 2>/dev/null)
     if echo "$request_body" | grep -q "requestedModel"; then
       _append "  ✅ Request body includes requestedModel field"
+      # Extract the model reference from the body
+      local model_ref
+      model_ref=$(echo "$request_body" | grep -o '"requestedModel"[^"]*"[^"]*"' | sed 's/.*"\([^"]*\)".*/\1/' || echo "")
+      if [[ -n "$model_ref" ]]; then
+        _append "  Model reference: $model_ref"
+      fi
     else
       _append "  ❌ Request body MISSING requestedModel field (should include model namespace/name)"
     fi
