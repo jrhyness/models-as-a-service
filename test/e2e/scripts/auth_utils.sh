@@ -216,7 +216,125 @@ run_auth_debug_report() {
   _section "MaaS CRs"
   _run "MaaSAuthPolicies" "kubectl get maasauthpolicies -n $MAAS_SUBSCRIPTION_NAMESPACE -o wide 2>/dev/null || true"
   _run "MaaSSubscriptions" "kubectl get maassubscriptions -n $MAAS_SUBSCRIPTION_NAMESPACE -o wide 2>/dev/null || true"
-  _run "MaaSModelRefs" "kubectl get maasmodelrefs -n $DEPLOYMENT_NAMESPACE -o wide 2>/dev/null || true"
+  _run "MaaSModelRefs (all namespaces)" "kubectl get maasmodelrefs -A -o wide 2>/dev/null || true"
+  _append ""
+
+  _section "Test User Information"
+  local test_token
+  test_token=$(oc whoami -t 2>/dev/null || echo "")
+  if [[ -n "$test_token" ]]; then
+    _append "Test user token available: yes"
+
+    # Try to get user info from token review
+    local user_info
+    user_info=$(kubectl create --dry-run=server --raw /apis/authentication.k8s.io/v1/tokenreviews -f - <<EOF 2>/dev/null | jq -r '.status.user // empty'
+{
+  "apiVersion": "authentication.k8s.io/v1",
+  "kind": "TokenReview",
+  "spec": {
+    "token": "$test_token"
+  }
+}
+EOF
+)
+    if [[ -n "$user_info" ]]; then
+      local username groups
+      username=$(echo "$user_info" | jq -r '.username // "N/A"')
+      groups=$(echo "$user_info" | jq -r '.groups // [] | join(", ")')
+      _append "  Username: $username"
+      _append "  Groups: $groups"
+    else
+      _append "  Could not retrieve user info from token"
+    fi
+  else
+    _append "No test token available (not logged in via oc)"
+  fi
+  _append ""
+
+  _section "Subscription → Model Mapping"
+  local subscriptions_json
+  subscriptions_json=$(kubectl get maassubscriptions -n $MAAS_SUBSCRIPTION_NAMESPACE -o json 2>/dev/null | jq -r '.items // []' 2>/dev/null)
+  if [[ -n "$subscriptions_json" ]] && [[ "$subscriptions_json" != "[]" ]]; then
+    echo "$subscriptions_json" | jq -r '.[] |
+      "Subscription: " + .metadata.name +
+      "\n  Owner users: " + ((.spec.owner.users // []) | join(", ") | if . == "" then "(none)" else . end) +
+      "\n  Owner groups: " + ((.spec.owner.groups // [] | map(.name)) | join(", ") | if . == "" then "(none)" else . end) +
+      "\n  Models: " + ((.spec.modelRefs // [] | map(.namespace + "/" + .name)) | join(", ") | if . == "" then "(none)" else . end)' | while IFS= read -r line; do
+      _append "$line"
+    done
+  else
+    _append "No subscriptions found in $MAAS_SUBSCRIPTION_NAMESPACE"
+  fi
+  _append ""
+
+  _section "Available Models (MaaSModelRefs)"
+  local models_json
+  models_json=$(kubectl get maasmodelrefs -A -o json 2>/dev/null | jq -r '.items // []' 2>/dev/null)
+  if [[ -n "$models_json" ]] && [[ "$models_json" != "[]" ]]; then
+    _append "Model Reference → Model ID / Endpoint"
+    echo "$models_json" | jq -r '.[] |
+      "  " + .metadata.namespace + "/" + .metadata.name +
+      " → " + (.spec.modelRef.name // "N/A") +
+      " (" + (.status.phase // "unknown") + ")" +
+      if .status.endpoint then "\n    Endpoint: " + .status.endpoint else "" end' | while IFS= read -r line; do
+      _append "$line"
+    done
+  else
+    _append "No MaaSModelRefs found"
+  fi
+  _append ""
+
+  _section "Configuration Summary"
+  _append "This summary helps compare local vs CI runs:"
+  _append ""
+  local total_models total_subs total_authpolicies total_kuadrant_authpolicies
+  total_models=$(echo "$models_json" | jq '. | length' 2>/dev/null || echo "0")
+  total_subs=$(echo "$subscriptions_json" | jq '. | length' 2>/dev/null || echo "0")
+  total_authpolicies=$(kubectl get maasauthpolicies -n $MAAS_SUBSCRIPTION_NAMESPACE -o json 2>/dev/null | jq -r '.items | length' 2>/dev/null || echo "0")
+  total_kuadrant_authpolicies=$(kubectl get authpolicies -A -l 'app.kubernetes.io/managed-by=maas-controller' -o json 2>/dev/null | jq -r '.items | length' 2>/dev/null || echo "0")
+
+  _append "  MaaSModelRefs (all namespaces): $total_models"
+  _append "  MaaSSubscriptions ($MAAS_SUBSCRIPTION_NAMESPACE): $total_subs"
+  _append "  MaaSAuthPolicies ($MAAS_SUBSCRIPTION_NAMESPACE): $total_authpolicies"
+  _append "  Generated Kuadrant AuthPolicies: $total_kuadrant_authpolicies"
+  _append ""
+  _append "  Subscription selector URL: $sub_select_url"
+  _append "  Test user: $(oc whoami 2>/dev/null || echo 'N/A')"
+  _append ""
+
+  _section "Available Models (MaaSModelRefs)"
+  local models_json
+  models_json=$(kubectl get maasmodelrefs -A -o json 2>/dev/null | jq -r '.items // []' 2>/dev/null)
+  if [[ -n "$models_json" ]] && [[ "$models_json" != "[]" ]]; then
+    _append "Model Reference → Model ID / Endpoint"
+    echo "$models_json" | jq -r '.[] |
+      "  " + .metadata.namespace + "/" + .metadata.name +
+      " → " + (.spec.modelRef.name // "N/A") +
+      " (" + (.status.phase // "unknown") + ")" +
+      if .status.endpoint then "\n    Endpoint: " + .status.endpoint else "" end' | while IFS= read -r line; do
+      _append "$line"
+    done
+  else
+    _append "No MaaSModelRefs found"
+  fi
+  _append ""
+
+  _section "Configuration Summary"
+  _append "This summary helps compare local vs CI runs:"
+  _append ""
+  local total_models total_subs total_authpolicies total_kuadrant_authpolicies
+  total_models=$(echo "$models_json" | jq '. | length' 2>/dev/null || echo "0")
+  total_subs=$(echo "$subscriptions_json" | jq '. | length' 2>/dev/null || echo "0")
+  total_authpolicies=$(kubectl get maasauthpolicies -n $MAAS_SUBSCRIPTION_NAMESPACE -o json 2>/dev/null | jq -r '.items | length' 2>/dev/null || echo "0")
+  total_kuadrant_authpolicies=$(kubectl get authpolicies -A -l 'app.kubernetes.io/managed-by=maas-controller' -o json 2>/dev/null | jq -r '.items | length' 2>/dev/null || echo "0")
+
+  _append "  MaaSModelRefs (all namespaces): $total_models"
+  _append "  MaaSSubscriptions ($MAAS_SUBSCRIPTION_NAMESPACE): $total_subs"
+  _append "  MaaSAuthPolicies ($MAAS_SUBSCRIPTION_NAMESPACE): $total_authpolicies"
+  _append "  Generated Kuadrant AuthPolicies: $total_kuadrant_authpolicies"
+  _append ""
+  _append "  Subscription selector URL: $sub_select_url"
+  _append "  Test user: $(oc whoami 2>/dev/null || echo 'N/A')"
   _append ""
 
   _section "Gateway / HTTPRoutes"
