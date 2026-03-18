@@ -252,33 +252,39 @@ EOF
   _append ""
 
   _section "Subscription → Model Mapping"
-  local subscriptions_json
+  local subscriptions_json sub_mapping
   subscriptions_json=$(kubectl get maassubscriptions -n $MAAS_SUBSCRIPTION_NAMESPACE -o json 2>/dev/null | jq -r '.items // []' 2>/dev/null)
   if [[ -n "$subscriptions_json" ]] && [[ "$subscriptions_json" != "[]" ]]; then
-    echo "$subscriptions_json" | jq -r '.[] |
+    sub_mapping=$(echo "$subscriptions_json" | jq -r '.[] |
       "Subscription: " + .metadata.name +
       "\n  Owner users: " + ((.spec.owner.users // []) | join(", ") | if . == "" then "(none)" else . end) +
       "\n  Owner groups: " + ((.spec.owner.groups // [] | map(.name)) | join(", ") | if . == "" then "(none)" else . end) +
-      "\n  Models: " + ((.spec.modelRefs // [] | map(.namespace + "/" + .name)) | join(", ") | if . == "" then "(none)" else . end)' | while IFS= read -r line; do
-      _append "$line"
-    done
+      "\n  Models: " + ((.spec.modelRefs // [] | map(.namespace + "/" + .name)) | join(", ") | if . == "" then "(none)" else . end)' 2>/dev/null)
+    if [[ -n "$sub_mapping" ]]; then
+      _append "$sub_mapping"
+    else
+      _append "Failed to parse subscription data"
+    fi
   else
     _append "No subscriptions found in $MAAS_SUBSCRIPTION_NAMESPACE"
   fi
   _append ""
 
   _section "Available Models (MaaSModelRefs)"
-  local models_json
+  local models_json model_listing
   models_json=$(kubectl get maasmodelrefs -A -o json 2>/dev/null | jq -r '.items // []' 2>/dev/null)
   if [[ -n "$models_json" ]] && [[ "$models_json" != "[]" ]]; then
     _append "Model Reference → Model ID / Endpoint"
-    echo "$models_json" | jq -r '.[] |
+    model_listing=$(echo "$models_json" | jq -r '.[] |
       "  " + .metadata.namespace + "/" + .metadata.name +
       " → " + (.spec.modelRef.name // "N/A") +
       " (" + (.status.phase // "unknown") + ")" +
-      if .status.endpoint then "\n    Endpoint: " + .status.endpoint else "" end' | while IFS= read -r line; do
-      _append "$line"
-    done
+      if .status.endpoint then "\n    Endpoint: " + .status.endpoint else "" end' 2>/dev/null)
+    if [[ -n "$model_listing" ]]; then
+      _append "$model_listing"
+    else
+      _append "Failed to parse model data"
+    fi
   else
     _append "No MaaSModelRefs found"
   fi
