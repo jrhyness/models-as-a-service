@@ -284,41 +284,6 @@ EOF
   fi
   _append ""
 
-  _section "Configuration Summary"
-  _append "This summary helps compare local vs CI runs:"
-  _append ""
-  local total_models total_subs total_authpolicies total_kuadrant_authpolicies
-  total_models=$(echo "$models_json" | jq '. | length' 2>/dev/null || echo "0")
-  total_subs=$(echo "$subscriptions_json" | jq '. | length' 2>/dev/null || echo "0")
-  total_authpolicies=$(kubectl get maasauthpolicies -n $MAAS_SUBSCRIPTION_NAMESPACE -o json 2>/dev/null | jq -r '.items | length' 2>/dev/null || echo "0")
-  total_kuadrant_authpolicies=$(kubectl get authpolicies -A -l 'app.kubernetes.io/managed-by=maas-controller' -o json 2>/dev/null | jq -r '.items | length' 2>/dev/null || echo "0")
-
-  _append "  MaaSModelRefs (all namespaces): $total_models"
-  _append "  MaaSSubscriptions ($MAAS_SUBSCRIPTION_NAMESPACE): $total_subs"
-  _append "  MaaSAuthPolicies ($MAAS_SUBSCRIPTION_NAMESPACE): $total_authpolicies"
-  _append "  Generated Kuadrant AuthPolicies: $total_kuadrant_authpolicies"
-  _append ""
-  _append "  Subscription selector URL: $sub_select_url"
-  _append "  Test user: $(oc whoami 2>/dev/null || echo 'N/A')"
-  _append ""
-
-  _section "Available Models (MaaSModelRefs)"
-  local models_json
-  models_json=$(kubectl get maasmodelrefs -A -o json 2>/dev/null | jq -r '.items // []' 2>/dev/null)
-  if [[ -n "$models_json" ]] && [[ "$models_json" != "[]" ]]; then
-    _append "Model Reference → Model ID / Endpoint"
-    echo "$models_json" | jq -r '.[] |
-      "  " + .metadata.namespace + "/" + .metadata.name +
-      " → " + (.spec.modelRef.name // "N/A") +
-      " (" + (.status.phase // "unknown") + ")" +
-      if .status.endpoint then "\n    Endpoint: " + .status.endpoint else "" end' | while IFS= read -r line; do
-      _append "$line"
-    done
-  else
-    _append "No MaaSModelRefs found"
-  fi
-  _append ""
-
   _section "Gateway / HTTPRoutes"
   _run "Gateway" "kubectl get gateway -n openshift-ingress maas-default-gateway -o wide 2>/dev/null || kubectl get gateway -A 2>/dev/null | head -10 || true"
   _run "HTTPRoutes (maas-api)" "kubectl get httproute maas-api-route -n $DEPLOYMENT_NAMESPACE -o wide 2>/dev/null || true"
