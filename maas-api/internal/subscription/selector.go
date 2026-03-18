@@ -288,9 +288,19 @@ func sortSubscriptionsByPriority(subs []subscription) {
 
 // toResponse converts internal subscription to API response.
 func toResponse(sub *subscription) *SelectResponse {
+	// Convert internal modelRef to public ModelRef
+	modelRefs := make([]ModelRef, len(sub.ModelRefs))
+	for i, ref := range sub.ModelRefs {
+		modelRefs[i] = ModelRef{
+			Namespace: ref.Namespace,
+			Name:      ref.Name,
+		}
+	}
+
 	return &SelectResponse{
 		Name:           sub.Name,
 		Namespace:      sub.Namespace,
+		ModelRefs:      modelRefs,
 		OrganizationID: sub.OrganizationID,
 		CostCenter:     sub.CostCenter,
 		Labels:         sub.Labels,

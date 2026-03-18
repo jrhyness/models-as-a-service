@@ -62,6 +62,7 @@ func (h *ModelsHandler) ListLLMs(c *gin.Context) {
 	// Validate subscription access before probing models.
 	// This ensures consistent error handling with inferencing endpoints.
 	var selectedSubscription string
+	var result *subscription.SelectResponse
 	if h.subscriptionSelector != nil {
 		// Extract user info from context (set by ExtractUserInfo middleware)
 		// Only needed when subscription selector is configured
@@ -87,7 +88,8 @@ func (h *ModelsHandler) ListLLMs(c *gin.Context) {
 		}
 
 		//nolint:unqueryvet // false positive: Select is a method call, not a SQL query
-		result, err := h.subscriptionSelector.Select(userContext.Groups, userContext.Username, requestedSubscription, "")
+		var err error
+		result, err = h.subscriptionSelector.Select(userContext.Groups, userContext.Username, requestedSubscription, "")
 		if err != nil {
 			var multipleSubsErr *subscription.MultipleSubscriptionsError
 			var accessDeniedErr *subscription.AccessDeniedError
@@ -170,6 +172,29 @@ func (h *ModelsHandler) ListLLMs(c *gin.Context) {
 				}})
 			return
 		}
+
+		// Filter models to only those in the selected subscription (if subscription selector enabled)
+		if h.subscriptionSelector != nil && result != nil && len(result.ModelRefs) > 0 {
+			h.logger.Debug("Filtering models by subscription modelRefs",
+				"totalModels", len(list),
+				"subscription", selectedSubscription,
+				"modelRefsCount", len(result.ModelRefs),
+			)
+			list = filterModelsBySubscription(list, result.ModelRefs)
+			h.logger.Debug("After subscription filtering", "modelsInSubscription", len(list))
+		} else {
+			h.logger.Debug("Skipping subscription filtering",
+				"selectorConfigured", h.subscriptionSelector != nil,
+				"resultNotNil", result != nil,
+				"modelRefsCount", func() int {
+					if result != nil {
+						return len(result.ModelRefs)
+					}
+					return 0
+				}(),
+			)
+		}
+
 		h.logger.Debug("MaaSModelRef list succeeded, validating access by probing each model endpoint", "modelCount", len(list), "subscriptionHeaderProvided", selectedSubscription != "")
 		modelList = h.modelMgr.FilterModelsByAccess(c.Request.Context(), list, authHeader, selectedSubscription)
 		h.logger.Debug("Access validation complete", "listed", len(list), "accessible", len(modelList))
@@ -182,4 +207,30 @@ func (h *ModelsHandler) ListLLMs(c *gin.Context) {
 		Object: "list",
 		Data:   modelList,
 	})
+}
+
+// filterModelsBySubscription filters models to only those matching the subscription's modelRefs.
+func filterModelsBySubscription(modelList []models.Model, modelRefs []subscription.ModelRef) []models.Model {
+	if len(modelRefs) == 0 {
+		return modelList
+	}
+
+	// Build map of allowed models for fast lookup
+	allowed := make(map[string]bool)
+	for _, ref := range modelRefs {
+		key := ref.Namespace + "/" + ref.Name
+		allowed[key] = true
+	}
+
+	// Filter models
+	filtered := make([]models.Model, 0, len(modelList))
+	for _, model := range modelList {
+		// Models from MaaSModelRefLister have OwnedBy set to namespace
+		modelKey := model.OwnedBy + "/" + model.ID
+		if allowed[modelKey] {
+			filtered = append(filtered, model)
+		}
+	}
+
+	return filtered
 }

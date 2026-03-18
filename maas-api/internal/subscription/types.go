@@ -8,12 +8,19 @@ type SelectRequest struct {
 	RequestedModel        string   `json:"requestedModel"`                        // Optional model reference (format: namespace/name) to validate subscription includes this model
 }
 
+// ModelRef represents a model reference in a subscription.
+type ModelRef struct {
+	Namespace string `json:"namespace"` // Model namespace
+	Name      string `json:"name"`      // Model name
+}
+
 // SelectResponse contains the selected subscription details or error information.
 // This always returns HTTP 200 with either success or error fields populated.
 type SelectResponse struct {
 	// Success fields (populated when selection succeeds)
 	Name           string            `json:"name,omitempty"`           // Subscription name
 	Namespace      string            `json:"namespace,omitempty"`      // Subscription namespace
+	ModelRefs      []ModelRef        `json:"modelRefs,omitempty"`      // Models included in this subscription
 	OrganizationID string            `json:"organizationId,omitempty"` // Organization ID for billing
 	CostCenter     string            `json:"costCenter,omitempty"`     // Cost center for attribution
 	Labels         map[string]string `json:"labels,omitempty"`         // Additional tracking labels
