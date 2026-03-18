@@ -291,10 +291,27 @@ def _delete_cr(kind, name, namespace=None):
 
 def _get_cr(kind, name, namespace=None):
     namespace = namespace or _ns()
-    result = subprocess.run(["oc", "get", kind, name, "-n", namespace, "-o", "json"], capture_output=True, text=True)
-    if result.returncode != 0:
+    max_retries = 3
+    retry_delay = 2
+
+    for attempt in range(max_retries):
+        result = subprocess.run(["oc", "get", kind, name, "-n", namespace, "-o", "json"], capture_output=True, text=True)
+
+        if result.returncode == 0:
+            return json.loads(result.stdout)
+
+        # Retry transient errors
+        if attempt < max_retries - 1 and _is_transient_kubectl_error(result.stderr):
+            log.warning(
+                f"Transient kubectl error getting {kind}/{name} (attempt {attempt + 1}/{max_retries}): {result.stderr.strip()}"
+            )
+            time.sleep(retry_delay * (attempt + 1))
+            continue
+
+        # Non-transient error or final attempt - return None (existing behavior)
         return None
-    return json.loads(result.stdout)
+
+    return None
 
 
 def _cr_exists(kind, name, namespace=None):
@@ -603,6 +620,22 @@ def _snapshot_cr(kind, name, namespace=None):
     return cr
 
 
+def _is_transient_kubectl_error(stderr):
+    """Check if kubectl error is likely transient (network, timeout)."""
+    transient_patterns = [
+        "TLS handshake timeout",
+        "connection refused",
+        "connection reset",
+        "i/o timeout",
+        "dial tcp",
+        "EOF",
+        "temporary failure",
+        "network is unreachable",
+    ]
+    stderr_lower = stderr.lower()
+    return any(pattern.lower() in stderr_lower for pattern in transient_patterns)
+
+
 def _list_crs(kind, namespace=None):
     """List all CRs of a given kind.
 
@@ -624,14 +657,31 @@ def _list_crs(kind, namespace=None):
     }.get(kind, f"{kind}s")
 
     cmd = ["kubectl", "get", plural, "-n", namespace, "-o", "json"]
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        check=False
-    )
 
-    if result.returncode != 0:
+    # Retry transient network errors with exponential backoff
+    max_retries = 3
+    retry_delay = 2  # seconds
+
+    for attempt in range(max_retries):
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False
+        )
+
+        if result.returncode == 0:
+            return json.loads(result.stdout).get("items", [])
+
+        # Check if error is transient and we have retries left
+        if attempt < max_retries - 1 and _is_transient_kubectl_error(result.stderr):
+            log.warning(
+                f"Transient kubectl error (attempt {attempt + 1}/{max_retries}): {result.stderr.strip()}"
+            )
+            time.sleep(retry_delay * (attempt + 1))  # exponential backoff
+            continue
+
+        # Final attempt or non-transient error
         raise RuntimeError(
             f"Failed to list {plural} in namespace '{namespace}'.\n"
             f"Command: {' '.join(cmd)}\n"
@@ -640,7 +690,8 @@ def _list_crs(kind, namespace=None):
             f"Guidance: Ensure the CRD exists, namespace is correct, and you have permissions."
         )
 
-    return json.loads(result.stdout).get("items", [])
+    # Should never reach here, but satisfy type checker
+    return []
 
 
 def _get_cr_annotations(kind, name, namespace="llm"):
