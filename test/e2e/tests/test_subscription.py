@@ -495,14 +495,15 @@ def _subscription_for_path(path):
     return None  # e.g. unconfigured model has no subscription
 
 
-def _inference(api_key_or_token, path=None, extra_headers=None, subscription=None):
+def _inference(api_key_or_token, path=None, extra_headers=None, subscription=None, model_name=None):
     """Make an inference request using an API key or Bearer token.
-    
+
     Args:
         api_key_or_token: API key (sk-oai-xxx) or Bearer token for authorization
         path: Model path (default: MODEL_PATH)
         extra_headers: Additional headers to include
         subscription: Subscription name, False to omit, or None to auto-detect
+        model_name: Model name for request body (default: MODEL_NAME)
     """
     path = path or MODEL_PATH
     url = f"{_gateway_url()}{path}/v1/completions"
@@ -524,7 +525,7 @@ def _inference(api_key_or_token, path=None, extra_headers=None, subscription=Non
         headers.update(extra_headers)
     return requests.post(
         url, headers=headers,
-        json={"model": MODEL_NAME, "prompt": "Hello", "max_tokens": 3},
+        json={"model": model_name or MODEL_NAME, "prompt": "Hello", "max_tokens": 3},
         timeout=TIMEOUT, verify=TLS_VERIFY,
     )
 
@@ -570,7 +571,114 @@ def _wait_for_maas_model_ready(name, namespace=None, timeout=120):
     )
 
 
-def _poll_status(token, expected, path=None, extra_headers=None, subscription=None, timeout=None, poll_interval=2):
+def _wait_for_maas_auth_policy_ready(name, namespace=None, timeout=60):
+    """Wait for MaaSAuthPolicy to reach Active phase with enforced AuthPolicies.
+
+    Args:
+        name: Name of the MaaSAuthPolicy
+        namespace: Namespace (defaults to _ns())
+        timeout: Maximum wait time in seconds (default: 60)
+
+    Raises:
+        TimeoutError: If MaaSAuthPolicy doesn't become Active/enforced within timeout
+    """
+    namespace = namespace or _ns()
+    deadline = time.time() + timeout
+    log.info(f"Waiting for MaaSAuthPolicy {name} to become Active (timeout: {timeout}s)...")
+
+    while time.time() < deadline:
+        cr = _get_cr("maasauthpolicy", name, namespace)
+        if cr:
+            phase = cr.get("status", {}).get("phase")
+            auth_policies = cr.get("status", {}).get("authPolicies", [])
+
+            # Check if all auth policies are accepted and enforced
+            all_enforced = all(
+                ap.get("accepted") == "True" and ap.get("enforced") == "True"
+                for ap in auth_policies
+            )
+
+            if phase == "Active" and auth_policies and all_enforced:
+                log.info(f"✅ MaaSAuthPolicy {name} is Active and enforced")
+                return
+            log.debug(f"MaaSAuthPolicy {name} phase: {phase}, authPolicies: {len(auth_policies)}, all_enforced: {all_enforced}")
+        time.sleep(2)
+
+    # Timeout - log current state for debugging
+    cr = _get_cr("maasauthpolicy", name, namespace)
+    current_phase = cr.get("status", {}).get("phase") if cr else "not found"
+    auth_policies = cr.get("status", {}).get("authPolicies", []) if cr else []
+    raise TimeoutError(
+        f"MaaSAuthPolicy {name} did not become Active/enforced within {timeout}s "
+        f"(current phase: {current_phase}, authPolicies: {len(auth_policies)})"
+    )
+
+
+def _wait_for_maas_subscription_ready(name, namespace=None, timeout=30):
+    """Wait for MaaSSubscription to reach Active phase.
+
+    Args:
+        name: Name of the MaaSSubscription
+        namespace: Namespace (defaults to _ns())
+        timeout: Maximum wait time in seconds (default: 30)
+
+    Raises:
+        TimeoutError: If MaaSSubscription doesn't become Active within timeout
+    """
+    namespace = namespace or _ns()
+    deadline = time.time() + timeout
+    log.info(f"Waiting for MaaSSubscription {name} to become Active (timeout: {timeout}s)...")
+
+    while time.time() < deadline:
+        cr = _get_cr("maassubscription", name, namespace)
+        if cr:
+            phase = cr.get("status", {}).get("phase")
+            if phase == "Active":
+                log.info(f"✅ MaaSSubscription {name} is Active")
+                return
+            log.debug(f"MaaSSubscription {name} phase: {phase}")
+        time.sleep(2)
+
+    # Timeout - log current state for debugging
+    cr = _get_cr("maassubscription", name, namespace)
+    current_phase = cr.get("status", {}).get("phase") if cr else "not found"
+    raise TimeoutError(
+        f"MaaSSubscription {name} did not become Active within {timeout}s (current phase: {current_phase})"
+    )
+
+
+def _wait_for_token_rate_limit_policy(model_ref, model_namespace="llm", timeout=60):
+    """Wait for TokenRateLimitPolicy to be created for a model.
+
+    Args:
+        model_ref: Name of the model (e.g., "e2e-distinct-simulated")
+        model_namespace: Namespace where the TRLP should be created (default: "llm")
+        timeout: Maximum wait time in seconds (default: 60)
+
+    Raises:
+        TimeoutError: If TRLP isn't created within timeout
+    """
+    trlp_name = f"maas-trlp-{model_ref}"
+    deadline = time.time() + timeout
+    log.info(f"Waiting for TokenRateLimitPolicy {trlp_name} in {model_namespace} (timeout: {timeout}s)...")
+
+    while time.time() < deadline:
+        result = subprocess.run(
+            ["oc", "get", "tokenratelimitpolicy", trlp_name, "-n", model_namespace],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            log.info(f"✅ TokenRateLimitPolicy {trlp_name} exists")
+            return
+        log.debug(f"TokenRateLimitPolicy {trlp_name} not found yet...")
+        time.sleep(3)
+
+    raise TimeoutError(
+        f"TokenRateLimitPolicy {trlp_name} was not created in {model_namespace} within {timeout}s"
+    )
+
+
+def _poll_status(token, expected, path=None, extra_headers=None, subscription=None, model_name=None, timeout=None, poll_interval=2):
     """Poll inference endpoint until expected HTTP status or timeout."""
     timeout = timeout or max(RECONCILE_WAIT * 3, 60)
     deadline = time.time() + timeout
@@ -578,7 +686,7 @@ def _poll_status(token, expected, path=None, extra_headers=None, subscription=No
     last_err = None
     while time.time() < deadline:
         try:
-            r = _inference(token, path=path, extra_headers=extra_headers, subscription=subscription)
+            r = _inference(token, path=path, extra_headers=extra_headers, subscription=subscription, model_name=model_name)
             last_err = None
             ok = r.status_code == expected if isinstance(expected, int) else r.status_code in expected
             if ok:
@@ -2030,6 +2138,94 @@ class TestE2ESubscriptionFlow:
                 _apply_cr(original_access)
             _delete_cr("maassubscription", subscription_name, namespace=ns)
             _delete_cr("maasauthpolicy", auth_policy_name, namespace=ns)
+            _delete_sa(sa_name, namespace=ns)
+            _wait_reconcile()
+
+
+    def test_e2e_model_based_auto_selection_succeeds(self):
+        """
+        E2E test: Model-based auto-selection when only one subscription has the MaaSModelRef.
+
+        Validates PR #543 behavior: When a user has multiple subscriptions but only
+        one provides access to the requested MaaSModelRef, that subscription is auto-selected
+        without requiring the x-maas-subscription header.
+
+        Setup:
+        - User has 2 subscriptions: tier1 (DISTINCT_MODEL_REF), tier2 (DISTINCT_MODEL_2_REF)
+        - User requests DISTINCT_MODEL_REF → should auto-select tier1 and return 200
+        - User requests DISTINCT_MODEL_2_REF → should auto-select tier2 and return 200
+
+        Note: Uses distinct model refs (e2e-distinct-simulated, e2e-distinct-2-simulated) which:
+        - Have no default AuthPolicies or subscriptions (avoiding conflicts)
+        - Are specifically deployed for multi-model E2E testing
+        - Require creating AuthPolicies which may take time to propagate to Envoy
+        """
+        ns = _ns()
+        auth_policy_1 = "e2e-auth-model-auto-select-1"
+        auth_policy_2 = "e2e-auth-model-auto-select-2"
+        subscription_1 = "e2e-tier1-basic-model"
+        subscription_2 = "e2e-tier2-premium-model"
+        sa_name = "e2e-sa-model-auto-select"
+
+        try:
+            # Create service account and get OC token for maas-api
+            oc_token = _create_sa_token(sa_name, namespace=ns)
+            sa_user = _sa_to_user(sa_name, namespace=ns)
+
+            # Create auth policies for both distinct models
+            _create_test_auth_policy(auth_policy_1, DISTINCT_MODEL_REF, users=[sa_user])
+            _create_test_auth_policy(auth_policy_2, DISTINCT_MODEL_2_REF, users=[sa_user])
+
+            # Wait for auth policies to be enforced
+            _wait_for_maas_auth_policy_ready(auth_policy_1, namespace=ns, timeout=60)
+            _wait_for_maas_auth_policy_ready(auth_policy_2, namespace=ns, timeout=60)
+
+            # Additional wait for Envoy to pick up new AuthPolicies
+            # When an HTTPRoute gets its first AuthPolicy, it may take extra time
+            log.info("Waiting for Envoy to propagate new AuthPolicies...")
+            time.sleep(10)
+
+            # Create subscriptions with different MaaSModelRefs
+            _create_test_subscription(subscription_1, DISTINCT_MODEL_REF, users=[sa_user], token_limit=100)
+            _create_test_subscription(subscription_2, DISTINCT_MODEL_2_REF, users=[sa_user], token_limit=500)
+
+            # Wait for subscriptions to be Active
+            _wait_for_maas_subscription_ready(subscription_1, namespace=ns, timeout=30)
+            _wait_for_maas_subscription_ready(subscription_2, namespace=ns, timeout=30)
+
+            # Wait for TokenRateLimitPolicies to be created by maas-controller
+            # Without TRLPs, requests will get 404 from gateway-default-deny policy
+            _wait_for_token_rate_limit_policy(DISTINCT_MODEL_REF, model_namespace=MODEL_NAMESPACE, timeout=60)
+            _wait_for_token_rate_limit_policy(DISTINCT_MODEL_2_REF, model_namespace=MODEL_NAMESPACE, timeout=60)
+
+            # Create API key for inference
+            api_key = _create_api_key(oc_token, name=f"{sa_name}-key")
+
+            # Verify resources are ready before making requests
+            maas_ap_1 = _get_cr("maasauthpolicy", auth_policy_1, ns)
+            maas_ap_2 = _get_cr("maasauthpolicy", auth_policy_2, ns)
+            if maas_ap_1 and maas_ap_2:
+                ap1_enforced = maas_ap_1.get("status", {}).get("authPolicies", [{}])[0].get("enforced") == "True"
+                ap2_enforced = maas_ap_2.get("status", {}).get("authPolicies", [{}])[0].get("enforced") == "True"
+                log.info(f"Resources ready: AuthPolicies enforced ({ap1_enforced}, {ap2_enforced}), TRLPs created")
+
+            # Test 1: Request DISTINCT_MODEL_REF without header → should auto-select subscription_1
+            log.info("Testing: Model-based auto-selection for DISTINCT_MODEL_REF (only in subscription_1)")
+            r1 = _poll_status(api_key, 200, path=DISTINCT_MODEL_PATH, subscription=False,
+                            model_name=DISTINCT_MODEL_ID, timeout=90)
+            log.info("✅ Auto-selected subscription_1 for DISTINCT_MODEL_REF → %s", r1.status_code)
+
+            # Test 2: Request DISTINCT_MODEL_2_REF without header → should auto-select subscription_2
+            log.info("Testing: Model-based auto-selection for DISTINCT_MODEL_2_REF (only in subscription_2)")
+            r2 = _poll_status(api_key, 200, path=DISTINCT_MODEL_2_PATH, subscription=False,
+                            model_name=DISTINCT_MODEL_2_ID, timeout=90)
+            log.info("✅ Auto-selected subscription_2 for DISTINCT_MODEL_2_REF → %s", r2.status_code)
+
+        finally:
+            _delete_cr("maassubscription", subscription_1, namespace=ns)
+            _delete_cr("maassubscription", subscription_2, namespace=ns)
+            _delete_cr("maasauthpolicy", auth_policy_1, namespace=ns)
+            _delete_cr("maasauthpolicy", auth_policy_2, namespace=ns)
             _delete_sa(sa_name, namespace=ns)
             _wait_reconcile()
 

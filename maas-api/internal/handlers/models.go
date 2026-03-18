@@ -88,6 +88,7 @@ func (h *ModelsHandler) ListLLMs(c *gin.Context) {
 		}
 
 		var err error
+		//nolint:unqueryvet // Select is a method, not a SQL query
 		result, err = h.subscriptionSelector.Select(userContext.Groups, userContext.Username, requestedSubscription, "")
 		if err != nil {
 			var multipleSubsErr *subscription.MultipleSubscriptionsError

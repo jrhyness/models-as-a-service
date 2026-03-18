@@ -558,7 +558,11 @@ func TestHandler_SelectSubscription_MultipleSubscriptions(t *testing.T) {
 }
 
 // createTestSubscriptionWithModels creates a subscription with specific model references.
-func createTestSubscriptionWithModels(name string, namespace string, groups []string, models []struct{ ns, name string }, priority int32, orgID, costCenter string) *unstructured.Unstructured {
+func createTestSubscriptionWithModels(
+	name string, namespace string, groups []string,
+	models []struct{ ns, name string },
+	priority int32, orgID, costCenter string,
+) *unstructured.Unstructured {
 	groupsSlice := make([]any, len(groups))
 	for i, g := range groups {
 		groupsSlice[i] = map[string]any{"name": g}
@@ -601,6 +605,53 @@ func createTestSubscriptionWithModels(name string, namespace string, groups []st
 				},
 			},
 		},
+	}
+}
+
+// runSelectSubscriptionTest executes a subscription selection test case.
+func runSelectSubscriptionTest(
+	t *testing.T, router *gin.Engine,
+	groups []string, username, requestedSubscription, requestedModel string,
+	expectedName, expectedError, description string,
+) {
+	t.Helper()
+
+	reqBody := subscription.SelectRequest{
+		Groups:                groups,
+		Username:              username,
+		RequestedSubscription: requestedSubscription,
+		RequestedModel:        requestedModel,
+	}
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		t.Fatalf("failed to marshal request: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/subscriptions/select", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("%s: expected status 200, got %d", description, w.Code)
+	}
+
+	var response subscription.SelectResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+
+	if expectedError != "" {
+		// Expecting an error response
+		if response.Error != expectedError {
+			t.Errorf("%s: expected error code %q, got %q. Message: %s", description, expectedError, response.Error, response.Message)
+		}
+	} else {
+		// Expecting a success response
+		if response.Name != expectedName {
+			t.Errorf("%s: expected subscription %q, got %q", description, expectedName, response.Name)
+		}
 	}
 }
 
@@ -770,43 +821,11 @@ func TestHandler_SelectSubscription_ModelValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reqBody := subscription.SelectRequest{
-				Groups:                tt.groups,
-				Username:              tt.username,
-				RequestedSubscription: tt.requestedSubscription,
-				RequestedModel:        tt.requestedModel,
-			}
-			jsonBody, err := json.Marshal(reqBody)
-			if err != nil {
-				t.Fatalf("failed to marshal request: %v", err)
-			}
-
-			req := httptest.NewRequest(http.MethodPost, "/subscriptions/select", bytes.NewBuffer(jsonBody))
-			req.Header.Set("Content-Type", "application/json")
-			w := httptest.NewRecorder()
-
-			router.ServeHTTP(w, req)
-
-			if w.Code != http.StatusOK {
-				t.Errorf("%s: expected status 200, got %d", tt.description, w.Code)
-			}
-
-			var response subscription.SelectResponse
-			if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
-				t.Fatalf("failed to unmarshal response: %v", err)
-			}
-
-			if tt.expectedError != "" {
-				// Expecting an error response
-				if response.Error != tt.expectedError {
-					t.Errorf("%s: expected error code %q, got %q. Message: %s", tt.description, tt.expectedError, response.Error, response.Message)
-				}
-			} else {
-				// Expecting a success response
-				if response.Name != tt.expectedName {
-					t.Errorf("%s: expected subscription %q, got %q", tt.description, tt.expectedName, response.Name)
-				}
-			}
+			runSelectSubscriptionTest(
+				t, router,
+				tt.groups, tt.username, tt.requestedSubscription, tt.requestedModel,
+				tt.expectedName, tt.expectedError, tt.description,
+			)
 		})
 	}
 }
@@ -866,43 +885,11 @@ func TestHandler_SelectSubscription_MultipleSubscriptionsSameModel(t *testing.T)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reqBody := subscription.SelectRequest{
-				Groups:                tt.groups,
-				Username:              tt.username,
-				RequestedSubscription: tt.requestedSubscription,
-				RequestedModel:        tt.requestedModel,
-			}
-			jsonBody, err := json.Marshal(reqBody)
-			if err != nil {
-				t.Fatalf("failed to marshal request: %v", err)
-			}
-
-			req := httptest.NewRequest(http.MethodPost, "/subscriptions/select", bytes.NewBuffer(jsonBody))
-			req.Header.Set("Content-Type", "application/json")
-			w := httptest.NewRecorder()
-
-			router.ServeHTTP(w, req)
-
-			if w.Code != http.StatusOK {
-				t.Errorf("%s: expected status 200, got %d", tt.description, w.Code)
-			}
-
-			var response subscription.SelectResponse
-			if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
-				t.Fatalf("failed to unmarshal response: %v", err)
-			}
-
-			if tt.expectedError != "" {
-				// Expecting an error response
-				if response.Error != tt.expectedError {
-					t.Errorf("%s: expected error code %q, got %q. Message: %s", tt.description, tt.expectedError, response.Error, response.Message)
-				}
-			} else {
-				// Expecting a success response
-				if response.Name != tt.expectedName {
-					t.Errorf("%s: expected subscription %q, got %q", tt.description, tt.expectedName, response.Name)
-				}
-			}
+			runSelectSubscriptionTest(
+				t, router,
+				tt.groups, tt.username, tt.requestedSubscription, tt.requestedModel,
+				tt.expectedName, tt.expectedError, tt.description,
+			)
 		})
 	}
 }
