@@ -83,7 +83,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 ```
 
 #### All Subscriptions (`X-MaaS-Return-All-Models: true`)
-Returns models from all subscriptions the user has access to, with subscription metadata attached:
+Returns models from all subscriptions the user has access to, with subscription metadata attached. If the user has access to zero subscriptions, returns HTTP 200 with an empty data array (not an error), allowing clients to handle this deterministically:
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
      -H "X-MaaS-Return-All-Models: true" \
@@ -124,10 +124,10 @@ All models in the response include a `subscriptions` array with metadata for eac
 
 ### Deduplication Behavior
 
-When `X-MaaS-Return-All-Models: true` is used, models are deduplicated by `(model_id, url)` key:
+When `X-MaaS-Return-All-Models: true` is used, models are deduplicated by `(id, url)` key:
 
-- **Same model ID + same URL**: Single entry with subscriptions aggregated into the `subscriptions` array
-- **Same model ID + different URLs**: Separate entries (different model endpoints)
+- **Same id + same URL**: Single entry with subscriptions aggregated into the `subscriptions` array
+- **Same id + different URLs**: Separate entries (different model endpoints)
 
 **Example:**
 - Model `gpt-3.5` at URL `https://example.com/gpt-3.5` is accessible via subscriptions A and B

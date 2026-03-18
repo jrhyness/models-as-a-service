@@ -72,16 +72,52 @@ paths:
                                 error:
                                     message: "Cannot specify both X-MaaS-Subscription and X-MaaS-Return-All-Models headers"
                                     type: "invalid_request_error"
-                "403":
-                    description: Forbidden. User has multiple subscriptions but didn't specify which one.
+                "401":
+                    description: Unauthorized. Missing or invalid Authorization header.
                     content:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/ErrorResponse'
                             example:
                                 error:
-                                    message: "user has access to multiple subscriptions, must specify subscription using X-MaaS-Subscription header"
-                                    type: "permission_error"
+                                    message: "Authorization required"
+                                    type: "authentication_error"
+                "403":
+                    description: |
+                        Forbidden. Subscription access error. Possible cases:
+                        - User has multiple subscriptions but didn't specify which one (X-MaaS-Subscription header required)
+                        - Access denied to the requested subscription
+                        - Requested subscription not found
+                        - User has no accessible subscriptions
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                            examples:
+                                multiple_subscriptions:
+                                    summary: Multiple subscriptions without header
+                                    value:
+                                        error:
+                                            message: "user has access to multiple subscriptions, must specify subscription using X-MaaS-Subscription header"
+                                            type: "permission_error"
+                                access_denied:
+                                    summary: Access denied to subscription
+                                    value:
+                                        error:
+                                            message: "access denied to subscription"
+                                            type: "permission_error"
+                                not_found:
+                                    summary: Subscription not found
+                                    value:
+                                        error:
+                                            message: "subscription not found"
+                                            type: "permission_error"
+                                no_subscription:
+                                    summary: No accessible subscriptions
+                                    value:
+                                        error:
+                                            message: "no subscription found for user"
+                                            type: "permission_error"
                 "200":
                     description: OK response.
                     content:
