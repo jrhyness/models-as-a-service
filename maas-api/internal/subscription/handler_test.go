@@ -558,8 +558,9 @@ func TestHandler_SelectSubscription_MultipleSubscriptions(t *testing.T) {
 }
 
 // createTestSubscriptionWithModels creates a subscription with specific model references.
+// All test subscriptions use "tenant-a" namespace.
 func createTestSubscriptionWithModels(
-	name string, namespace string, groups []string,
+	name string, groups []string,
 	models []struct{ ns, name string },
 	priority int32, orgID, costCenter string,
 ) *unstructured.Unstructured {
@@ -588,7 +589,7 @@ func createTestSubscriptionWithModels(
 			"kind":       "MaaSSubscription",
 			"metadata": map[string]any{
 				"name":      name,
-				"namespace": namespace,
+				"namespace": "tenant-a",
 			},
 			"spec": map[string]any{
 				"owner": map[string]any{
@@ -659,11 +660,11 @@ func runSelectSubscriptionTest(
 func TestHandler_SelectSubscription_ModelBasedAutoSelection(t *testing.T) {
 	// Create subscriptions with different models
 	subscriptions := []*unstructured.Unstructured{
-		createTestSubscriptionWithModels("gold", "tenant-a", []string{"premium-users"}, []struct{ ns, name string }{
+		createTestSubscriptionWithModels("gold", []string{"premium-users"}, []struct{ ns, name string }{
 			{ns: "models", name: "llm"},
 			{ns: "models", name: "embedding"},
 		}, 10, "org-gold", "cc-gold"),
-		createTestSubscriptionWithModels("silver", "tenant-a", []string{"premium-users"}, []struct{ ns, name string }{
+		createTestSubscriptionWithModels("silver", []string{"premium-users"}, []struct{ ns, name string }{
 			{ns: "models", name: "small-model"},
 		}, 10, "org-silver", "cc-silver"),
 	}
@@ -760,10 +761,10 @@ func TestHandler_SelectSubscription_ModelBasedAutoSelection(t *testing.T) {
 func TestHandler_SelectSubscription_ModelValidation(t *testing.T) {
 	// Create subscriptions with different models
 	subscriptions := []*unstructured.Unstructured{
-		createTestSubscriptionWithModels("gold", "tenant-a", []string{"premium-users"}, []struct{ ns, name string }{
+		createTestSubscriptionWithModels("gold", []string{"premium-users"}, []struct{ ns, name string }{
 			{ns: "models", name: "llm"},
 		}, 10, "org-gold", "cc-gold"),
-		createTestSubscriptionWithModels("silver", "tenant-a", []string{"premium-users"}, []struct{ ns, name string }{
+		createTestSubscriptionWithModels("silver", []string{"premium-users"}, []struct{ ns, name string }{
 			{ns: "models", name: "small-model"},
 		}, 10, "org-silver", "cc-silver"),
 	}
@@ -834,10 +835,10 @@ func TestHandler_SelectSubscription_ModelValidation(t *testing.T) {
 func TestHandler_SelectSubscription_MultipleSubscriptionsSameModel(t *testing.T) {
 	// Create two subscriptions that both have the same model
 	subscriptions := []*unstructured.Unstructured{
-		createTestSubscriptionWithModels("gold", "tenant-a", []string{"premium-users"}, []struct{ ns, name string }{
+		createTestSubscriptionWithModels("gold", []string{"premium-users"}, []struct{ ns, name string }{
 			{ns: "models", name: "llm"},
 		}, 10, "org-gold", "cc-gold"),
-		createTestSubscriptionWithModels("platinum", "tenant-a", []string{"premium-users"}, []struct{ ns, name string }{
+		createTestSubscriptionWithModels("platinum", []string{"premium-users"}, []struct{ ns, name string }{
 			{ns: "models", name: "llm"},
 		}, 20, "org-platinum", "cc-platinum"),
 	}
