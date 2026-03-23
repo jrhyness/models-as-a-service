@@ -370,8 +370,8 @@ func filterModelsBySubscription(modelList []models.Model, modelRefs []subscripti
 	// Filter models
 	filtered := make([]models.Model, 0, len(modelList))
 	for _, model := range modelList {
-		// Models from MaaSModelRefLister have OwnedBy set to namespace
-		modelKey := model.OwnedBy + "/" + model.ID
+		// Models from MaaSModelRefLister have OwnedBy set to namespace/name
+		modelKey := model.OwnedBy
 		if allowed[modelKey] {
 			filtered = append(filtered, model)
 		}
