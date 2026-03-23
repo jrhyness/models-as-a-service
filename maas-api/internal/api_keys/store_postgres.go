@@ -244,7 +244,7 @@ func (s *PostgresStore) Search(
 
 	//nolint:gosec // Dynamic ORDER BY is safe - sort.By/Order validated against allowlist in handler
 	query := fmt.Sprintf(`
-		SELECT id, name, description, subscription, created_at, expires_at, status, last_used_at, ephemeral
+		SELECT id, name, description, subscription, username, created_at, expires_at, status, last_used_at, ephemeral
 		FROM api_keys
 		%s
 		%s
@@ -271,6 +271,7 @@ func (s *PostgresStore) Search(
 			&key.Name,
 			&description,
 			&key.Subscription,
+			&key.Username,
 			&createdAt,
 			&expiresAt,
 			&key.Status,
