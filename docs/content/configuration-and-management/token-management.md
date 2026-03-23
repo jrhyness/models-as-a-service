@@ -3,7 +3,7 @@
 This guide explains the authentication and credential management used to access models in the MaaS Platform.
 
 !!! tip "API keys (current)"
-    The platform uses **API keys** (`sk-oai-*`) stored in PostgreSQL for programmatic access. Create keys via `POST /v1/api-keys` (authenticate with your OpenShift token) and use them with the `Authorization: Bearer` header. When users have multiple subscriptions, include the `X-MaaS-Subscription` header. See [Quota and Access Configuration](quota-and-access-configuration.md).
+    The platform uses **API keys** (`sk-oai-*`) stored in PostgreSQL for programmatic access. Create keys via `POST /v1/api-keys` (authenticate with your OpenShift token) and use them with the `Authorization: Bearer` header. API keys are automatically bound to a subscription at mint time - **no headers required**. See [Quota and Access Configuration](quota-and-access-configuration.md).
 
 !!! note "Prerequisites"
     This document assumes you have configured subscriptions (MaaSAuthPolicy, MaaSSubscription).
@@ -47,10 +47,14 @@ When you create an API key, you trade your OpenShift identity for a long-lived c
 
 ### Key Concepts
 
+- **Subscription Binding**: API keys are bound to a specific subscription at creation time. This subscription determines which models you can access.
 - **Subscription**: Your access is determined by MaaSAuthPolicy and MaaSSubscription, which map groups to models and rate limits.
 - **User Groups**: At creation time, your current group membership is stored with the key. These groups are used for subscription-based authorization when the key is validated.
 - **API Key**: A cryptographically secure string with `sk-oai-*` prefix. The plaintext is shown once; only the SHA-256 hash is stored in PostgreSQL.
 - **Expiration**: Keys have a configurable TTL via `expiresIn` (e.g., `30d`, `90d`, `1h`). If omitted, the key defaults to the configured maximum (e.g., 90 days).
+
+!!! note "Subscription scoping"
+    When you create an API key, you can optionally specify which subscription to bind it to via the `subscription` parameter. If omitted, the system automatically selects your highest-priority subscription. The bound subscription is stored with the key and used automatically for all requests - you don't need to send the `X-MaaS-Subscription` header.
 
 ### API Key Creation Flow
 
@@ -219,7 +223,7 @@ A: You will not be able to create or validate API keys. Inference requests that 
 
 **Q: Can I use one API key to access multiple different models?**
 
-A: Yes. Your API key inherits your group membership at creation time. If your subscription is authorized to use multiple models, a single key works for all of them.
+A: Yes. Your API key is bound to a subscription at creation time. If that subscription provides access to multiple models, a single key works for all of them. To access models from a different subscription, create a new API key bound to that subscription.
 
 ---
 

@@ -60,9 +60,10 @@ class TestModelsEndpoint:
     model filtering behavior.
 
     The /v1/models endpoint (maas-api/internal/handlers/models.go) lists available
-    models filtered by the user's subscription access. Key behaviors:
-    - Auto-selects subscription if user has exactly one accessible subscription
-    - Requires X-MaaS-Subscription header if user has multiple subscriptions
+    models filtered by authentication method and subscription access. Key behaviors:
+    - API keys: Returns models from the subscription bound to the key at mint time
+    - User tokens (no header): Returns models from all accessible subscriptions
+    - User tokens (with X-MaaS-Subscription): Filters to specified subscription
     - Returns HTTP 403 with permission_error for subscription authorization failures
     - Returns HTTP 401 for missing authentication
     - Filters models based on subscription access (probes each model endpoint)
@@ -70,56 +71,56 @@ class TestModelsEndpoint:
     Test Coverage (16 tests) - Organized by Expected HTTP Status:
 
     ═══════════════════════════════════════════════════════════════════════════
-    SUCCESS CASES (HTTP 200) - Core Subscription Selection
+    SUCCESS CASES (HTTP 200) - Authentication Method Behaviors
     ═══════════════════════════════════════════════════════════════════════════
-    1. test_single_subscription_auto_select
-       → User with one subscription, no header → 200 (auto-select)
+    1. test_api_key_scoped_to_subscription
+       → API key returns models from bound subscription only
 
-    2. test_explicit_subscription_header
-       → User with multiple subscriptions, explicit header → 200
+    2. test_user_token_returns_all_models
+       → User token (no header) returns models from all subscriptions
 
-    3. test_empty_subscription_header_value
-       → Empty header value → 200 (same as no header)
+    3. test_user_token_with_subscription_header_filters
+       → User token with X-MaaS-Subscription filters to that subscription
+
+    ═══════════════════════════════════════════════════════════════════════════
+    SUCCESS CASES (HTTP 200) - Legacy Behaviors (backwards compatibility)
+    ═══════════════════════════════════════════════════════════════════════════
+    4. test_single_subscription_auto_select
+       → User with one subscription, no header → 200 (returns that subscription's models)
+
+    5. test_explicit_subscription_header
+       → User with explicit X-MaaS-Subscription header → 200 (filters to that subscription)
+
+    6. test_empty_subscription_header_value
+       → Empty header value → 200 (same as no header - returns all models)
 
     ═══════════════════════════════════════════════════════════════════════════
     SUCCESS CASES (HTTP 200) - Model Filtering & Data Validation
     ═══════════════════════════════════════════════════════════════════════════
-    4. test_models_filtered_by_subscription
+    7. test_models_filtered_by_subscription
        → Models correctly filtered by specified subscription
 
-    5. test_deduplication_same_model_multiple_refs
+    8. test_deduplication_same_model_multiple_refs
        → Same modelRef listed twice deduplicates to 1 entry (same URL)
 
-    6. test_different_modelrefs_same_model_id
+    9. test_different_modelrefs_same_model_id
        → Different modelRefs (different URLs) return 2 separate entries
 
-    7. test_multiple_distinct_models_in_subscription
-       → Different modelRefs with different IDs returns 2 entries (no duplicates)
+    10. test_multiple_distinct_models_in_subscription
+        → Different modelRefs with different IDs returns 2 entries (no duplicates)
 
-    8. test_return_all_models_header
-       → X-MaaS-Return-All-Models: true returns models from all subscriptions
+    11. test_empty_model_list
+        → Empty model list should return [] not null
 
-    9. test_empty_model_list
-       → Empty model list should return [] not null
-
-    10. test_response_schema_matches_openapi
+    12. test_response_schema_matches_openapi
         → Response structure matches OpenAPI specification
 
-    11. test_model_metadata_preserved
+    13. test_model_metadata_preserved
         → Model fields (url, ready, created, owned_by) accurate
-
-    ═══════════════════════════════════════════════════════════════════════════
-    ERROR CASES (HTTP 400) - Invalid Request
-    ═══════════════════════════════════════════════════════════════════════════
-    12. test_conflicting_headers
-        → Both X-MaaS-Subscription and X-MaaS-Return-All-Models → 400
 
     ═══════════════════════════════════════════════════════════════════════════
     ERROR CASES (HTTP 403) - Permission Errors
     ═══════════════════════════════════════════════════════════════════════════
-    13. test_multi_subscription_without_header_403
-        → Multiple subscriptions, no header → 403 permission_error
-
     14. test_invalid_subscription_header_403
         → Non-existent subscription → 403 permission_error
 
@@ -1058,17 +1059,17 @@ class TestModelsEndpoint:
             _delete_sa(sa_name, namespace=sa_ns)
             _wait_reconcile()
 
-    def test_return_all_models_header(self):
+    def test_user_token_returns_all_models(self):
         """
-        Test: X-MaaS-Return-All-Models header returns models from all subscriptions.
+        Test: User token automatically returns models from all subscriptions.
 
         Creates a user with access to TWO subscriptions containing different models.
-        Queries with X-MaaS-Return-All-Models: true and validates:
+        Queries without X-MaaS-Subscription header and validates:
         - Returns models from ALL accessible subscriptions
         - Each model includes subscriptions array showing which subscription(s) provide access
         - Models appearing in multiple subscriptions have aggregated subscription list
         """
-        log.info("Test: X-MaaS-Return-All-Models header aggregates subscriptions")
+        log.info("Test: User token returns models from all subscriptions")
 
         sa_name = "e2e-return-all-sa"
         sa_ns = "default"
@@ -1077,7 +1078,6 @@ class TestModelsEndpoint:
         sub2_name = "e2e-return-all-sub2"
         auth1_name = "e2e-return-all-auth1"
         auth2_name = "e2e-return-all-auth2"
-        api_key = None
 
         try:
             # Create SA
@@ -1094,18 +1094,14 @@ class TestModelsEndpoint:
             _create_test_auth_policy(auth2_name, DISTINCT_MODEL_2_REF, users=[sa_user])
             _create_test_subscription(sub2_name, DISTINCT_MODEL_2_REF, users=[sa_user])
 
-            # Create API key
-            api_key = _create_api_key(sa_token, name=f"{sa_name}-key")
-
             _wait_reconcile()
 
-            # Query with X-MaaS-Return-All-Models: true
-            log.info("Querying /v1/models with X-MaaS-Return-All-Models: true")
+            # Query with user token (no X-MaaS-Subscription header)
+            log.info("Querying /v1/models with user token (no header)")
             r = requests.get(
                 f"{_maas_api_url()}/v1/models",
                 headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "X-MaaS-Return-All-Models": "true",
+                    "Authorization": f"Bearer {sa_token}",
                 },
                 timeout=TIMEOUT,
                 verify=TLS_VERIFY,
@@ -1137,7 +1133,7 @@ class TestModelsEndpoint:
                     assert "name" in sub, "Subscription should have 'name' field"
                     assert isinstance(sub["name"], str), "Subscription name should be string"
 
-            log.info(f"✅ X-MaaS-Return-All-Models returned {len(models)} models from all subscriptions")
+            log.info(f"✅ User token returned {len(models)} models from all subscriptions")
 
         finally:
             _delete_cr("maassubscription", sub1_name, namespace=maas_ns)
@@ -1147,55 +1143,65 @@ class TestModelsEndpoint:
             _delete_sa(sa_name, namespace=sa_ns)
             _wait_reconcile()
 
-    def test_conflicting_headers(self):
+    def test_user_token_with_subscription_header_filters(self):
         """
-        Test: Specifying both X-MaaS-Subscription and X-MaaS-Return-All-Models returns 400.
+        Test: User token with X-MaaS-Subscription header filters to that subscription.
 
-        These headers are mutually exclusive:
-        - X-MaaS-Subscription: filter to specific subscription
-        - X-MaaS-Return-All-Models: return from ALL subscriptions
+        User tokens can optionally provide X-MaaS-Subscription to filter results
+        to a specific subscription (similar to API key behavior).
 
-        Specifying both should return 400 Bad Request.
+        Expected: HTTP 200 with models from only the specified subscription.
         """
-        log.info("Test: Conflicting headers return 400")
+        log.info("Test: User token with X-MaaS-Subscription header filters models")
 
-        sa_name = "e2e-conflicting-headers-sa"
-        sa_ns = "default"
-        api_key = None
+        ns = _ns()
+        auth_policy_name = "e2e-user-token-filter-auth"
+        subscription_name = "e2e-user-token-filter-sub"
+        sa_name = "e2e-user-token-filter-sa"
 
         try:
-            # Create SA with access to simulator-subscription (via system:authenticated)
-            sa_token = _create_sa_token(sa_name, namespace=sa_ns)
-            api_key = _create_api_key(sa_token, name=f"{sa_name}-key")
+            # Create service account and token
+            oc_token = _create_sa_token(sa_name, namespace=ns)
+            sa_user = _sa_to_user(sa_name, namespace=ns)
+
+            # Create test resources
+            _create_test_auth_policy(auth_policy_name, MODEL_REF, users=[sa_user])
+            _create_test_subscription(subscription_name, MODEL_REF, users=[sa_user])
 
             _wait_reconcile()
 
-            # Query with BOTH headers
+            # Query with X-MaaS-Subscription header to filter
+            log.info(f"Querying /v1/models with X-MaaS-Subscription: {subscription_name}")
             r = requests.get(
                 f"{_maas_api_url()}/v1/models",
                 headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "X-MaaS-Subscription": "simulator-subscription",
-                    "X-MaaS-Return-All-Models": "true",
+                    "Authorization": f"Bearer {oc_token}",
+                    "X-MaaS-Subscription": subscription_name,
                 },
                 timeout=TIMEOUT,
                 verify=TLS_VERIFY,
             )
 
-            # Should return 400 Bad Request
-            assert r.status_code == 400, \
-                f"Expected 400 for conflicting headers, got {r.status_code}: {r.text}"
+            assert r.status_code == 200, \
+                f"Expected 200 for user token with subscription header, got {r.status_code}: {r.text}"
 
             data = r.json()
-            assert "error" in data, "Response should contain error"
-            assert "message" in data["error"], "Error should contain message"
-            assert "cannot specify both" in data["error"]["message"].lower(), \
-                f"Error message should mention conflicting headers: {data['error']['message']}"
+            models = data.get("data") or []
 
-            log.info("✅ Conflicting headers correctly returned 400")
+            # Validate models are filtered to the specified subscription
+            for model in models:
+                assert "subscriptions" in model, f"Model {model.get('id')} missing 'subscriptions' field"
+                subscription_names = [s["name"] for s in model["subscriptions"]]
+                assert subscription_name in subscription_names, \
+                    f"Model {model.get('id')} should be in subscription {subscription_name}, got {subscription_names}"
+
+            log.info(f"✅ User token with X-MaaS-Subscription filtered to {len(models)} models")
 
         finally:
-            _delete_sa(sa_name, namespace=sa_ns)
+            _delete_cr("maassubscription", subscription_name, namespace=ns)
+            _delete_cr("maasauthpolicy", auth_policy_name, namespace=ns)
+            _delete_sa(sa_name, namespace=ns)
+            _wait_reconcile()
 
     def test_empty_model_list(self):
         """
@@ -1400,62 +1406,66 @@ class TestModelsEndpoint:
         finally:
             _delete_sa(sa_name, namespace=sa_ns)
 
-    def test_multi_subscription_without_header_403(self):
+    def test_api_key_scoped_to_subscription(self):
         """
-        Test: User with multiple subscriptions must provide x-maas-subscription header.
-        Without it, returns 403 permission_error.
+        Test: API key returns only models from its bound subscription.
 
-        Expected: HTTP 403 with error type: permission_error and message indicating
-        header is required.
+        API keys are scoped to a specific subscription at mint time. The gateway
+        automatically injects X-MaaS-Subscription from the key's subscription.
+
+        Expected: HTTP 200 with models only from the key's subscription, even if
+        the user has access to multiple subscriptions.
         """
         ns = _ns()
-        auth_policy_name = "e2e-models-multi-no-header-auth"
-        subscription_1 = "e2e-models-free-sub"
-        subscription_2 = "e2e-models-premium-sub"
-        sa_name = "e2e-models-multi-no-header-sa"
+        auth_policy_name = "e2e-api-key-scoped-auth"
+        subscription_name = "e2e-api-key-scoped-sub"
+        sa_name = "e2e-api-key-scoped-sa"
+        api_key = None
 
         try:
-            # Create service account and get OC token for maas-api
+            # Create service account and token
             oc_token = _create_sa_token(sa_name, namespace=ns)
             sa_user = _sa_to_user(sa_name, namespace=ns)
 
-            # Create test resources - user has multiple subscriptions (free + premium)
+            # Create test resources
             _create_test_auth_policy(auth_policy_name, MODEL_REF, users=[sa_user])
-            _create_test_subscription(subscription_1, MODEL_REF, users=[sa_user])
-            _create_test_subscription(subscription_2, MODEL_REF, users=[sa_user])
+            _create_test_subscription(subscription_name, MODEL_REF, users=[sa_user])
+
+            # Create API key (will be bound to subscription_name via PR #584)
+            api_key = _create_api_key(oc_token, name=f"{sa_name}-key")
 
             _wait_reconcile()
 
-            # Test: GET /v1/models WITHOUT x-maas-subscription header
-            # Expected: 403 because user has multiple subscriptions
-            log.info("Testing: GET /v1/models with multiple subscriptions (no header)")
-            url = f"{_maas_api_url()}/v1/models"
+            # Query with API key (no manual headers)
+            log.info(f"Querying /v1/models with API key bound to {subscription_name}")
             r = requests.get(
-                url,
-                headers={"Authorization": f"Bearer {oc_token}"},
+                f"{_maas_api_url()}/v1/models",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                },
                 timeout=TIMEOUT,
                 verify=TLS_VERIFY,
             )
 
-            assert r.status_code == 403, f"Expected 403 for multiple subscriptions without header, got {r.status_code}: {r.text}"
+            assert r.status_code == 200, \
+                f"Expected 200 for API key request, got {r.status_code}: {r.text}"
 
-            # Validate error response structure
             data = r.json()
-            assert "error" in data, "Response missing 'error' field"
-            error = data["error"]
-            assert error.get("type") == "permission_error", f"Expected error type 'permission_error', got {error.get('type')}"
-            assert "message" in error, "Error missing 'message' field"
+            models = data.get("data") or []
 
-            # Message should indicate header is required
-            message = error["message"].lower()
-            assert "subscription" in message or "header" in message, \
-                f"Error message doesn't mention subscription/header: {error['message']}"
+            # Validate models are from the key's subscription
+            log.info(f"API key returned {len(models)} models")
+            for model in models:
+                assert "subscriptions" in model, f"Model {model.get('id')} missing 'subscriptions' field"
+                subscription_names = [s["name"] for s in model["subscriptions"]]
+                # Models should be associated with the key's subscription
+                assert subscription_name in subscription_names, \
+                    f"Model {model.get('id')} should be in subscription {subscription_name}"
 
-            log.info(f"✅ Multiple subscriptions without header → {r.status_code} (permission_error)")
+            log.info(f"✅ API key scoped to {subscription_name} returned {len(models)} models")
 
         finally:
-            _delete_cr("maassubscription", subscription_1, namespace=ns)
-            _delete_cr("maassubscription", subscription_2, namespace=ns)
+            _delete_cr("maassubscription", subscription_name, namespace=ns)
             _delete_cr("maasauthpolicy", auth_policy_name, namespace=ns)
             _delete_sa(sa_name, namespace=ns)
             _wait_reconcile()
