@@ -35,12 +35,13 @@ type ApiKey struct {
 
 // ValidationResult holds the result of API key validation (for Authorino HTTP callback).
 type ValidationResult struct {
-	Valid    bool     `json:"valid"`
-	UserID   string   `json:"userId,omitempty"`
-	Username string   `json:"username,omitempty"`
-	KeyID    string   `json:"keyId,omitempty"`
-	Groups   []string `json:"groups,omitempty"` // User groups for subscription-based authorization
-	Reason   string   `json:"reason,omitempty"` // If invalid: "key not found", "revoked", etc.
+	Valid        bool     `json:"valid"`
+	UserID       string   `json:"userId,omitempty"`
+	Username     string   `json:"username,omitempty"`
+	KeyID        string   `json:"keyId,omitempty"`
+	Groups       []string `json:"groups,omitempty"`       // User groups for subscription-based authorization
+	Subscription string   `json:"subscription,omitempty"` // MaaSSubscription name from DB (Authorino → subscription-info)
+	Reason       string   `json:"reason,omitempty"`       // If invalid: "key not found", "revoked", etc.
 }
 
 // PaginationParams holds pagination parameters.

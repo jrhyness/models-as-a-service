@@ -194,8 +194,8 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 					"metrics":  false,
 					"priority": int64(0),
 				},
-				// Call subscription selector endpoint to determine user's subscription
-				// Priority 1 ensures this runs after apiKeyValidation (priority 0)
+				// Resolve subscription via maas-api (token metadata) using the subscription bound to the API key at mint time.
+				// Priority 1 ensures this runs after apiKeyValidation (priority 0).
 				"subscription-info": map[string]interface{}{
 					"http": map[string]interface{}{
 						"url":         subscriptionSelectorURL,
@@ -205,7 +205,7 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 							"expression": `{
   "groups": auth.metadata.apiKeyValidation.groups,
   "username": auth.metadata.apiKeyValidation.username,
-  "requestedSubscription": "x-maas-subscription" in request.headers ? request.headers["x-maas-subscription"] : ""
+  "requestedSubscription": auth.metadata.apiKeyValidation.subscription
 }`,
 						},
 					},
@@ -215,7 +215,7 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 					// Groups are joined with commas to create a stable string representation.
 					"cache": map[string]interface{}{
 						"key": map[string]interface{}{
-							"selector": `auth.metadata.apiKeyValidation.username + "|" + auth.metadata.apiKeyValidation.groups.join(",") + "|" + ("x-maas-subscription" in request.headers ? request.headers["x-maas-subscription"] : "")`,
+							"selector": `auth.metadata.apiKeyValidation.username + "|" + auth.metadata.apiKeyValidation.groups.join(",") + "|" + auth.metadata.apiKeyValidation.subscription`,
 						},
 						"ttl": int64(60),
 					},
@@ -307,6 +307,14 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 					"X-MaaS-Key-Id": map[string]interface{}{
 						"plain": map[string]interface{}{
 							"selector": "auth.metadata.apiKeyValidation.keyId",
+						},
+						"metrics":  false,
+						"priority": int64(0),
+					},
+					// TokenRateLimitPolicy matches on this header; value comes from the key record (via validate response).
+					"X-MaaS-Subscription": map[string]interface{}{
+						"plain": map[string]interface{}{
+							"selector": "auth.metadata.apiKeyValidation.subscription",
 						},
 						"metrics":  false,
 						"priority": int64(0),

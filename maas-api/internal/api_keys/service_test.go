@@ -62,6 +62,7 @@ func TestValidateAPIKey_ValidKey(t *testing.T) {
 	assert.Equal(t, username, result.Username)
 	assert.Equal(t, keyID, result.KeyID)
 	assert.Equal(t, groups, result.Groups)
+	assert.Equal(t, "default-sub", result.Subscription)
 }
 
 func TestValidateAPIKey_InvalidFormat(t *testing.T) {

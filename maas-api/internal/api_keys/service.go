@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -227,13 +228,21 @@ func (s *Service) ValidateAPIKey(ctx context.Context, key string) (*ValidationRe
 		groups = []string{} // Return empty array if no groups stored
 	}
 
+	if strings.TrimSpace(metadata.Subscription) == "" {
+		return &ValidationResult{
+			Valid:  false,
+			Reason: "subscription not bound to key",
+		}, nil
+	}
+
 	// Success - return user identity and groups for Authorino
 	return &ValidationResult{
-		Valid:    true,
-		UserID:   metadata.Username,
-		Username: metadata.Username,
-		KeyID:    metadata.ID,
-		Groups:   groups, // Original user groups for subscription-based authorization
+		Valid:        true,
+		UserID:       metadata.Username,
+		Username:     metadata.Username,
+		KeyID:        metadata.ID,
+		Groups:       groups, // Original user groups for subscription-based authorization
+		Subscription: metadata.Subscription,
 	}, nil
 }
 
