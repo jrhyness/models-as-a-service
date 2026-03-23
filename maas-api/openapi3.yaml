@@ -123,7 +123,7 @@ paths:
                                             - created: 1672531200
                                               id: llama-2-7b-chat
                                               object: model
-                                              owned_by: model-namespace
+                                              owned_by: model-namespace/llama-2-7b-chat
                                               ready: true
                                               url: https://api.example.com/v1/models/llama-2-7b-chat
                                               kind: LLMInferenceService
@@ -132,7 +132,7 @@ paths:
                                             - created: 1672531200
                                               id: mistral-7b-instruct
                                               object: model
-                                              owned_by: model-namespace
+                                              owned_by: model-namespace/mistral-7b-instruct
                                               ready: true
                                               url: https://api.example.com/v1/models/mistral-7b-instruct
                                               kind: LLMInferenceService
@@ -146,7 +146,7 @@ paths:
                                             - created: 1672531200
                                               id: llama-2-7b-chat
                                               object: model
-                                              owned_by: model-namespace
+                                              owned_by: model-namespace/llama-2-7b-chat
                                               ready: true
                                               url: https://api.example.com/v1/models/llama-2-7b-chat
                                               kind: LLMInferenceService
@@ -159,7 +159,7 @@ paths:
                                             - created: 1672531200
                                               id: granite-8b-code-instruct
                                               object: model
-                                              owned_by: model-namespace
+                                              owned_by: model-namespace/granite-8b-code-instruct
                                               ready: true
                                               url: https://api.example.com/v1/models/granite-8b-code-instruct
                                               kind: LLMInferenceService
@@ -717,7 +717,7 @@ components:
                     - created: 1672531200
                       id: llama-2-7b-chat
                       object: model
-                      owned_by: model-namespace
+                      owned_by: model-namespace/llama-2-7b-chat
                       ready: true
                       url: https://api.example.com/v1/models/llama-2-7b-chat
                       kind: LLMInferenceService
@@ -726,7 +726,7 @@ components:
                     - created: 1672531200
                       id: mistral-7b-instruct
                       object: model
-                      owned_by: model-namespace
+                      owned_by: model-namespace/mistral-7b-instruct
                       ready: true
                       url: https://api.example.com/v1/models/mistral-7b-instruct
                       kind: LLMInferenceService
@@ -755,8 +755,8 @@ components:
                     format: int64
                 owned_by:
                     type: string
-                    description: The organization that owns the model
-                    example: model-namespace
+                    description: The namespace and MaaSModelRef name (format: namespace/name)
+                    example: model-namespace/llama-2-7b-chat
                 ready:
                     type: boolean
                     description: Model ready status
@@ -785,7 +785,7 @@ components:
                 created: 1672531200
                 id: llama-2-7b-chat
                 object: model
-                owned_by: model-namespace
+                owned_by: model-namespace/llama-2-7b-chat
                 ready: true
                 url: https://api.example.com/v1/models/llama-2-7b-chat
                 kind: LLMInferenceService
