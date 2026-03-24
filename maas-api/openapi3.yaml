@@ -759,7 +759,7 @@ components:
                     format: int64
                 owned_by:
                     type: string
-                    description: The namespace and MaaSModelRef name (format: namespace/name)
+                    description: "The namespace and MaaSModelRef name (format: namespace/name)"
                     example: model-namespace/llama-2-7b-chat
                 ready:
                     type: boolean
