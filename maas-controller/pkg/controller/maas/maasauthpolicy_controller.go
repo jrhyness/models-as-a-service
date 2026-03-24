@@ -256,7 +256,7 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 				// Only processes tokens that are NOT API keys (don't start with sk-oai-)
 				"kubernetes-tokens": map[string]interface{}{
 					"kubernetesTokenReview": map[string]interface{}{
-						"audiences": []interface{}{}, // Empty means any audience is accepted
+						"audiences": []interface{}{r.clusterAudience()},
 					},
 					"when": []interface{}{
 						map[string]interface{}{
