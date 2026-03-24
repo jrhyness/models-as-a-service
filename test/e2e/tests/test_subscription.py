@@ -935,7 +935,7 @@ class TestAPIKeySubscriptionBinding:
 
     @pytest.mark.usefixtures("high_priority_subscription_name_for_api_key_binding")
     def test_create_api_key_nonexistent_subscription_errors(self):
-        """Unknown subscription name should fail with subscription_not_found."""
+        """Unknown subscription name should fail with generic invalid_subscription."""
         bogus = f"e2e-no-such-subscription-{uuid.uuid4().hex}"
         r = requests.post(
             self._api_keys_url(),
@@ -946,7 +946,7 @@ class TestAPIKeySubscriptionBinding:
         )
         assert r.status_code == 400, f"Expected 400, got {r.status_code}: {r.text}"
         body = r.json()
-        assert body.get("code") == "subscription_not_found", body
+        assert body.get("code") == "invalid_subscription", body
 
 
 class TestSubscriptionEnforcement:
@@ -1539,7 +1539,7 @@ class TestE2ESubscriptionFlow:
     3. API key with subscription but no auth → 403 Forbidden
     4. Single subscription for user + mint without explicit subscription → 200 OK
     5. Two subscriptions: separate keys minted for each → 200 OK for each
-    6. Mint API key for another user's subscription → 403 subscription_access_denied
+    6. Mint API key for another user's subscription → 400 invalid_subscription
     """
 
 
@@ -1843,7 +1843,7 @@ class TestE2ESubscriptionFlow:
             _wait_reconcile()
 
     def test_e2e_mint_api_key_denied_for_inaccessible_subscription(self):
-        """POST /v1/api-keys with another user's subscription returns subscription_access_denied."""
+        """POST /v1/api-keys with another user's subscription returns generic invalid_subscription."""
         ns = _ns()
         auth_policy_name = "e2e-test-auth-access-denied"
         user_subscription = "e2e-test-user-subscription"
@@ -1878,8 +1878,8 @@ class TestE2ESubscriptionFlow:
                 timeout=TIMEOUT,
                 verify=TLS_VERIFY,
             )
-            assert r.status_code == 403, f"Expected 403, got {r.status_code}: {r.text[:500]}"
-            assert r.json().get("code") == "subscription_access_denied", r.text
+            assert r.status_code == 400, f"Expected 400, got {r.status_code}: {r.text[:500]}"
+            assert r.json().get("code") == "invalid_subscription", r.text
             log.info("✅ Mint with inaccessible subscription → %s", r.status_code)
 
         finally:

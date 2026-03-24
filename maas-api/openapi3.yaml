@@ -368,7 +368,11 @@ paths:
                                         type: boolean
                                         description: Whether this is a short-lived programmatic key
                 "400":
-                    description: Bad Request response.
+                    description: |
+                        Bad Request. Includes validation errors and subscription resolution failures
+                        for API key creation. Subscription-related failures use a single error code
+                        (`invalid_subscription`) and message so clients cannot distinguish
+                        not-found, access denied, or no default subscription.
                 "401":
                     description: Unauthorized response.
     /v1/api-keys/search:

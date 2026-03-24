@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,9 +35,6 @@ func NewService(store MetadataStore, cfg *config.Config, sub SubscriptionSelecto
 func NewServiceWithLogger(store MetadataStore, cfg *config.Config, sub SubscriptionSelector, log *logger.Logger) *Service {
 	if log == nil {
 		log = logger.Production()
-	}
-	if sub == nil {
-		panic("SubscriptionSelector cannot be nil")
 	}
 	return &Service{
 		store:       store,
@@ -127,12 +123,14 @@ func (s *Service) CreateAPIKey(
 		subResp, selectErr = s.subSelector.SelectHighestPriority(userGroups, username)
 	}
 	if selectErr != nil {
+		s.logger.Warn("Subscription selection failed when creating API key",
+			"user", username,
+			"requestedSubscription", requestedSubscription,
+			"error", selectErr,
+		)
 		return nil, selectErr
 	}
 	subscriptionName := subResp.Name
-	if subscriptionName == "" {
-		return nil, errors.New("resolved subscription name is empty")
-	}
 
 	// Generate unique ID for this key
 	keyID := uuid.New().String()
@@ -227,13 +225,6 @@ func (s *Service) ValidateAPIKey(ctx context.Context, key string) (*ValidationRe
 	groups := metadata.Groups
 	if groups == nil {
 		groups = []string{} // Return empty array if no groups stored
-	}
-
-	if strings.TrimSpace(metadata.Subscription) == "" {
-		return &ValidationResult{
-			Valid:  false,
-			Reason: "subscription not bound to key",
-		}, nil
 	}
 
 	// Success - return user identity and groups for Authorino

@@ -532,14 +532,6 @@ func (e *MultipleSubscriptionsError) Error() string {
 	return "user has access to multiple subscriptions, must specify subscription using X-MaaS-Subscription header"
 }
 
-// SubscriptionAmbiguousError indicates multiple subscriptions with the same bare name exist.
-// No details are included to prevent namespace enumeration.
-type SubscriptionAmbiguousError struct{}
-
-func (e *SubscriptionAmbiguousError) Error() string {
-	return "subscription name is ambiguous, use qualified name 'namespace/name'"
-}
-
 // ModelNotInSubscriptionError indicates the requested model is not included in the subscription.
 type ModelNotInSubscriptionError struct {
 	Subscription string

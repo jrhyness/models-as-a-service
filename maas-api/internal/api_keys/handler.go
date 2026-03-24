@@ -14,6 +14,13 @@ import (
 	"github.com/opendatahub-io/models-as-a-service/maas-api/internal/token"
 )
 
+// API key creation: single client-visible outcome for subscription resolution failures so we do not
+// distinguish not-found, access denied, or no default subscription (enumeration / permission hints).
+const (
+	apiKeySubscriptionResolutionErrCode = "invalid_subscription"
+	apiKeySubscriptionResolutionErrMsg  = "Unable to resolve a subscription for this API key"
+)
+
 // AdminChecker is an interface for checking if a user is an admin.
 // This allows for different implementations (e.g., Auth CR-based, hardcoded, mock for testing).
 type AdminChecker interface {
@@ -183,18 +190,13 @@ func (h *Handler) CreateAPIKey(c *gin.Context) {
 			return
 		}
 		var notFound *subscription.SubscriptionNotFoundError
-		if errors.As(err, &notFound) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "subscription_not_found"})
-			return
-		}
 		var accessDenied *subscription.AccessDeniedError
-		if errors.As(err, &accessDenied) {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error(), "code": "subscription_access_denied"})
-			return
-		}
 		var noSub *subscription.NoSubscriptionError
-		if errors.As(err, &noSub) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "no_subscription"})
+		if errors.As(err, &notFound) || errors.As(err, &accessDenied) || errors.As(err, &noSub) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": apiKeySubscriptionResolutionErrMsg,
+				"code":  apiKeySubscriptionResolutionErrCode,
+			})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create API key"})

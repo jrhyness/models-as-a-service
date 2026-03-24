@@ -32,7 +32,7 @@ Authorino caches the result of the MaaS API subscription selection call (e.g., 6
 API keys store the user's groups and bound subscription name at creation time. If a user's group membership changes after the key was created:
 
 - The key still carries the **old** groups and subscription until it is revoked and recreated
-- Subscription metadata for gateway inference use the stored and subscription from validation
+- Subscription metadata for gateway inference uses the stored groups and subscription from validation
 - The user must create a new API key to pick up new groups or a different default subscription
 
 **Workaround:**

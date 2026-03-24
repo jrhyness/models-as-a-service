@@ -956,38 +956,30 @@ func TestCreateAPIKey_SubscriptionSelectErrors(t *testing.T) {
 	user := &token.UserContext{Username: "alice", Groups: []string{"system:authenticated"}}
 
 	tests := []struct {
-		name        string
-		sel         errSubSelector
-		body        string
-		wantCode    int
-		wantErrCode string
+		name string
+		sel  errSubSelector
+		body string
 	}{
 		{
 			name: "explicit subscription not found",
 			sel: errSubSelector{
 				selectErr: &subscription.SubscriptionNotFoundError{Subscription: "missing-sub"},
 			},
-			body:        `{"name": "k1", "subscription": "missing-sub"}`,
-			wantCode:    http.StatusBadRequest,
-			wantErrCode: "subscription_not_found",
+			body: `{"name": "k1", "subscription": "missing-sub"}`,
 		},
 		{
 			name: "explicit subscription access denied",
 			sel: errSubSelector{
 				selectErr: &subscription.AccessDeniedError{Subscription: "other-sub"},
 			},
-			body:        `{"name": "k1", "subscription": "other-sub"}`,
-			wantCode:    http.StatusForbidden,
-			wantErrCode: "subscription_access_denied",
+			body: `{"name": "k1", "subscription": "other-sub"}`,
 		},
 		{
 			name: "no accessible subscription when omitting field",
 			sel: errSubSelector{
 				highestPriorityErr: &subscription.NoSubscriptionError{},
 			},
-			body:        `{"name": "k1"}`,
-			wantCode:    http.StatusBadRequest,
-			wantErrCode: "no_subscription",
+			body: `{"name": "k1"}`,
 		},
 	}
 
@@ -1007,11 +999,11 @@ func TestCreateAPIKey_SubscriptionSelectErrors(t *testing.T) {
 
 			h.CreateAPIKey(c)
 
-			assert.Equal(t, tt.wantCode, w.Code)
+			assert.Equal(t, http.StatusBadRequest, w.Code)
 			var resp map[string]string
 			require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-			assert.Equal(t, tt.wantErrCode, resp["code"])
-			assert.NotEmpty(t, resp["error"])
+			assert.Equal(t, apiKeySubscriptionResolutionErrCode, resp["code"])
+			assert.Equal(t, apiKeySubscriptionResolutionErrMsg, resp["error"])
 
 			res, err := store.Search(context.Background(), user.Username, &SearchFilters{}, &SortParams{By: DefaultSortBy, Order: DefaultSortOrder}, &PaginationParams{Limit: 10, Offset: 0})
 			require.NoError(t, err)
@@ -1075,6 +1067,7 @@ func TestGetAPIKeyHandler(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "alice-key-1", response.ID)
 		assert.Equal(t, "alice", response.Username)
+		assert.Equal(t, testSubscriptionName, response.Subscription)
 	})
 
 	t.Run("RegularUserCannotGetOthersKey_IDOR_Protection", func(t *testing.T) {
@@ -1120,6 +1113,7 @@ func TestGetAPIKeyHandler(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "alice-key-1", response.ID)
 		assert.Equal(t, "alice", response.Username)
+		assert.Equal(t, testSubscriptionName, response.Subscription)
 	})
 
 	t.Run("NonExistentKeyReturns404", func(t *testing.T) {
@@ -1301,6 +1295,37 @@ func TestCreateEphemeralAPIKey(t *testing.T) {
 		Username: "playground-user",
 		Groups:   []string{"system:authenticated"},
 	}
+
+	t.Run("EphemeralKeyBindsSubscriptionAtMint", func(t *testing.T) {
+		requestBody := `{"ephemeral": true}`
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/api-keys", nil)
+		c.Request.Header.Set("Content-Type", "application/json")
+		c.Request.Body = io.NopCloser(strings.NewReader(requestBody))
+		c.Set("user", testUser)
+
+		handler.CreateAPIKey(c)
+
+		require.Equal(t, http.StatusCreated, w.Code)
+		var response CreateAPIKeyResponse
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+
+		assert.Equal(t, testSubscriptionName, response.Subscription,
+			"ephemeral mint response should include bound subscription")
+
+		meta, err := store.Get(context.Background(), response.ID)
+		require.NoError(t, err)
+		assert.Equal(t, testSubscriptionName, meta.Subscription,
+			"stored key metadata should include subscription")
+
+		valResult, err := service.ValidateAPIKey(context.Background(), response.Key)
+		require.NoError(t, err)
+		require.True(t, valResult.Valid, "ephemeral key should validate")
+		assert.Equal(t, testSubscriptionName, valResult.Subscription,
+			"validation result should echo subscription for Authorino")
+	})
 
 	t.Run("EphemeralKeyWithoutName", func(t *testing.T) {
 		requestBody := `{"ephemeral": true}`
