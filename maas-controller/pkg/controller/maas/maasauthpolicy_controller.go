@@ -212,9 +212,9 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 						"method":      "POST",
 						"body": map[string]interface{}{
 							"expression": fmt.Sprintf(`{
-  "groups": "apiKeyValidation" in auth.metadata ? auth.metadata.apiKeyValidation.groups : auth.identity.groups,
-  "username": "apiKeyValidation" in auth.metadata ? auth.metadata.apiKeyValidation.username : auth.identity.username,
-  "requestedSubscription": "apiKeyValidation" in auth.metadata ? auth.metadata.apiKeyValidation.subscription : ("x-maas-subscription" in request.headers ? request.headers["x-maas-subscription"] : ""),
+  "groups": auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.groups : auth.identity.user.groups,
+  "username": auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.username : auth.identity.user.username,
+  "requestedSubscription": auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.subscription : ("x-maas-subscription" in request.headers ? request.headers["x-maas-subscription"] : ""),
   "requestedModel": "%s/%s"
 }`, ref.Namespace, ref.Name),
 						},
@@ -225,7 +225,7 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 					// Groups are joined with commas to create a stable string representation.
 					"cache": map[string]interface{}{
 						"key": map[string]interface{}{
-							"selector": fmt.Sprintf(`("apiKeyValidation" in auth.metadata ? auth.metadata.apiKeyValidation.username : auth.identity.username) + "|" + ("apiKeyValidation" in auth.metadata ? auth.metadata.apiKeyValidation.groups : auth.identity.groups).join(",") + "|" + ("apiKeyValidation" in auth.metadata ? auth.metadata.apiKeyValidation.subscription : ("x-maas-subscription" in request.headers ? request.headers["x-maas-subscription"] : "")) + "|%s/%s"`, ref.Namespace, ref.Name),
+							"selector": fmt.Sprintf(`(auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.username : auth.identity.user.username) + "|" + (auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.groups : auth.identity.user.groups).join(",") + "|" + (auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.subscription : ("x-maas-subscription" in request.headers ? request.headers["x-maas-subscription"] : "")) + "|%s/%s"`, ref.Namespace, ref.Name),
 						},
 						"ttl": int64(60),
 					},
@@ -253,7 +253,8 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 				// Kubernetes/OpenShift tokens - validated via TokenReview API
 				// Only enabled for /v1/models endpoint (read-only model listing)
 				// Inferencing endpoints require API keys for billing/tracking
-				// Only processes tokens that are NOT API keys (don't start with sk-oai-)
+				// The api-keys authentication (priority 0) runs first and will consume API key requests,
+				// so we don't need to explicitly exclude them here
 				"kubernetes-tokens": map[string]interface{}{
 					"kubernetesTokenReview": map[string]interface{}{
 						"audiences": []interface{}{r.clusterAudience()},
@@ -268,11 +269,6 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 							"selector": "request.headers.authorization",
 							"operator": "neq",
 							"value":    "",
-						},
-						map[string]interface{}{
-							"selector": "request.headers.authorization",
-							"operator": "matches",
-							"value":    "^Bearer (?!sk-oai-).*",
 						},
 					},
 					"metrics":  false,
@@ -297,7 +293,7 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
   input.auth.metadata.apiKeyValidation.valid == true
 } {
   # Kubernetes token authentication: check identity exists
-  object.get(input.auth.identity, "username", "") != ""
+  object.get(input.auth.identity, "user", {}).username != ""
 }`,
 			},
 		}
@@ -328,15 +324,15 @@ allowed_users := %s
 # Extract username from API key or K8s token
 username := input.auth.metadata.apiKeyValidation.username
     { object.get(input.auth, "metadata", {}).apiKeyValidation.username != "" }
-else := input.auth.identity.username
-    { object.get(input.auth, "identity", {}).username != "" }
+else := input.auth.identity.user.username
+    { object.get(input.auth, "identity", {}).user.username != "" }
 else := ""
 
 # Extract groups from API key or K8s token
 groups := input.auth.metadata.apiKeyValidation.groups
     { object.get(input.auth, "metadata", {}).apiKeyValidation.groups != [] }
-else := input.auth.identity.groups
-    { object.get(input.auth, "identity", {}).groups != [] }
+else := input.auth.identity.user.groups
+    { object.get(input.auth, "identity", {}).user.groups != [] }
 else := []
 
 # Allow if user is in allowed users
@@ -368,7 +364,7 @@ allow {
 					// Username from API key validation or K8s token identity
 					"X-MaaS-Username": map[string]interface{}{
 						"plain": map[string]interface{}{
-							"expression": `"apiKeyValidation" in auth.metadata ? auth.metadata.apiKeyValidation.username : auth.identity.username`,
+							"expression": `auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.username : auth.identity.user.username`,
 						},
 						"metrics":  false,
 						"priority": int64(0),
@@ -376,7 +372,7 @@ allow {
 					// Groups - construct JSON array string from API key validation or K8s identity
 					"X-MaaS-Group": map[string]interface{}{
 						"plain": map[string]interface{}{
-							"expression": `'["' + ("apiKeyValidation" in auth.metadata ? auth.metadata.apiKeyValidation.groups : auth.identity.groups).join('","') + '"]'`,
+							"expression": `'["' + (auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.groups : auth.identity.user.groups).join('","') + '"]'`,
 						},
 						"metrics":  false,
 						"priority": int64(0),
@@ -384,7 +380,7 @@ allow {
 					// Key ID for tracking (only for API keys)
 					"X-MaaS-Key-Id": map[string]interface{}{
 						"plain": map[string]interface{}{
-							"expression": `"apiKeyValidation" in auth.metadata ? auth.metadata.apiKeyValidation.keyId : ""`,
+							"expression": `auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.keyId : ""`,
 						},
 						"metrics":  false,
 						"priority": int64(0),
@@ -393,7 +389,7 @@ allow {
 					// For K8s tokens, this header is not injected (empty string)
 					"X-MaaS-Subscription": map[string]interface{}{
 						"plain": map[string]interface{}{
-							"expression": `"apiKeyValidation" in auth.metadata ? auth.metadata.apiKeyValidation.subscription : ""`,
+							"expression": `auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.subscription : ""`,
 						},
 						"metrics":  false,
 						"priority": int64(0),
