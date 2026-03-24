@@ -18,7 +18,7 @@ import (
 // distinguish not-found, access denied, or no default subscription (enumeration / permission hints).
 const (
 	apiKeySubscriptionResolutionErrCode = "invalid_subscription"
-	apiKeySubscriptionResolutionErrMsg  = "Unable to resolve a subscription for this API key"
+	apiKeySubscriptionResolutionErrMsg  = "Unable to resolve a subscription for this API key" //nolint:gosec // G101: public JSON error text, not a credential
 )
 
 // AdminChecker is an interface for checking if a user is an admin.
