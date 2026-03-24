@@ -51,7 +51,7 @@ func (h *ModelsHandler) selectSubscriptionsForListing(
 	returnAllModels bool,
 ) ([]*subscription.SelectResponse, bool) {
 	if returnAllModels {
-		// Return all models across all accessible subscriptions
+		// User token authentication - return all models across all accessible subscriptions
 		if h.subscriptionSelector != nil {
 			allSubs, err := h.subscriptionSelector.GetAllAccessible(userContext.Groups, userContext.Username)
 			if err != nil {
@@ -63,20 +63,20 @@ func (h *ModelsHandler) selectSubscriptionsForListing(
 					}})
 				return nil, true
 			}
-			h.logger.Debug("Returning models from all accessible subscriptions", "subscriptionCount", len(allSubs))
+			h.logger.Debug("User token - returning models from all accessible subscriptions", "subscriptionCount", len(allSubs))
 			return allSubs, false
 		}
 		// No selector configured - cannot return all models
-		h.logger.Debug("X-MaaS-Return-All-Models requested but subscription selector not configured")
-		c.JSON(http.StatusBadRequest, gin.H{
+		h.logger.Debug("Subscription selector not configured")
+		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": gin.H{
-				"message": "X-MaaS-Return-All-Models not supported",
-				"type":    "invalid_request_error",
+				"message": "Subscription system not configured",
+				"type":    "server_error",
 			}})
 		return nil, true
 	}
 
-	// Single subscription selection (existing behavior)
+	// API key authentication - filter by the subscription bound to the key
 	if h.subscriptionSelector != nil {
 		//nolint:unqueryvet,nolintlint // Select is a method, not a SQL query
 		result, err := h.subscriptionSelector.Select(userContext.Groups, userContext.Username, requestedSubscription, "")
@@ -84,6 +84,7 @@ func (h *ModelsHandler) selectSubscriptionsForListing(
 			h.handleSubscriptionSelectionError(c, err)
 			return nil, true
 		}
+		h.logger.Debug("API key - filtering by subscription", "subscription", result.Name)
 		return []*subscription.SelectResponse{result}, false
 	}
 
@@ -93,7 +94,7 @@ func (h *ModelsHandler) selectSubscriptionsForListing(
 		return nil, false
 	}
 
-	// Use the requested subscription header as-is (for backward compat with legacy deployments)
+	// Use the requested subscription header as-is (for legacy deployments without subscription selector)
 	return []*subscription.SelectResponse{{Name: requestedSubscription}}, false
 }
 
@@ -107,12 +108,14 @@ func (h *ModelsHandler) handleSubscriptionSelectionError(c *gin.Context, err err
 	// For consistency with inferencing (which uses Authorino and returns 403 for all
 	// subscription errors), we return 403 Forbidden for all subscription-related errors.
 	if errors.As(err, &multipleSubsErr) {
-		h.logger.Debug("User has multiple subscriptions, x-maas-subscription header required",
+		// This should not happen with API keys (subscription is bound at mint time)
+		// If it does, it indicates the API key was minted without a subscription
+		h.logger.Debug("API key has no subscription bound - invalid state",
 			"subscriptionCount", len(multipleSubsErr.Subscriptions),
 		)
 		c.JSON(http.StatusForbidden, gin.H{
 			"error": gin.H{
-				"message": err.Error(),
+				"message": "API key has no subscription bound",
 				"type":    "permission_error",
 			}})
 		return
@@ -181,23 +184,15 @@ func (h *ModelsHandler) ListLLMs(c *gin.Context) {
 		return
 	}
 
-	// Extract x-maas-subscription header to pass through to model endpoints for authorization checks.
-	// This is required for users with multiple subscriptions.
+	// Extract x-maas-subscription header.
+	// For API keys: Authorino injects this from auth.metadata.apiKeyValidation.subscription
+	// For user tokens: This header is not present (Authorino doesn't inject it)
 	requestedSubscription := strings.TrimSpace(c.GetHeader("x-maas-subscription"))
 
-	// Extract x-maas-return-all-models header to return models from all accessible subscriptions.
-	returnAllModels := strings.ToLower(strings.TrimSpace(c.GetHeader("x-maas-return-all-models"))) == "true"
-
-	// Validate header combination - cannot specify both
-	if requestedSubscription != "" && returnAllModels {
-		h.logger.Debug("Invalid request: both X-MaaS-Subscription and X-MaaS-Return-All-Models headers provided")
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": gin.H{
-				"message": "Cannot specify both X-MaaS-Subscription and X-MaaS-Return-All-Models headers",
-				"type":    "invalid_request_error",
-			}})
-		return
-	}
+	// Determine behavior based on auth method:
+	// - API key with subscription → filter by that subscription (requestedSubscription != "")
+	// - User token → return all accessible models (requestedSubscription == "")
+	returnAllModels := requestedSubscription == ""
 
 	// Get user context for subscription selection
 	var userContext *token.UserContext
@@ -224,6 +219,15 @@ func (h *ModelsHandler) ListLLMs(c *gin.Context) {
 				}})
 			return
 		}
+	}
+
+	// Log the authentication method and filtering behavior
+	if requestedSubscription != "" {
+		h.logger.Debug("API key request - filtering models by subscription",
+			"subscription", requestedSubscription,
+		)
+	} else {
+		h.logger.Debug("User token request - returning all accessible models")
 	}
 
 	// Determine which subscriptions to use for model filtering
@@ -281,10 +285,13 @@ func (h *ModelsHandler) ListLLMs(c *gin.Context) {
 					h.logger.Debug("After modelRef filtering", "modelsToCheck", len(modelsToCheck))
 				}
 
-				// Use qualified "namespace/name" format for accurate authorization checks
-				qualifiedSubName := sub.Namespace + "/" + sub.Name
-				h.logger.Debug("Filtering models by subscription", "subscription", qualifiedSubName, "modelCount", len(modelsToCheck))
-				filteredModels := h.modelMgr.FilterModelsByAccess(c.Request.Context(), modelsToCheck, authHeader, qualifiedSubName)
+				// Always probe with the subscription header for access validation
+				// For API keys: uses the subscription bound to the key (bare name format)
+				// For user tokens: uses each accessible subscription to check which models are available
+				// Using bare name format to match what's stored in API keys
+				probeSubscriptionHeader := sub.Name
+				h.logger.Debug("Filtering models by subscription", "subscription", sub.Name, "modelCount", len(modelsToCheck), "probeWithSubscriptionHeader", probeSubscriptionHeader != "")
+				filteredModels := h.modelMgr.FilterModelsByAccess(c.Request.Context(), modelsToCheck, authHeader, probeSubscriptionHeader)
 
 				for _, model := range filteredModels {
 					subInfo := models.SubscriptionInfo{
@@ -355,8 +362,8 @@ func filterModelsBySubscription(modelList []models.Model, modelRefs []subscripti
 	// Filter models
 	filtered := make([]models.Model, 0, len(modelList))
 	for _, model := range modelList {
-		// Models from MaaSModelRefLister have OwnedBy set to namespace
-		modelKey := model.OwnedBy + "/" + model.ID
+		// Models from MaaSModelRefLister have OwnedBy set to namespace/name
+		modelKey := model.OwnedBy
 		if allowed[modelKey] {
 			filtered = append(filtered, model)
 		}

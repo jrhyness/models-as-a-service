@@ -229,7 +229,7 @@ A: You will not be able to create or validate API keys. Inference requests that 
 
 **Q: Can I use one API key to access multiple different models?**
 
-A: Yes. Your API key inherits your group membership at creation time. If your subscription is authorized to use multiple models, a single key works for all of them.
+A: Yes. Your API key is bound to a subscription at creation time. If that subscription provides access to multiple models, a single key works for all of them. To access models from a different subscription, create a new API key bound to that subscription.
 
 ---
 
