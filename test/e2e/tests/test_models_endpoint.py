@@ -61,14 +61,14 @@ class TestModelsEndpoint:
 
     The /v1/models endpoint (maas-api/internal/handlers/models.go) lists available
     models filtered by authentication method and subscription access. Key behaviors:
-    - API keys: Returns models from the subscription bound to the key at mint time
-    - User tokens (no header): Returns models from all accessible subscriptions
-    - User tokens (with X-MaaS-Subscription): Filters to specified subscription
+    - API keys: Returns models from the subscription bound to the key at mint time (ignores header)
+    - K8s tokens (no header): Returns models from all accessible subscriptions
+    - K8s tokens (with X-MaaS-Subscription): Filters to specified subscription
     - Returns HTTP 403 with permission_error for subscription authorization failures
     - Returns HTTP 401 for missing authentication
     - Filters models based on subscription access (probes each model endpoint)
 
-    Test Coverage (18 tests) - Organized by Expected HTTP Status:
+    Test Coverage (22 tests) - Organized by Expected HTTP Status:
 
     ═══════════════════════════════════════════════════════════════════════════
     SUCCESS CASES (HTTP 200) - Authentication Method Behaviors
@@ -76,62 +76,74 @@ class TestModelsEndpoint:
     1. test_api_key_scoped_to_subscription
        → API key returns models from bound subscription only
 
-    2. test_user_token_returns_all_models
-       → User token (no header) returns models from all subscriptions
+    2. test_api_key_ignores_subscription_header
+       → API key ignores x-maas-subscription header and uses bound subscription
 
-    3. test_user_token_with_subscription_header_filters
-       → User token with X-MaaS-Subscription filters to that subscription
+    3. test_multiple_api_keys_different_subscriptions
+       → Multiple API keys each bound to different subscriptions work independently
+
+    4. test_user_token_returns_all_models
+       → K8s token (no header) returns models from all subscriptions
+
+    5. test_user_token_with_subscription_header_filters
+       → K8s token with X-MaaS-Subscription filters to that subscription
+
+    6. test_service_account_token_multiple_subs_no_header
+       → K8s token with access to multiple subscriptions returns all (no header)
+
+    7. test_service_account_token_multiple_subs_with_header
+       → K8s token with multiple subscriptions filters by header
 
     ═══════════════════════════════════════════════════════════════════════════
     SUCCESS CASES (HTTP 200) - Legacy Behaviors (backwards compatibility)
     ═══════════════════════════════════════════════════════════════════════════
-    4. test_single_subscription_auto_select
+    8. test_single_subscription_auto_select
        → User with one subscription, no header → 200 (returns that subscription's models)
 
-    5. test_explicit_subscription_header
-       → User with explicit X-MaaS-Subscription header → 200 (filters to that subscription)
+    9. test_explicit_subscription_header
+       → K8s token with explicit X-MaaS-Subscription header → 200 (filters to that subscription)
 
-    6. test_empty_subscription_header_value
-       → Empty header value → 200 (same as no header - returns all models)
+    10. test_empty_subscription_header_value
+        → Empty header value → 200 (same as no header - returns all models)
 
     ═══════════════════════════════════════════════════════════════════════════
     SUCCESS CASES (HTTP 200) - Model Filtering & Data Validation
     ═══════════════════════════════════════════════════════════════════════════
-    7. test_models_filtered_by_subscription
-       → Models correctly filtered by specified subscription
+    11. test_models_filtered_by_subscription
+        → Models correctly filtered by specified subscription
 
-    8. test_deduplication_same_model_multiple_refs
-       → Same modelRef listed twice deduplicates to 1 entry (same URL)
+    12. test_deduplication_same_model_multiple_refs
+        → Same modelRef listed twice deduplicates to 1 entry (same URL)
 
-    9. test_different_modelrefs_same_model_id
-       → Different modelRefs (different URLs) return 2 separate entries
+    13. test_different_modelrefs_same_model_id
+        → Different modelRefs (different URLs) return 2 separate entries
 
-    10. test_multiple_distinct_models_in_subscription
+    14. test_multiple_distinct_models_in_subscription
         → Different modelRefs with different IDs returns 2 entries (no duplicates)
 
-    11. test_empty_model_list
+    15. test_empty_model_list
         → Empty model list should return [] not null
 
-    12. test_response_schema_matches_openapi
+    16. test_response_schema_matches_openapi
         → Response structure matches OpenAPI specification
 
-    13. test_model_metadata_preserved
+    17. test_model_metadata_preserved
         → Model fields (url, ready, created, owned_by) accurate
 
     ═══════════════════════════════════════════════════════════════════════════
     ERROR CASES (HTTP 403) - Permission Errors
     ═══════════════════════════════════════════════════════════════════════════
-    14. test_api_key_with_deleted_subscription_403
+    18. test_api_key_with_deleted_subscription_403
         → API key bound to deleted subscription → 403 permission_error
 
-    15. test_api_key_with_inaccessible_subscription_403
+    19. test_api_key_with_inaccessible_subscription_403
         → API key/user with subscription they don't have access to → 403 permission_error
 
-    16. test_invalid_subscription_header_403
-        → User token with non-existent subscription → 403 permission_error
+    20. test_invalid_subscription_header_403
+        → K8s token with non-existent subscription → 403 permission_error
 
-    17. test_access_denied_to_subscription_403
-        → User token with subscription they lack access to → 403 permission_error
+    21. test_access_denied_to_subscription_403
+        → K8s token with subscription they lack access to → 403 permission_error
 
     ═══════════════════════════════════════════════════════════════════════════
     ERROR CASES (HTTP 401) - Authentication Errors
@@ -321,18 +333,18 @@ class TestModelsEndpoint:
 
     def test_explicit_subscription_header(self):
         """
-        Test: User with multiple subscriptions can list models by providing
+        Test: K8s token with multiple subscriptions can list models by providing
         x-maas-subscription header.
 
         Expected: HTTP 200 with models from only the specified subscription.
 
         Note: Creates SA that has access to both simulator-subscription (via system:authenticated)
         and premium-simulator-subscription (by adding SA to its users list).
+        Uses K8s token directly (not API key) since API keys ignore the header.
         """
         sa_name = "e2e-models-explicit-header-sa"
         sa_ns = "default"
         maas_ns = _ns()
-        api_key = None
         sa_user = None
 
         try:
@@ -350,29 +362,16 @@ class TestModelsEndpoint:
                 "-p", f'[{{"op": "add", "path": "/spec/owner/users/-", "value": "{sa_user}"}}]'
             ], check=True)
 
-            # Create an API key using the SA token (API keys inherit the SA's groups)
-            log.info("Creating API key for test...")
-            api_key_response = requests.post(
-                f"{_maas_api_url()}/v1/api-keys",
-                headers={"Authorization": f"Bearer {sa_token}", "Content-Type": "application/json"},
-                json={"name": "e2e-explicit-header-test-key"},
-                timeout=TIMEOUT,
-                verify=TLS_VERIFY,
-            )
-            assert api_key_response.status_code in (200, 201), f"Failed to create API key: {api_key_response.status_code} {api_key_response.text}"
-            api_key = api_key_response.json().get("key")
-            assert api_key, "API key creation response missing 'key' field"
-
             _wait_reconcile()
 
-            # Test: GET /v1/models WITH x-maas-subscription header
+            # Test: GET /v1/models WITH x-maas-subscription header using K8s token
             # Expected: Returns models from simulator-subscription only
-            log.info("Testing: GET /v1/models with explicit subscription header: simulator-subscription")
+            log.info("Testing: GET /v1/models with K8s token and explicit subscription header: simulator-subscription")
             url = f"{_maas_api_url()}/v1/models"
             r = requests.get(
                 url,
                 headers={
-                    "Authorization": f"Bearer {api_key}",
+                    "Authorization": f"Bearer {sa_token}",  # K8s token, not API key
                     "x-maas-subscription": "simulator-subscription",
                 },
                 timeout=TIMEOUT,
@@ -399,7 +398,7 @@ class TestModelsEndpoint:
                 assert model["subscriptions"][0]["name"] == "simulator-subscription", \
                     f"Expected 'simulator-subscription', got '{model['subscriptions'][0]['name']}'"
 
-            log.info(f"✅ Explicit subscription header → {r.status_code} with {len(models)} model(s)")
+            log.info(f"✅ K8s token with explicit subscription header → {r.status_code} with {len(models)} model(s)")
 
         finally:
             # Remove SA from premium-simulator-subscription
@@ -1733,6 +1732,342 @@ class TestModelsEndpoint:
             _delete_cr("maasauthpolicy", auth_policy_name, namespace=ns)
             _delete_sa(sa_user, namespace=ns)
             _delete_sa(sa_other, namespace=ns)
+            _wait_reconcile()
+
+    def test_api_key_ignores_subscription_header(self):
+        """
+        Test: API key ignores x-maas-subscription header and uses bound subscription.
+
+        Creates an API key bound to one subscription, then sends request with header
+        pointing to a different subscription. The API key should ignore the header
+        and return models from its bound subscription.
+
+        Expected: HTTP 200 with models from the key's bound subscription (header ignored).
+        """
+        sa_name = "e2e-api-key-ignores-header-sa"
+        sa_ns = "default"
+        maas_ns = _ns()
+        sub1_name = "e2e-ignore-header-sub1"
+        sub2_name = "e2e-ignore-header-sub2"
+        auth1_name = "e2e-ignore-header-auth1"
+        auth2_name = "e2e-ignore-header-auth2"
+        api_key = None
+
+        try:
+            # Create SA
+            sa_token = _create_sa_token(sa_name, namespace=sa_ns)
+            sa_user = _sa_to_user(sa_name, namespace=sa_ns)
+
+            # Create two subscriptions with different models
+            log.info(f"Creating subscription 1 with {DISTINCT_MODEL_REF}")
+            _create_test_auth_policy(auth1_name, DISTINCT_MODEL_REF, users=[sa_user])
+            _create_test_subscription(sub1_name, DISTINCT_MODEL_REF, users=[sa_user], priority=10)
+
+            log.info(f"Creating subscription 2 with {DISTINCT_MODEL_2_REF}")
+            _create_test_auth_policy(auth2_name, DISTINCT_MODEL_2_REF, users=[sa_user])
+            _create_test_subscription(sub2_name, DISTINCT_MODEL_2_REF, users=[sa_user], priority=5)
+
+            _wait_reconcile()
+
+            # Create API key - will be bound to highest priority subscription (sub1)
+            log.info(f"Creating API key (will bind to {sub1_name} - highest priority)")
+            api_key = _create_api_key(sa_token, name=f"{sa_name}-key")
+
+            _wait_reconcile()
+
+            # Test: Send request with header pointing to sub2, but key is bound to sub1
+            log.info(f"Querying /v1/models with API key bound to {sub1_name} but header={sub2_name}")
+            r = requests.get(
+                f"{_maas_api_url()}/v1/models",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "x-maas-subscription": sub2_name,  # Try to override with header
+                },
+                timeout=TIMEOUT,
+                verify=TLS_VERIFY,
+            )
+
+            assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
+            data = r.json()
+            models = data.get("data") or []
+
+            # Verify we got models from sub1 (not sub2 - header ignored)
+            assert len(models) > 0, "Expected at least one model"
+
+            for model in models:
+                model_id = model.get("id")
+                subscriptions = [s["name"] for s in model.get("subscriptions", [])]
+
+                # Models should be from sub1 (bound subscription), not sub2 (header)
+                assert sub1_name in subscriptions, \
+                    f"Model {model_id} should be in {sub1_name} (bound), not {sub2_name} (header). Got: {subscriptions}"
+
+                # Should NOT find sub2's model (DISTINCT_MODEL_2_ID)
+                assert model_id != DISTINCT_MODEL_2_ID, \
+                    f"Should not see {DISTINCT_MODEL_2_ID} from {sub2_name} (header ignored)"
+
+            log.info(f"✅ API key ignored x-maas-subscription header → returned {len(models)} model(s) from bound subscription")
+
+        finally:
+            _delete_cr("maassubscription", sub1_name, namespace=maas_ns)
+            _delete_cr("maassubscription", sub2_name, namespace=maas_ns)
+            _delete_cr("maasauthpolicy", auth1_name, namespace=maas_ns)
+            _delete_cr("maasauthpolicy", auth2_name, namespace=maas_ns)
+            _delete_sa(sa_name, namespace=sa_ns)
+            _wait_reconcile()
+
+    def test_multiple_api_keys_different_subscriptions(self):
+        """
+        Test: Multiple API keys each bound to different subscriptions.
+
+        Creates two API keys from the same user, each explicitly bound to a different
+        subscription. Verifies each key returns only its bound subscription's models.
+
+        Expected: Each API key returns models only from its bound subscription.
+        """
+        sa_name = "e2e-multi-keys-sa"
+        sa_ns = "default"
+        maas_ns = _ns()
+        sub1_name = "e2e-multi-keys-sub1"
+        sub2_name = "e2e-multi-keys-sub2"
+        auth1_name = "e2e-multi-keys-auth1"
+        auth2_name = "e2e-multi-keys-auth2"
+        api_key1 = None
+        api_key2 = None
+
+        try:
+            # Create SA
+            sa_token = _create_sa_token(sa_name, namespace=sa_ns)
+            sa_user = _sa_to_user(sa_name, namespace=sa_ns)
+
+            # Create two subscriptions with different models
+            log.info(f"Creating subscription 1 with {DISTINCT_MODEL_REF}")
+            _create_test_auth_policy(auth1_name, DISTINCT_MODEL_REF, users=[sa_user])
+            _create_test_subscription(sub1_name, DISTINCT_MODEL_REF, users=[sa_user])
+
+            log.info(f"Creating subscription 2 with {DISTINCT_MODEL_2_REF}")
+            _create_test_auth_policy(auth2_name, DISTINCT_MODEL_2_REF, users=[sa_user])
+            _create_test_subscription(sub2_name, DISTINCT_MODEL_2_REF, users=[sa_user])
+
+            _wait_reconcile()
+
+            # Create two API keys, each bound to a different subscription
+            log.info(f"Creating API key 1 bound to {sub1_name}")
+            api_key1_response = requests.post(
+                f"{_maas_api_url()}/v1/api-keys",
+                headers={"Authorization": f"Bearer {sa_token}", "Content-Type": "application/json"},
+                json={"name": "key1", "subscription": sub1_name},
+                timeout=TIMEOUT,
+                verify=TLS_VERIFY,
+            )
+            assert api_key1_response.status_code in (200, 201)
+            api_key1 = api_key1_response.json().get("key")
+            bound_sub1 = api_key1_response.json().get("subscription")
+            assert bound_sub1 == sub1_name, f"Key 1 should be bound to {sub1_name}, got {bound_sub1}"
+
+            log.info(f"Creating API key 2 bound to {sub2_name}")
+            api_key2_response = requests.post(
+                f"{_maas_api_url()}/v1/api-keys",
+                headers={"Authorization": f"Bearer {sa_token}", "Content-Type": "application/json"},
+                json={"name": "key2", "subscription": sub2_name},
+                timeout=TIMEOUT,
+                verify=TLS_VERIFY,
+            )
+            assert api_key2_response.status_code in (200, 201)
+            api_key2 = api_key2_response.json().get("key")
+            bound_sub2 = api_key2_response.json().get("subscription")
+            assert bound_sub2 == sub2_name, f"Key 2 should be bound to {sub2_name}, got {bound_sub2}"
+
+            _wait_reconcile()
+
+            # Test key1 - should return models from sub1 only
+            log.info(f"Testing API key 1 (bound to {sub1_name})")
+            r1 = requests.get(
+                f"{_maas_api_url()}/v1/models",
+                headers={"Authorization": f"Bearer {api_key1}"},
+                timeout=TIMEOUT,
+                verify=TLS_VERIFY,
+            )
+            assert r1.status_code == 200, f"Expected 200 for key1, got {r1.status_code}: {r1.text}"
+            models1 = r1.json().get("data") or []
+            model_ids1 = {m["id"] for m in models1}
+
+            assert DISTINCT_MODEL_ID in model_ids1, f"Key1 should see {DISTINCT_MODEL_ID} from {sub1_name}"
+            assert DISTINCT_MODEL_2_ID not in model_ids1, f"Key1 should NOT see {DISTINCT_MODEL_2_ID} from {sub2_name}"
+
+            # Test key2 - should return models from sub2 only
+            log.info(f"Testing API key 2 (bound to {sub2_name})")
+            r2 = requests.get(
+                f"{_maas_api_url()}/v1/models",
+                headers={"Authorization": f"Bearer {api_key2}"},
+                timeout=TIMEOUT,
+                verify=TLS_VERIFY,
+            )
+            assert r2.status_code == 200, f"Expected 200 for key2, got {r2.status_code}: {r2.text}"
+            models2 = r2.json().get("data") or []
+            model_ids2 = {m["id"] for m in models2}
+
+            assert DISTINCT_MODEL_2_ID in model_ids2, f"Key2 should see {DISTINCT_MODEL_2_ID} from {sub2_name}"
+            assert DISTINCT_MODEL_ID not in model_ids2, f"Key2 should NOT see {DISTINCT_MODEL_ID} from {sub1_name}"
+
+            log.info(f"✅ Multiple API keys with different bindings → Key1: {len(models1)} models, Key2: {len(models2)} models")
+
+        finally:
+            _delete_cr("maassubscription", sub1_name, namespace=maas_ns)
+            _delete_cr("maassubscription", sub2_name, namespace=maas_ns)
+            _delete_cr("maasauthpolicy", auth1_name, namespace=maas_ns)
+            _delete_cr("maasauthpolicy", auth2_name, namespace=maas_ns)
+            _delete_sa(sa_name, namespace=sa_ns)
+            _wait_reconcile()
+
+    def test_service_account_token_multiple_subs_no_header(self):
+        """
+        Test: K8s token with access to multiple subscriptions returns all models (no header).
+
+        Creates a service account with access to two subscriptions (via group and user).
+        When querying without x-maas-subscription header, should return models from
+        all accessible subscriptions.
+
+        Expected: HTTP 200 with models from both subscriptions.
+        """
+        sa_name = "e2e-sa-multi-subs-no-header"
+        sa_ns = "default"
+        maas_ns = _ns()
+        sub1_name = "e2e-sa-multi-no-hdr-sub1"
+        sub2_name = "e2e-sa-multi-no-hdr-sub2"
+        auth1_name = "e2e-sa-multi-no-hdr-auth1"
+        auth2_name = "e2e-sa-multi-no-hdr-auth2"
+
+        try:
+            # Create SA
+            sa_token = _create_sa_token(sa_name, namespace=sa_ns)
+            sa_user = _sa_to_user(sa_name, namespace=sa_ns)
+
+            # Create two subscriptions with different models
+            # Sub1: Access via system:authenticated group
+            log.info(f"Creating subscription 1 with {DISTINCT_MODEL_REF} (group: system:authenticated)")
+            _create_test_auth_policy(auth1_name, DISTINCT_MODEL_REF, groups=["system:authenticated"])
+            _create_test_subscription(sub1_name, DISTINCT_MODEL_REF, groups=["system:authenticated"])
+
+            # Sub2: Access via specific user
+            log.info(f"Creating subscription 2 with {DISTINCT_MODEL_2_REF} (user: {sa_user})")
+            _create_test_auth_policy(auth2_name, DISTINCT_MODEL_2_REF, users=[sa_user])
+            _create_test_subscription(sub2_name, DISTINCT_MODEL_2_REF, users=[sa_user])
+
+            _wait_reconcile()
+
+            # Query with K8s token (no header)
+            log.info("Querying /v1/models with K8s token (no header) - should return models from both subscriptions")
+            r = requests.get(
+                f"{_maas_api_url()}/v1/models",
+                headers={"Authorization": f"Bearer {sa_token}"},
+                timeout=TIMEOUT,
+                verify=TLS_VERIFY,
+            )
+
+            assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
+            data = r.json()
+            models = data.get("data") or []
+            model_ids = {m["id"] for m in models}
+
+            # Should see models from BOTH subscriptions
+            assert DISTINCT_MODEL_ID in model_ids, \
+                f"Should see {DISTINCT_MODEL_ID} from {sub1_name} (group access)"
+            assert DISTINCT_MODEL_2_ID in model_ids, \
+                f"Should see {DISTINCT_MODEL_2_ID} from {sub2_name} (user access)"
+
+            log.info(f"✅ K8s token with multiple subscriptions (no header) → {len(models)} models from both subscriptions")
+
+        finally:
+            _delete_cr("maassubscription", sub1_name, namespace=maas_ns)
+            _delete_cr("maassubscription", sub2_name, namespace=maas_ns)
+            _delete_cr("maasauthpolicy", auth1_name, namespace=maas_ns)
+            _delete_cr("maasauthpolicy", auth2_name, namespace=maas_ns)
+            _delete_sa(sa_name, namespace=sa_ns)
+            _wait_reconcile()
+
+    def test_service_account_token_multiple_subs_with_header(self):
+        """
+        Test: K8s token with access to multiple subscriptions filters by header.
+
+        Creates a service account with access to two subscriptions. When querying
+        with x-maas-subscription header, should return models from only the specified
+        subscription.
+
+        Expected: HTTP 200 with models from only the specified subscription.
+        """
+        sa_name = "e2e-sa-multi-subs-with-header"
+        sa_ns = "default"
+        maas_ns = _ns()
+        sub1_name = "e2e-sa-multi-hdr-sub1"
+        sub2_name = "e2e-sa-multi-hdr-sub2"
+        auth1_name = "e2e-sa-multi-hdr-auth1"
+        auth2_name = "e2e-sa-multi-hdr-auth2"
+
+        try:
+            # Create SA
+            sa_token = _create_sa_token(sa_name, namespace=sa_ns)
+            sa_user = _sa_to_user(sa_name, namespace=sa_ns)
+
+            # Create two subscriptions with different models
+            log.info(f"Creating subscription 1 with {DISTINCT_MODEL_REF}")
+            _create_test_auth_policy(auth1_name, DISTINCT_MODEL_REF, users=[sa_user])
+            _create_test_subscription(sub1_name, DISTINCT_MODEL_REF, users=[sa_user])
+
+            log.info(f"Creating subscription 2 with {DISTINCT_MODEL_2_REF}")
+            _create_test_auth_policy(auth2_name, DISTINCT_MODEL_2_REF, users=[sa_user])
+            _create_test_subscription(sub2_name, DISTINCT_MODEL_2_REF, users=[sa_user])
+
+            _wait_reconcile()
+
+            # Query with K8s token and header specifying sub1
+            log.info(f"Querying /v1/models with K8s token and header: {sub1_name}")
+            r1 = requests.get(
+                f"{_maas_api_url()}/v1/models",
+                headers={
+                    "Authorization": f"Bearer {sa_token}",
+                    "x-maas-subscription": sub1_name,
+                },
+                timeout=TIMEOUT,
+                verify=TLS_VERIFY,
+            )
+
+            assert r1.status_code == 200, f"Expected 200, got {r1.status_code}: {r1.text}"
+            models1 = r1.json().get("data") or []
+            model_ids1 = {m["id"] for m in models1}
+
+            # Should see only models from sub1
+            assert DISTINCT_MODEL_ID in model_ids1, f"Should see {DISTINCT_MODEL_ID} from {sub1_name}"
+            assert DISTINCT_MODEL_2_ID not in model_ids1, f"Should NOT see {DISTINCT_MODEL_2_ID} from {sub2_name}"
+
+            # Query with K8s token and header specifying sub2
+            log.info(f"Querying /v1/models with K8s token and header: {sub2_name}")
+            r2 = requests.get(
+                f"{_maas_api_url()}/v1/models",
+                headers={
+                    "Authorization": f"Bearer {sa_token}",
+                    "x-maas-subscription": sub2_name,
+                },
+                timeout=TIMEOUT,
+                verify=TLS_VERIFY,
+            )
+
+            assert r2.status_code == 200, f"Expected 200, got {r2.status_code}: {r2.text}"
+            models2 = r2.json().get("data") or []
+            model_ids2 = {m["id"] for m in models2}
+
+            # Should see only models from sub2
+            assert DISTINCT_MODEL_2_ID in model_ids2, f"Should see {DISTINCT_MODEL_2_ID} from {sub2_name}"
+            assert DISTINCT_MODEL_ID not in model_ids2, f"Should NOT see {DISTINCT_MODEL_ID} from {sub1_name}"
+
+            log.info(f"✅ K8s token with header filtering → Sub1: {len(models1)} models, Sub2: {len(models2)} models")
+
+        finally:
+            _delete_cr("maassubscription", sub1_name, namespace=maas_ns)
+            _delete_cr("maassubscription", sub2_name, namespace=maas_ns)
+            _delete_cr("maasauthpolicy", auth1_name, namespace=maas_ns)
+            _delete_cr("maasauthpolicy", auth2_name, namespace=maas_ns)
+            _delete_sa(sa_name, namespace=sa_ns)
             _wait_reconcile()
 
     def test_unauthenticated_request_401(self):
