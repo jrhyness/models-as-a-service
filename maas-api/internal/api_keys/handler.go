@@ -182,11 +182,6 @@ func (h *Handler) CreateAPIKey(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		var modelNotInSub *subscription.ModelNotInSubscriptionError
-		if errors.As(err, &modelNotInSub) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "model_not_in_subscription"})
-			return
-		}
 		var notFound *subscription.SubscriptionNotFoundError
 		if errors.As(err, &notFound) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "subscription_not_found"})
