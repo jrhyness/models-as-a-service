@@ -663,16 +663,21 @@ func TestMaaSAuthPolicyReconciler_CacheKeyIsolation(t *testing.T) {
 		}
 	})
 
-	// Test 2: subscription-info cache key must include username, groups, and model
+	// Test 2: subscription-info cache key must include userId (for API keys) or username (for K8s tokens), groups, and model
 	t.Run("subscription-info includes username, groups, model", func(t *testing.T) {
 		cacheKey, found, err := unstructured.NestedString(got.Object, "spec", "rules", "metadata", "subscription-info", "cache", "key", "selector")
 		if err != nil || !found {
 			t.Fatalf("subscription-info cache.key.selector missing: found=%v err=%v", found, err)
 		}
 
-		// Must include username (from either API key or K8s token)
+		// Must include userId for API keys (database UUID for collision resistance)
+		if !contains(cacheKey, "userId") {
+			t.Errorf("subscription-info cache key must include userId for API keys, got: %s", cacheKey)
+		}
+
+		// Must include username as fallback for K8s tokens
 		if !contains(cacheKey, "username") {
-			t.Errorf("subscription-info cache key must include username, got: %s", cacheKey)
+			t.Errorf("subscription-info cache key must include username for K8s tokens, got: %s", cacheKey)
 		}
 
 		// Must include groups (from either API key or K8s token)
@@ -735,8 +740,14 @@ func TestMaaSAuthPolicyReconciler_CacheKeyIsolation(t *testing.T) {
 		}
 
 		// Verify it includes all necessary dimensions
-		if !contains(subValidKey, "username") || !contains(subValidKey, "groups") {
-			t.Errorf("subscription-valid cache key must include username and groups, got: %s", subValidKey)
+		if !contains(subValidKey, "userId") {
+			t.Errorf("subscription-valid cache key must include userId for API keys, got: %s", subValidKey)
+		}
+		if !contains(subValidKey, "username") {
+			t.Errorf("subscription-valid cache key must include username for K8s tokens, got: %s", subValidKey)
+		}
+		if !contains(subValidKey, "groups") {
+			t.Errorf("subscription-valid cache key must include groups, got: %s", subValidKey)
 		}
 
 		if !contains(subValidKey, namespace) || !contains(subValidKey, modelName) {
