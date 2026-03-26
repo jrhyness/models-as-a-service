@@ -58,6 +58,14 @@ type MaaSAuthPolicyReconciler struct {
 	// ClusterAudience is the OIDC audience of the cluster (configurable via flags).
 	// Standard clusters use "https://kubernetes.default.svc"; HyperShift/ROSA use a custom OIDC provider URL.
 	ClusterAudience string
+
+	// MetadataCacheTTL is the TTL in seconds for Authorino metadata HTTP caching.
+	// Applies to apiKeyValidation and subscription-info metadata evaluators.
+	MetadataCacheTTL int64
+
+	// AuthzCacheTTL is the TTL in seconds for Authorino OPA authorization caching.
+	// Applies to auth-valid, subscription-valid, and require-group-membership authorization evaluators.
+	AuthzCacheTTL int64
 }
 
 func (r *MaaSAuthPolicyReconciler) clusterAudience() string {
@@ -204,6 +212,15 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 							"expression": `{"key": request.headers.authorization.replace("Bearer ", "")}`,
 						},
 					},
+					// Cache API key validation results keyed by the API key itself.
+					// Key format: "api-key-value"
+					// This prevents repeated validation calls for the same API key within the TTL window.
+					"cache": map[string]interface{}{
+						"key": map[string]interface{}{
+							"selector": `request.headers.authorization.replace("Bearer ", "")`,
+						},
+						"ttl": r.MetadataCacheTTL,
+					},
 					"metrics":  false,
 					"priority": int64(0),
 				},
@@ -233,7 +250,7 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 						"key": map[string]interface{}{
 							"selector": fmt.Sprintf(`(auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.username : auth.identity.user.username) + "|" + (auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.groups : auth.identity.user.groups).join(",") + "|" + (auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.subscription : ("x-maas-subscription" in request.headers ? request.headers["x-maas-subscription"] : "")) + "|%s/%s"`, ref.Namespace, ref.Name),
 						},
-						"ttl": int64(60),
+						"ttl": r.MetadataCacheTTL,
 					},
 					"metrics":  false,
 					"priority": int64(1),
@@ -304,6 +321,16 @@ allow {
   object.get(input.auth.identity, "user", {}).username != ""
 }`,
 			},
+			// Cache authorization result keyed by authentication source and identity.
+			// For API keys: uses the API key value
+			// For K8s tokens: uses the username
+			// Key format: "auth-type|identity"
+			"cache": map[string]interface{}{
+				"key": map[string]interface{}{
+					"selector": fmt.Sprintf(`(has(auth.metadata.apiKeyValidation) ? "api-key|" + request.headers.authorization.replace("Bearer ", "") : "k8s-token|" + auth.identity.user.username) + "|%s/%s"`, ref.Namespace, ref.Name),
+				},
+				"ttl": r.AuthzCacheTTL,
+			},
 		}
 
 		// Fail-close: require successful subscription selection (name must be present)
@@ -312,6 +339,15 @@ allow {
 			"priority": int64(0),
 			"opa": map[string]interface{}{
 				"rego": `allow { object.get(input.auth.metadata["subscription-info"], "name", "") != "" }`,
+			},
+			// Cache authorization result keyed by subscription selection inputs.
+			// Uses same key dimensions as subscription-info metadata to ensure cache coherence.
+			// Key format: "username|groups|requested-subscription|model"
+			"cache": map[string]interface{}{
+				"key": map[string]interface{}{
+					"selector": fmt.Sprintf(`(auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.username : auth.identity.user.username) + "|" + (auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.groups : auth.identity.user.groups).join(",") + "|" + (auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.subscription : ("x-maas-subscription" in request.headers ? request.headers["x-maas-subscription"] : "")) + "|%s/%s"`, ref.Namespace, ref.Name),
+				},
+				"ttl": r.AuthzCacheTTL,
 			},
 		}
 
@@ -353,6 +389,15 @@ allow {
     groups[_] == allowed_groups[_]
 }
 `, string(groupsJSON), string(usersJSON)),
+				},
+				// Cache authorization result keyed by username, groups, and model.
+				// The allowed groups/users are baked into the OPA rego, so the cache is per-model-policy.
+				// Key format: "username|groups|model"
+				"cache": map[string]interface{}{
+					"key": map[string]interface{}{
+						"selector": fmt.Sprintf(`(auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.username : auth.identity.user.username) + "|" + (auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.groups : auth.identity.user.groups).join(",") + "|%s/%s"`, ref.Namespace, ref.Name),
+					},
+					"ttl": r.AuthzCacheTTL,
 				},
 			}
 		}
