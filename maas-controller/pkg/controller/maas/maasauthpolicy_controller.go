@@ -481,7 +481,7 @@ allow {
 								// Contains: name, namespace, labels, organizationId, costCenter, error, message
 								// Consumers should access nested fields (e.g., subscription_info.organizationId)
 								"subscription_info": map[string]interface{}{
-									"expression": `has(auth.metadata["subscription-info"]) ? auth.metadata["subscription-info"] : {}`,
+									"expression": `has(auth.metadata["subscription-info"].name) ? auth.metadata["subscription-info"] : {}`,
 								},
 								// Error information (for debugging - only populated when selection fails)
 								"subscription_error": map[string]interface{}{
