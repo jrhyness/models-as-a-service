@@ -78,12 +78,23 @@ func (r *MaaSAuthPolicyReconciler) clusterAudience() string {
 // authzCacheTTL returns the safe TTL for authorization caches that depend on metadata.
 // Authorization cache entries must not outlive their dependent metadata cache entries,
 // otherwise stale metadata can lead to incorrect authorization decisions.
-// Returns the minimum of AuthzCacheTTL and MetadataCacheTTL.
+// Returns the minimum of AuthzCacheTTL and MetadataCacheTTL, clamped to non-negative values.
 func (r *MaaSAuthPolicyReconciler) authzCacheTTL() int64 {
-	if r.AuthzCacheTTL < r.MetadataCacheTTL {
-		return r.AuthzCacheTTL
+	metadata := r.MetadataCacheTTL
+	authz := r.AuthzCacheTTL
+
+	// Defensive: clamp negative values to 0 (should be caught at startup, but defensive)
+	if metadata < 0 {
+		metadata = 0
 	}
-	return r.MetadataCacheTTL
+	if authz < 0 {
+		authz = 0
+	}
+
+	if authz < metadata {
+		return authz
+	}
+	return metadata
 }
 
 //+kubebuilder:rbac:groups=maas.opendatahub.io,resources=maasauthpolicies,verbs=get;list;watch;create;update;patch;delete
@@ -214,7 +225,15 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 		rule := map[string]interface{}{
 			"metadata": map[string]interface{}{
 				// API Key Validation - validates the API key and returns user identity + groups
+				// Only runs for API key requests (sk-oai-* prefix), not K8s tokens
 				"apiKeyValidation": map[string]interface{}{
+					"when": []interface{}{
+						map[string]interface{}{
+							"selector": "request.headers.authorization",
+							"operator": "matches",
+							"value":    "^Bearer sk-oai-.*",
+						},
+					},
 					"http": map[string]interface{}{
 						"url":         apiKeyValidationURL,
 						"contentType": "application/json",
@@ -255,7 +274,7 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 					},
 					// Cache subscription selection results keyed by username, groups, requested subscription, and model.
 					// Each model has its own cache entry since subscription validation is model-specific.
-					// Key format: "username|groups-hash|requested-subscription|model-namespace/model-name"
+					// Key format: "username|groups|requested-subscription|model-namespace/model-name"
 					// Groups are joined with commas to create a stable string representation.
 					"cache": map[string]interface{}{
 						"key": map[string]interface{}{
@@ -335,7 +354,7 @@ allow {
 			// Cache authorization result keyed by authentication source and identity.
 			// For API keys: uses the API key value
 			// For K8s tokens: uses the username
-			// Key format: "auth-type|identity"
+			// Key format: "auth-type|identity|model"
 			// TTL cannot exceed metadata TTL (auth-valid depends on apiKeyValidation metadata)
 			"cache": map[string]interface{}{
 				"key": map[string]interface{}{
@@ -738,6 +757,15 @@ func (r *MaaSAuthPolicyReconciler) updateStatus(ctx context.Context, policy *maa
 func (r *MaaSAuthPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Validate cache TTL configuration
 	log := ctrl.Log.WithName("maas-authpolicy-controller")
+
+	// Reject negative TTL values
+	if r.MetadataCacheTTL < 0 {
+		return fmt.Errorf("metadata cache TTL must be non-negative, got %d", r.MetadataCacheTTL)
+	}
+	if r.AuthzCacheTTL < 0 {
+		return fmt.Errorf("authorization cache TTL must be non-negative, got %d", r.AuthzCacheTTL)
+	}
+
 	if r.AuthzCacheTTL > r.MetadataCacheTTL {
 		log.Info("WARNING: Authorization cache TTL exceeds metadata cache TTL. "+
 			"Authorization caches will be capped at metadata TTL to prevent stale authorization decisions.",

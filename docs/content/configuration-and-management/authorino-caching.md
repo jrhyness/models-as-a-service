@@ -27,10 +27,12 @@ Caching reduces load on maas-api and CPU spent on Rego re-evaluation by reusing 
 
 The maas-controller deployment supports the following environment variables to configure cache TTLs:
 
-| Variable | Description | Default | Unit |
-|----------|-------------|---------|------|
-| `METADATA_CACHE_TTL` | TTL for metadata HTTP caching (apiKeyValidation, subscription-info) | `60` | seconds |
-| `AUTHZ_CACHE_TTL` | TTL for OPA authorization caching (auth-valid, subscription-valid, require-group-membership) | `60` | seconds |
+| Variable | Description | Default | Unit | Constraints |
+|----------|-------------|---------|------|-------------|
+| `METADATA_CACHE_TTL` | TTL for metadata HTTP caching (apiKeyValidation, subscription-info) | `60` | seconds | Must be ≥ 0 |
+| `AUTHZ_CACHE_TTL` | TTL for OPA authorization caching (auth-valid, subscription-valid, require-group-membership) | `60` | seconds | Must be ≥ 0 |
+
+**Note:** The controller will fail to start if either TTL is set to a negative value.
 
 ### Deployment Configuration
 
@@ -80,16 +82,42 @@ In this scenario:
 
 ## Cache Key Design
 
-Cache keys are carefully designed to prevent data leakage between principals, subscriptions, and models:
+Cache keys are carefully designed to prevent data leakage between principals, subscriptions, and models.
+
+### Collision Resistance
+
+Cache keys use single-character delimiters (`|` and `,`) to separate components:
+
+- **Field delimiter**: `|` separates major components (username, groups, subscription, model)
+- **Group delimiter**: `,` joins multiple group names
+
+**Theoretical Collision Risk:**
+OIDC/LDAP identities can contain arbitrary characters, including delimiter characters. This creates theoretical collision potential where crafted usernames or group names could produce identical cache keys.
+
+**Why not use base64 or hash?**
+Authorino uses CEL (Common Expression Language) for cache key construction, which does not provide:
+- Base64 encoding functions
+- Cryptographic hash functions (sha256, etc.)
+- URL encoding functions
+
+**Practical Impact:**
+Real-world collision probability is low because:
+- Most OIDC providers use standard username formats (email addresses, alphanumeric IDs)
+- Collision requires crafted input with exact delimiter sequences in specific positions
+- Cache entries are isolated per-model, reducing collision scope
+- For Kubernetes tokens: usernames follow validated format `system:serviceaccount:namespace:sa-name` (K8s API enforces alphanumeric + hyphens only)
 
 ### Metadata Caches
 
 **apiKeyValidation:**
+- **Only runs for API key requests** (Authorization header matches `Bearer sk-oai-*`)
 - Key: `<api-key-value>`
 - Ensures each unique API key has its own cache entry
+- Does not run for Kubernetes token requests (prevents cache pollution)
 
 **subscription-info:**
-- Key: `<username>|<groups-csv>|<requested-subscription>|<model-namespace>/<model-name>`
+- Key: `<username>|<groups>|<requested-subscription>|<model-namespace>/<model-name>`
+- Groups joined with `,` delimiter
 - Ensures cache isolation per user, group membership, requested subscription, and model
 
 ### Authorization Caches
@@ -101,9 +129,11 @@ Cache keys are carefully designed to prevent data leakage between principals, su
 
 **subscription-valid:**
 - Key: Same as subscription-info metadata (ensures cache coherence)
+- Format: `<username>|<groups>|<requested-subscription>|<model>`
 
 **require-group-membership:**
-- Key: `<username>|<groups-csv>|<model-namespace>/<model-name>`
+- Key: `<username>|<groups>|<model-namespace>/<model-name>`
+- Groups joined with `,` delimiter
 - Ensures cache isolation per user identity and model
 
 ---
@@ -141,6 +171,29 @@ All cache keys include sufficient dimensions to prevent cross-principal or cross
 - **Never share cache entries between different API keys**
 - **Never share cache entries between different models** (model namespace/name in key)
 - **Never share cache entries between different group memberships** (groups in key)
+
+### Cache Key Collision Risk
+
+**Theoretical Risk:**
+Cache keys use string concatenation with delimiters. OIDC/LDAP groups can contain delimiter characters (`,` or `|`), creating potential for collision.
+
+**Example Collision Scenario:**
+```
+User: "alice", Groups: ["team,admin"] → "alice|team,admin|..."
+User: "alice", Groups: ["team", "admin"] → "alice|team,admin|..."
+```
+Both produce identical cache keys despite different group membership.
+
+**Practical Mitigation:**
+- Most OIDC providers use standard formats that don't include delimiters
+- For Kubernetes tokens: usernames are validated by K8s API (pattern `system:serviceaccount:namespace:sa-name`, alphanumeric + hyphens only)
+- Per-model isolation limits collision scope
+- Collision requires both same username AND crafted groups with delimiters in specific positions
+
+**Known Limitations:**
+- CEL (Common Expression Language) lacks base64/hash functions for cryptographic collision resistance
+- Group ordering affects cache keys: `["admin", "user"]` ≠ `["user", "admin"]` (CEL has no sort function)
+- Future improvements could include length-prefixing or upstream CEL enhancements
 
 ### Stale Data Window
 
