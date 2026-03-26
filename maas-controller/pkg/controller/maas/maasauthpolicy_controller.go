@@ -75,6 +75,17 @@ func (r *MaaSAuthPolicyReconciler) clusterAudience() string {
 	return defaultClusterAudience
 }
 
+// authzCacheTTL returns the safe TTL for authorization caches that depend on metadata.
+// Authorization cache entries must not outlive their dependent metadata cache entries,
+// otherwise stale metadata can lead to incorrect authorization decisions.
+// Returns the minimum of AuthzCacheTTL and MetadataCacheTTL.
+func (r *MaaSAuthPolicyReconciler) authzCacheTTL() int64 {
+	if r.AuthzCacheTTL < r.MetadataCacheTTL {
+		return r.AuthzCacheTTL
+	}
+	return r.MetadataCacheTTL
+}
+
 //+kubebuilder:rbac:groups=maas.opendatahub.io,resources=maasauthpolicies,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=maas.opendatahub.io,resources=maasauthpolicies/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=maas.opendatahub.io,resources=maasauthpolicies/finalizers,verbs=update
@@ -325,11 +336,12 @@ allow {
 			// For API keys: uses the API key value
 			// For K8s tokens: uses the username
 			// Key format: "auth-type|identity"
+			// TTL cannot exceed metadata TTL (auth-valid depends on apiKeyValidation metadata)
 			"cache": map[string]interface{}{
 				"key": map[string]interface{}{
 					"selector": fmt.Sprintf(`(has(auth.metadata.apiKeyValidation) ? "api-key|" + request.headers.authorization.replace("Bearer ", "") : "k8s-token|" + auth.identity.user.username) + "|%s/%s"`, ref.Namespace, ref.Name),
 				},
-				"ttl": r.AuthzCacheTTL,
+				"ttl": r.authzCacheTTL(),
 			},
 		}
 
@@ -343,11 +355,12 @@ allow {
 			// Cache authorization result keyed by subscription selection inputs.
 			// Uses same key dimensions as subscription-info metadata to ensure cache coherence.
 			// Key format: "username|groups|requested-subscription|model"
+			// TTL cannot exceed metadata TTL (subscription-valid depends on subscription-info metadata)
 			"cache": map[string]interface{}{
 				"key": map[string]interface{}{
 					"selector": fmt.Sprintf(`(auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.username : auth.identity.user.username) + "|" + (auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.groups : auth.identity.user.groups).join(",") + "|" + (auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.subscription : ("x-maas-subscription" in request.headers ? request.headers["x-maas-subscription"] : "")) + "|%s/%s"`, ref.Namespace, ref.Name),
 				},
-				"ttl": r.AuthzCacheTTL,
+				"ttl": r.authzCacheTTL(),
 			},
 		}
 
@@ -393,11 +406,12 @@ allow {
 				// Cache authorization result keyed by username, groups, and model.
 				// The allowed groups/users are baked into the OPA rego, so the cache is per-model-policy.
 				// Key format: "username|groups|model"
+				// TTL cannot exceed metadata TTL (require-group-membership depends on apiKeyValidation metadata for groups)
 				"cache": map[string]interface{}{
 					"key": map[string]interface{}{
 						"selector": fmt.Sprintf(`(auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.username : auth.identity.user.username) + "|" + (auth.metadata.apiKeyValidation.valid == true ? auth.metadata.apiKeyValidation.groups : auth.identity.user.groups).join(",") + "|%s/%s"`, ref.Namespace, ref.Name),
 					},
-					"ttl": r.AuthzCacheTTL,
+					"ttl": r.authzCacheTTL(),
 				},
 			}
 		}
@@ -722,6 +736,16 @@ func (r *MaaSAuthPolicyReconciler) updateStatus(ctx context.Context, policy *maa
 }
 
 func (r *MaaSAuthPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Validate cache TTL configuration
+	log := ctrl.Log.WithName("maas-authpolicy-controller")
+	if r.AuthzCacheTTL > r.MetadataCacheTTL {
+		log.Info("WARNING: Authorization cache TTL exceeds metadata cache TTL. "+
+			"Authorization caches will be capped at metadata TTL to prevent stale authorization decisions.",
+			"authzCacheTTL", r.AuthzCacheTTL,
+			"metadataCacheTTL", r.MetadataCacheTTL,
+			"effectiveAuthzTTL", r.authzCacheTTL())
+	}
+
 	// Watch generated AuthPolicies so we re-reconcile when someone manually edits them.
 	generatedAuthPolicy := &unstructured.Unstructured{}
 	generatedAuthPolicy.SetGroupVersionKind(schema.GroupVersionKind{Group: "kuadrant.io", Version: "v1", Kind: "AuthPolicy"})

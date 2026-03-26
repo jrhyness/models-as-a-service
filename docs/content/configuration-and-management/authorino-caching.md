@@ -57,6 +57,25 @@ env:
     value: "30"   # 30 seconds
 ```
 
+### Important: Authorization Cache TTL Capping
+
+**Authorization caches are automatically capped at the metadata cache TTL** to prevent stale authorization decisions.
+
+Authorization evaluators (auth-valid, subscription-valid, require-group-membership) depend on metadata evaluators (apiKeyValidation, subscription-info). If authorization caches outlive metadata caches, stale metadata can lead to incorrect authorization decisions.
+
+**Example:**
+```yaml
+METADATA_CACHE_TTL=60   # 1 minute
+AUTHZ_CACHE_TTL=300     # 5 minutes (will be capped at 60 seconds)
+```
+
+In this scenario:
+- Metadata caches use 60-second TTL ✅
+- Authorization caches use **60-second TTL** (capped, not 300) ✅
+- A warning is logged at startup: "Authorization cache TTL exceeds metadata cache TTL"
+
+**Recommendation:** Set `AUTHZ_CACHE_TTL ≤ METADATA_CACHE_TTL` to avoid confusion.
+
 ---
 
 ## Cache Key Design

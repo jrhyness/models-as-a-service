@@ -429,6 +429,13 @@ func TestMaaSAuthPolicyReconciler_CachingConfiguration(t *testing.T) {
 			wantMetadataTTL: 300,
 			wantAuthzTTL:    60,
 		},
+		{
+			name:            "authz TTL capped at metadata TTL (authz=300, metadata=60)",
+			metadataTTL:     60,
+			authzTTL:        300,
+			wantMetadataTTL: 60,
+			wantAuthzTTL:    60, // Should be capped at metadata TTL
+		},
 	}
 
 	for _, tc := range tests {
