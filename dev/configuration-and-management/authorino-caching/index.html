@@ -8,13 +8,9 @@
       
       
       
-        <link rel="canonical" href="https://opendatahub-io.github.io/models-as-a-service/dev/reference/maas-api-overview/">
+        <link rel="canonical" href="https://opendatahub-io.github.io/models-as-a-service/dev/configuration-and-management/authorino-caching/">
       
       
-        <link rel="prev" href="../../user-guide/self-service-model-access/">
-      
-      
-        <link rel="next" href="../api-reference/">
       
       
         
@@ -25,7 +21,7 @@
     
     
       
-        <title>MaaS API Overview - ODH Models-as-a-Service Documentation</title>
+        <title>Authorino Caching Configuration - ODH Models-as-a-Service Documentation</title>
       
     
     
@@ -76,7 +72,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#maas-api-overview" class="md-skip">
+        <a href="#authorino-caching-configuration" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +109,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              MaaS API Overview
+              Authorino Caching Configuration
             
           </span>
         </div>
@@ -300,7 +296,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../configuration-and-management/quota-and-access-configuration/" class="md-tabs__link">
+        <a href="../quota-and-access-configuration/" class="md-tabs__link">
           
   
   
@@ -339,13 +335,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../reference/maas-api-overview/" class="md-tabs__link">
           
   
   
@@ -697,7 +691,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configuration-and-management/subscription-overview/" class="md-nav__link">
+      <a href="../subscription-overview/" class="md-nav__link">
         
   
   
@@ -725,7 +719,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configuration-and-management/maas-models/" class="md-nav__link">
+      <a href="../maas-models/" class="md-nav__link">
         
   
   
@@ -1249,7 +1243,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configuration-and-management/quota-and-access-configuration/" class="md-nav__link">
+      <a href="../quota-and-access-configuration/" class="md-nav__link">
         
   
   
@@ -1277,7 +1271,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configuration-and-management/token-management/" class="md-nav__link">
+      <a href="../token-management/" class="md-nav__link">
         
   
   
@@ -1305,7 +1299,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configuration-and-management/tls-configuration/" class="md-nav__link">
+      <a href="../tls-configuration/" class="md-nav__link">
         
   
   
@@ -1333,7 +1327,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configuration-and-management/subscription-known-issues/" class="md-nav__link">
+      <a href="../subscription-known-issues/" class="md-nav__link">
         
   
   
@@ -1423,7 +1417,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configuration-and-management/model-setup/" class="md-nav__link">
+      <a href="../model-setup/" class="md-nav__link">
         
   
   
@@ -1451,7 +1445,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configuration-and-management/model-listing-flow/" class="md-nav__link">
+      <a href="../model-listing-flow/" class="md-nav__link">
         
   
   
@@ -1479,7 +1473,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configuration-and-management/maas-model-kinds/" class="md-nav__link">
+      <a href="../maas-model-kinds/" class="md-nav__link">
         
   
   
@@ -1569,7 +1563,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configuration-and-management/maas-controller-overview/" class="md-nav__link">
+      <a href="../maas-controller-overview/" class="md-nav__link">
         
   
   
@@ -1597,7 +1591,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configuration-and-management/crd-annotations/" class="md-nav__link">
+      <a href="../crd-annotations/" class="md-nav__link">
         
   
   
@@ -1872,31 +1866,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
             
   
   
@@ -1914,7 +1905,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1929,37 +1920,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    MaaS API Overview
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../reference/maas-api-overview/" class="md-nav__link">
         
   
   
@@ -1975,142 +1939,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#authentication" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Authentication
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#endpoints-by-category" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Endpoints by Category
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Endpoints by Category">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#health" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Health
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#models" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Models
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tiers-legacy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Tiers (Legacy)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#api-keys" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        API Keys
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#subscriptions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Subscriptions
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#internal-endpoints-cluster-only" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Internal Endpoints (Cluster-Only)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#base-url" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Base URL
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#next-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Next Steps
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2123,7 +1951,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api-reference/" class="md-nav__link">
+      <a href="../../reference/api-reference/" class="md-nav__link">
         
   
   
@@ -2157,13 +1985,10 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
@@ -2172,7 +1997,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6_3" >
         
           
-          <label class="md-nav__link" for="__nav_6_3" id="__nav_6_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_6_3" id="__nav_6_3_label" tabindex="0">
             
   
   
@@ -2208,7 +2033,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../crds/maas-model-ref/" class="md-nav__link">
+      <a href="../../reference/crds/maas-model-ref/" class="md-nav__link">
         
   
   
@@ -2236,7 +2061,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../crds/external-model/" class="md-nav__link">
+      <a href="../../reference/crds/external-model/" class="md-nav__link">
         
   
   
@@ -2264,7 +2089,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../crds/maas-auth-policy/" class="md-nav__link">
+      <a href="../../reference/crds/maas-auth-policy/" class="md-nav__link">
         
   
   
@@ -2292,7 +2117,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../crds/maas-subscription/" class="md-nav__link">
+      <a href="../../reference/crds/maas-subscription/" class="md-nav__link">
         
   
   
@@ -2355,10 +2180,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#authentication" class="md-nav__link">
+  <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Authentication
+        Overview
       
     </span>
   </a>
@@ -2366,22 +2191,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#endpoints-by-category" class="md-nav__link">
+  <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Endpoints by Category
+        Configuration
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Endpoints by Category">
+    <nav class="md-nav" aria-label="Configuration">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#health" class="md-nav__link">
+  <a href="#environment-variables" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Health
+        Environment Variables
       
     </span>
   </a>
@@ -2389,10 +2214,22 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#models" class="md-nav__link">
+  <a href="#deployment-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Models
+        Deployment Configuration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Deployment Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#via-paramsenv-odh-overlay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Via params.env (ODH Overlay)
       
     </span>
   </a>
@@ -2400,43 +2237,26 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#tiers-legacy" class="md-nav__link">
+  <a href="#via-manageryaml-base-deployment" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Tiers (Legacy)
+        Via manager.yaml (Base Deployment)
       
     </span>
   </a>
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#api-keys" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        API Keys
-      
-    </span>
-  </a>
+      </ul>
+    </nav>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#subscriptions" class="md-nav__link">
+  <a href="#important-authorization-cache-ttl-capping" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Subscriptions
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#internal-endpoints-cluster-only" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Internal Endpoints (Cluster-Only)
+        Important: Authorization Cache TTL Capping
       
     </span>
   </a>
@@ -2449,21 +2269,160 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#base-url" class="md-nav__link">
+  <a href="#cache-key-design" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Base URL
+        Cache Key Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cache Key Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#collision-resistance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Collision Resistance
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#next-steps" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#metadata-caches" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Next Steps
+        Metadata Caches
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authorization-caches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authorization Caches
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operational-tuning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operational Tuning
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Operational Tuning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-increase-metadata-cache-ttl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Increase Metadata Cache TTL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-decrease-authorization-cache-ttl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to Decrease Authorization Cache TTL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Notes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security Notes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cache-key-correctness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cache Key Correctness
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cache-key-collision-risk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cache Key Collision Risk
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stale-data-window" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stale Data Window
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
       
     </span>
   </a>
@@ -2490,176 +2449,202 @@
   
 
 
-<h1 id="maas-api-overview">MaaS API Overview</h1>
-<p>This page provides a high-level overview of the MaaS API endpoints. For full request/response schemas and interactive documentation, see <a href="../api-reference/">MaaS API (Swagger)</a>.</p>
-<h2 id="authentication">Authentication</h2>
-<p>All endpoints except <code>/health</code> require authentication via the <code>Authorization: Bearer &lt;token&gt;</code> header. Use either:</p>
+<h1 id="authorino-caching-configuration">Authorino Caching Configuration</h1>
+<p>This document describes the Authorino/Kuadrant caching configuration in MaaS, including how to tune cache TTLs for metadata and authorization evaluators.</p>
+<hr />
+<h2 id="overview">Overview</h2>
+<p>MaaS-generated AuthPolicy resources enable Authorino-style caching on:</p>
 <ul>
-<li><strong>OpenShift token</strong> — from <code>oc whoami -t</code> for interactive use</li>
-<li><strong>API key</strong> — created via <code>POST /v1/api-keys</code> for programmatic access</li>
+<li><strong>Metadata evaluators</strong> (HTTP calls to maas-api):</li>
+<li><code>apiKeyValidation</code> - validates API keys and returns user identity + groups</li>
+<li>
+<p><code>subscription-info</code> - selects the appropriate subscription for the request</p>
+</li>
+<li>
+<p><strong>Authorization evaluators</strong> (OPA policy evaluation):</p>
+</li>
+<li><code>auth-valid</code> - validates authentication (API key OR K8s token)</li>
+<li><code>subscription-valid</code> - ensures a valid subscription was selected</li>
+<li><code>require-group-membership</code> - checks user/group membership against allowed lists</li>
 </ul>
+<p>Caching reduces load on maas-api and CPU spent on Rego re-evaluation by reusing results when the cache key repeats within the TTL window.</p>
 <hr />
-<h2 id="endpoints-by-category">Endpoints by Category</h2>
-<h3 id="health">Health</h3>
+<h2 id="configuration">Configuration</h2>
+<h3 id="environment-variables">Environment Variables</h3>
+<p>The maas-controller deployment supports the following environment variables to configure cache TTLs:</p>
 <table>
 <thead>
 <tr>
-<th>Method</th>
-<th>Path</th>
+<th>Variable</th>
 <th>Description</th>
+<th>Default</th>
+<th>Unit</th>
+<th>Constraints</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>GET</td>
-<td><code>/health</code></td>
-<td>Health check. No authentication required. Used by load balancers and monitoring.</td>
+<td><code>METADATA_CACHE_TTL</code></td>
+<td>TTL for metadata HTTP caching (apiKeyValidation, subscription-info)</td>
+<td><code>60</code></td>
+<td>seconds</td>
+<td>Must be ≥ 0</td>
+</tr>
+<tr>
+<td><code>AUTHZ_CACHE_TTL</code></td>
+<td>TTL for OPA authorization caching (auth-valid, subscription-valid, require-group-membership)</td>
+<td><code>60</code></td>
+<td>seconds</td>
+<td>Must be ≥ 0</td>
 </tr>
 </tbody>
 </table>
-<h3 id="models">Models</h3>
-<table>
-<thead>
-<tr>
-<th>Method</th>
-<th>Path</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>GET</td>
-<td><code>/v1/models</code></td>
-<td>List available LLMs in OpenAI-compatible format. Returns models the authenticated user can access.</td>
-</tr>
-</tbody>
-</table>
-<h3 id="tiers-legacy">Tiers (Legacy)</h3>
-<table>
-<thead>
-<tr>
-<th>Method</th>
-<th>Path</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>POST</td>
-<td><code>/v1/tiers/lookup</code></td>
-<td>Look up the highest subscription tier for a set of groups. Used by tier-based access control.</td>
-</tr>
-</tbody>
-</table>
-<div class="admonition note">
-<p class="admonition-title">Subscription model</p>
-<p>The subscription-based architecture (MaaSAuthPolicy, MaaSSubscription) is the current approach. The tiers endpoint is retained for backward compatibility with tier-based deployments.</p>
-</div>
-<h3 id="api-keys">API Keys</h3>
-<table>
-<thead>
-<tr>
-<th>Method</th>
-<th>Path</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>POST</td>
-<td><code>/v1/api-keys</code></td>
-<td>Create a new API key. Returns plaintext key <strong>once</strong>; only the hash is stored. Optional body field <code>subscription</code> selects the MaaSSubscription; if omitted, the highest-priority accessible subscription is used.</td>
-</tr>
-<tr>
-<td>POST</td>
-<td><code>/v1/api-keys/search</code></td>
-<td>Search and filter API keys with pagination, sorting, and status filters.</td>
-</tr>
-<tr>
-<td>GET</td>
-<td><code>/v1/api-keys/{id}</code></td>
-<td>Get metadata for a specific API key.</td>
-</tr>
-<tr>
-<td>DELETE</td>
-<td><code>/v1/api-keys/{id}</code></td>
-<td>Revoke a specific API key.</td>
-</tr>
-<tr>
-<td>POST</td>
-<td><code>/v1/api-keys/bulk-revoke</code></td>
-<td>Revoke all active API keys for a user. Admins can revoke any user's keys.</td>
-</tr>
-</tbody>
-</table>
-<h3 id="subscriptions">Subscriptions</h3>
-<table>
-<thead>
-<tr>
-<th>Method</th>
-<th>Path</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>GET</td>
-<td><code>/v1/subscriptions</code></td>
-<td>List subscriptions accessible to the authenticated user.</td>
-</tr>
-<tr>
-<td>GET</td>
-<td><code>/v1/model/{model-id}/subscriptions</code></td>
-<td>List subscriptions that provide access to a specific model.</td>
-</tr>
-</tbody>
-</table>
-<h3 id="internal-endpoints-cluster-only">Internal Endpoints (Cluster-Only)</h3>
-<p>These endpoints are registered under <code>/internal/v1/</code> and are <strong>not exposed</strong> on the external Service or Route. They are called by internal components (Authorino, CronJob) and protected by NetworkPolicy.</p>
-<table>
-<thead>
-<tr>
-<th>Method</th>
-<th>Path</th>
-<th>Called By</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>POST</td>
-<td><code>/internal/v1/api-keys/validate</code></td>
-<td>Authorino</td>
-<td>Validate an API key (hash lookup, status/expiry check). Returns user identity and subscription for the gateway.</td>
-</tr>
-<tr>
-<td>POST</td>
-<td><code>/internal/v1/api-keys/cleanup</code></td>
-<td>CronJob <code>maas-api-key-cleanup</code></td>
-<td>Delete expired ephemeral keys (30-minute grace period). Returns <code>{"deletedCount": N, "message": "..."}</code>.</td>
-</tr>
-<tr>
-<td>POST</td>
-<td><code>/internal/v1/subscriptions/select</code></td>
-<td>Authorino</td>
-<td>Select the appropriate subscription for a request based on user groups and optional explicit selection.</td>
-</tr>
-</tbody>
-</table>
+<p><strong>Note:</strong> The controller will fail to start if either TTL is set to a negative value.</p>
+<h3 id="deployment-configuration">Deployment Configuration</h3>
+<h4 id="via-paramsenv-odh-overlay">Via params.env (ODH Overlay)</h4>
+<p>Edit <code>deployment/overlays/odh/params.env</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>metadata-cache-ttl=300  # 5 minutes
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>authz-cache-ttl=30      # 30 seconds
+</code></pre></div>
+<p>These values are injected into the maas-controller deployment via ConfigMap.</p>
+<h4 id="via-manageryaml-base-deployment">Via manager.yaml (Base Deployment)</h4>
+<p>Edit <code>deployment/base/maas-controller/manager/manager.yaml</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">env</span><span class="p">:</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">METADATA_CACHE_TTL</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;300&quot;</span><span class="w">  </span><span class="c1"># 5 minutes</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">AUTHZ_CACHE_TTL</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;30&quot;</span><span class="w">   </span><span class="c1"># 30 seconds</span>
+</code></pre></div>
+<h3 id="important-authorization-cache-ttl-capping">Important: Authorization Cache TTL Capping</h3>
+<p><strong>Authorization caches are automatically capped at the metadata cache TTL</strong> to prevent stale authorization decisions.</p>
+<p>Authorization evaluators (auth-valid, subscription-valid, require-group-membership) depend on metadata evaluators (apiKeyValidation, subscription-info). If authorization caches outlive metadata caches, stale metadata can lead to incorrect authorization decisions.</p>
+<p><strong>Example:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="l l-Scalar l-Scalar-Plain">METADATA_CACHE_TTL=60</span><span class="w">   </span><span class="c1"># 1 minute</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="l l-Scalar l-Scalar-Plain">AUTHZ_CACHE_TTL=300</span><span class="w">     </span><span class="c1"># 5 minutes (will be capped at 60 seconds)</span>
+</code></pre></div></p>
+<p>In this scenario:
+- Metadata caches use 60-second TTL ✅
+- Authorization caches use <strong>60-second TTL</strong> (capped, not 300) ✅
+- A warning is logged at startup: "Authorization cache TTL exceeds metadata cache TTL"</p>
+<p><strong>Recommendation:</strong> Set <code>AUTHZ_CACHE_TTL ≤ METADATA_CACHE_TTL</code> to avoid confusion.</p>
 <hr />
-<h2 id="base-url">Base URL</h2>
-<p>The MaaS API is typically exposed under a path prefix, for example:</p>
+<h2 id="cache-key-design">Cache Key Design</h2>
+<p>Cache keys are carefully designed to prevent data leakage between principals, subscriptions, and models.</p>
+<h3 id="collision-resistance">Collision Resistance</h3>
+<p>Cache keys use single-character delimiters (<code>|</code> and <code>,</code>) to separate components:</p>
 <ul>
-<li><code>https://maas.example.com/maas-api</code></li>
-<li><code>https://&lt;cluster-domain&gt;/maas-api</code></li>
+<li><strong>Field delimiter</strong>: <code>|</code> separates major components (user ID, groups, subscription, model)</li>
+<li><strong>Group delimiter</strong>: <code>,</code> joins multiple group names</li>
 </ul>
-<p>Use the base URL appropriate for your deployment when calling these endpoints.</p>
+<p><strong>For API Keys - Collision Resistant:</strong>
+Cache keys use database-assigned UUIDs instead of usernames:
+- User ID: Database primary key (UUID format in <code>api_keys.id</code> column)
+- Immutable and unique per API key
+- Not user-controllable (assigned by database on creation)
+- Example key: <code>550e8400-e29b-41d4-a716-446655440000|team,admin|sub1|ns/model</code>
+- No collision risk even if groups contain delimiters (UUID prefix ensures uniqueness)</p>
+<p><strong>For Kubernetes Tokens - Already Safe:</strong>
+Kubernetes usernames follow validated format enforced by the K8s API:
+- Pattern: <code>system:serviceaccount:namespace:sa-name</code>
+- Kubernetes validates namespace/SA names (DNS-1123: alphanumeric + hyphens only)
+- No special characters like <code>|</code> or <code>,</code> allowed in usernames
+- Creating service accounts requires cluster permissions (not user self-service)</p>
+<p><strong>Implementation:</strong>
+The <code>apiKeyValidation</code> metadata evaluator returns a <code>userId</code> field:
+- API keys: Set to <code>api_keys.id</code> (database UUID)
+- Cache keys reference <code>auth.metadata.apiKeyValidation.userId</code> in CEL expressions
+- This eliminates username-based collision attacks</p>
+<h3 id="metadata-caches">Metadata Caches</h3>
+<p><strong>apiKeyValidation:</strong>
+- <strong>Only runs for API key requests</strong> (Authorization header matches <code>Bearer sk-oai-*</code>)
+- Key: <code>&lt;api-key-value&gt;</code>
+- Ensures each unique API key has its own cache entry
+- Does not run for Kubernetes token requests (prevents cache pollution)
+- Returns <code>userId</code> field set to database UUID (<code>api_keys.id</code>)</p>
+<p><strong>subscription-info:</strong>
+- Key: <code>&lt;userId&gt;|&lt;groups&gt;|&lt;requested-subscription&gt;|&lt;model-namespace&gt;/&lt;model-name&gt;</code>
+- For API keys: <code>userId</code> is database UUID from <code>apiKeyValidation</code> response
+- For K8s tokens: <code>userId</code> is validated K8s username (<code>system:serviceaccount:...</code>)
+- Groups joined with <code>,</code> delimiter
+- Ensures cache isolation per user, group membership, requested subscription, and model</p>
+<h3 id="authorization-caches">Authorization Caches</h3>
+<p><strong>auth-valid:</strong>
+- Key: <code>&lt;auth-type&gt;|&lt;identity&gt;|&lt;model-namespace&gt;/&lt;model-name&gt;</code>
+- For API keys: <code>api-key|&lt;key-value&gt;|model</code>
+- For K8s tokens: <code>k8s-token|&lt;username&gt;|model</code></p>
+<p><strong>subscription-valid:</strong>
+- Key: Same as subscription-info metadata (ensures cache coherence)
+- Format: <code>&lt;userId&gt;|&lt;groups&gt;|&lt;requested-subscription&gt;|&lt;model&gt;</code>
+- For API keys: <code>userId</code> is database UUID. For K8s tokens: validated username.</p>
+<p><strong>require-group-membership:</strong>
+- Key: <code>&lt;userId&gt;|&lt;groups&gt;|&lt;model-namespace&gt;/&lt;model-name&gt;</code>
+- For API keys: <code>userId</code> is database UUID. For K8s tokens: validated username.
+- Groups joined with <code>,</code> delimiter
+- Ensures cache isolation per user identity and model</p>
 <hr />
-<h2 id="next-steps">Next Steps</h2>
+<h2 id="operational-tuning">Operational Tuning</h2>
+<h3 id="when-to-increase-metadata-cache-ttl">When to Increase Metadata Cache TTL</h3>
 <ul>
-<li><strong><a href="../api-reference/">MaaS API (Swagger)</a></strong> — Interactive API documentation with full schemas and "Try it out"</li>
-<li><strong><a href="../../configuration-and-management/token-management/">Token Management</a></strong> — How to create and use API keys</li>
-<li><strong><a href="../../user-guide/self-service-model-access/">Self-Service Model Access</a></strong> — End-user guide for getting an API key and calling models</li>
+<li><strong>High API key validation load</strong>: If maas-api is experiencing high load from repeated <code>/internal/v1/api-keys/validate</code> calls</li>
+<li><strong>Stable API keys</strong>: API key metadata (username, groups) doesn't change frequently</li>
+<li><strong>Example</strong>: Set <code>METADATA_CACHE_TTL=300</code> (5 minutes) to reduce maas-api load by 5x</li>
+</ul>
+<h3 id="when-to-decrease-authorization-cache-ttl">When to Decrease Authorization Cache TTL</h3>
+<ul>
+<li><strong>Group membership changes</strong>: If users are frequently added/removed from groups</li>
+<li><strong>Security compliance</strong>: Shorter TTL ensures access changes propagate faster</li>
+<li><strong>Example</strong>: Set <code>AUTHZ_CACHE_TTL=30</code> (30 seconds) for faster group membership updates</li>
+</ul>
+<h3 id="monitoring">Monitoring</h3>
+<p>After changing TTL values, monitor:
+- <strong>maas-api load</strong>: Reduced <code>/internal/v1/api-keys/validate</code> and <code>/internal/v1/subscriptions/select</code> call rates
+- <strong>Authorino CPU</strong>: Reduced OPA evaluation CPU usage
+- <strong>Request latency</strong>: Cache hits should have lower P99 latency</p>
+<hr />
+<h2 id="security-notes">Security Notes</h2>
+<h3 id="cache-key-correctness">Cache Key Correctness</h3>
+<p>All cache keys include sufficient dimensions to prevent cross-principal or cross-subscription cache sharing:</p>
+<ul>
+<li><strong>Never share cache entries between different users</strong></li>
+<li><strong>Never share cache entries between different API keys</strong></li>
+<li><strong>Never share cache entries between different models</strong> (model namespace/name in key)</li>
+<li><strong>Never share cache entries between different group memberships</strong> (groups in key)</li>
+</ul>
+<h3 id="cache-key-collision-risk">Cache Key Collision Risk</h3>
+<p><strong>API Keys - No Collision Risk:</strong>
+Cache keys use database-assigned UUIDs instead of usernames:
+- User IDs are unique 128-bit UUIDs (format: <code>550e8400-e29b-41d4-a716-446655440000</code>)
+- Immutable and assigned by PostgreSQL at API key creation
+- Not user-controllable (no self-service user ID selection)
+- Even if groups contain delimiters (<code>,</code> or <code>|</code>), the UUID prefix prevents collision
+- Example: Two users with groups <code>["team,admin"]</code> and <code>["team", "admin"]</code> have different UUIDs, so no collision</p>
+<p><strong>Kubernetes Tokens - No Collision Risk:</strong>
+Kubernetes usernames are validated by the K8s API server:
+- Format: <code>system:serviceaccount:namespace:sa-name</code>
+- Kubernetes enforces DNS-1123 naming: <code>[a-z0-9]([-a-z0-9]*[a-z0-9])?</code>
+- No special characters like <code>|</code> or <code>,</code> allowed
+- Creating service accounts requires cluster RBAC permissions (not user self-service)</p>
+<p><strong>Remaining Edge Case - Group Ordering:</strong>
+Group array ordering affects cache keys:
+- <code>["admin", "user"]</code> produces different key than <code>["user", "admin"]</code>
+- CEL has no array sort() function
+- Impact: Suboptimal cache hit rate if group order varies between OIDC token refreshes
+- Mitigation: OIDC providers and K8s TokenReview typically return groups in consistent order</p>
+<h3 id="stale-data-window">Stale Data Window</h3>
+<p>Cache TTL represents the maximum staleness window:</p>
+<ul>
+<li><strong>Metadata caches</strong>: API key revocation or group membership changes may take up to <code>METADATA_CACHE_TTL</code> seconds to propagate</li>
+<li><strong>Authorization caches</strong>: Authorization policy changes may take up to <code>AUTHZ_CACHE_TTL</code> seconds to propagate</li>
+</ul>
+<p>For immediate policy enforcement after changes:
+1. Delete the affected AuthPolicy to clear Authorino's cache
+2. Or wait for the TTL to expire</p>
+<hr />
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://docs.kuadrant.io/latest/authorino/docs/features/#caching">Authorino Caching User Guide</a></li>
+<li><a href="https://docs.kuadrant.io/latest/kuadrant-operator/doc/reference/authpolicy/">AuthPolicy Reference</a></li>
+<li><a href="../maas-controller-overview/">MaaS Controller Overview</a></li>
 </ul>
 
 
@@ -2683,7 +2668,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 30, 2026 16:08:31 UTC">March 30, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 30, 2026 16:44:36 UTC">March 30, 2026</span>
   </span>
 
     
@@ -2693,7 +2678,7 @@
     <span class="md-icon" title="Created">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 18, 2026 15:47:11 UTC">March 18, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 30, 2026 16:44:36 UTC">March 30, 2026</span>
   </span>
 
     
