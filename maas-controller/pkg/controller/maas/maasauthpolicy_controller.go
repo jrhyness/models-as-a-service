@@ -166,6 +166,11 @@ func (r *MaaSAuthPolicyReconciler) fetchOIDCConfig(ctx context.Context, log logr
 		return nil
 	}
 
+	if clientID == "" {
+		log.Error(nil, "ModelsAsService externalOIDC has no clientId - audience validation is required for security")
+		return nil
+	}
+
 	log.Info("OIDC configuration loaded from ModelsAsService CR",
 		"issuerUrl", issuerURL,
 		"clientId", clientID)
@@ -466,14 +471,11 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 				return nil, errors.New("failed to convert authentication rules to map[string]any")
 			}
 
-			// Build JWT config with issuer URL (required) and optional audience
+			// Build JWT config with issuer URL and audience (both required)
+			// The JWT's aud claim must match the OIDC client ID for security
 			jwtConfig := map[string]any{
 				"issuerUrl": oidcConfig.IssuerURL,
-			}
-			// Add audience validation if clientId is configured
-			// The JWT's aud claim should match the OIDC client ID for stricter validation
-			if oidcConfig.ClientID != "" {
-				jwtConfig["audiences"] = []string{oidcConfig.ClientID}
+				"audiences": []string{oidcConfig.ClientID},
 			}
 
 			authenticationRules["oidc-identities"] = map[string]any{
