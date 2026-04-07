@@ -46,7 +46,7 @@ func TestFetchOIDCConfig_NoExternalOIDC(t *testing.T) {
 	// Create ModelsAsService without externalOIDC
 	maas := &unstructured.Unstructured{
 		Object: map[string]any{
-			"apiVersion": "opendatahub.io/v1",
+			"apiVersion": "components.platform.opendatahub.io/v1alpha1",
 			"kind":       "ModelsAsService",
 			"metadata": map[string]any{
 				"name": "test-maas",
@@ -77,7 +77,7 @@ func TestFetchOIDCConfig_WithExternalOIDC(t *testing.T) {
 	// Create ModelsAsService with externalOIDC
 	maas := &unstructured.Unstructured{
 		Object: map[string]any{
-			"apiVersion": "opendatahub.io/v1",
+			"apiVersion": "components.platform.opendatahub.io/v1alpha1",
 			"kind":       "ModelsAsService",
 			"metadata": map[string]any{
 				"name": "test-maas",
@@ -113,7 +113,7 @@ func TestFetchOIDCConfig_EmptyIssuerURL(t *testing.T) {
 	// Create ModelsAsService with empty issuerUrl
 	maas := &unstructured.Unstructured{
 		Object: map[string]any{
-			"apiVersion": "opendatahub.io/v1",
+			"apiVersion": "components.platform.opendatahub.io/v1alpha1",
 			"kind":       "ModelsAsService",
 			"metadata": map[string]any{
 				"name": "test-maas",
@@ -139,6 +139,40 @@ func TestFetchOIDCConfig_EmptyIssuerURL(t *testing.T) {
 
 	config := reconciler.fetchOIDCConfig(context.Background(), logr.Discard())
 	assert.Nil(t, config, "should return nil when issuerUrl is empty")
+}
+
+func TestFetchOIDCConfig_EmptyClientID(t *testing.T) {
+	scheme := runtime.NewScheme()
+
+	// Create ModelsAsService with empty clientId
+	maas := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "components.platform.opendatahub.io/v1alpha1",
+			"kind":       "ModelsAsService",
+			"metadata": map[string]any{
+				"name": "test-maas",
+			},
+			"spec": map[string]any{
+				"externalOIDC": map[string]any{
+					"issuerUrl": "https://keycloak.example.com/realms/test",
+					"clientId":  "",
+				},
+			},
+		},
+	}
+
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(maas).
+		Build()
+
+	reconciler := &MaaSAuthPolicyReconciler{
+		Client: client,
+		Scheme: scheme,
+	}
+
+	config := reconciler.fetchOIDCConfig(context.Background(), logr.Discard())
+	assert.Nil(t, config, "should return nil when clientId is empty (audience validation required)")
 }
 
 func TestCELExpressions_SupportOIDC(t *testing.T) {
