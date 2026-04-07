@@ -134,6 +134,14 @@ rules:
   - update
   - watch
 - apiGroups:
+  - opendatahub.io
+  resources:
+  - modelsasservices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - serving.kserve.io
   resources:
   - llminferenceservices

@@ -45,13 +45,13 @@ func TestFetchOIDCConfig_NoExternalOIDC(t *testing.T) {
 
 	// Create ModelsAsService without externalOIDC
 	maas := &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": "opendatahub.io/v1",
 			"kind":       "ModelsAsService",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name": "test-maas",
 			},
-			"spec": map[string]interface{}{
+			"spec": map[string]any{
 				"otherField": "value",
 			},
 		},
@@ -76,14 +76,14 @@ func TestFetchOIDCConfig_WithExternalOIDC(t *testing.T) {
 
 	// Create ModelsAsService with externalOIDC
 	maas := &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": "opendatahub.io/v1",
 			"kind":       "ModelsAsService",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name": "test-maas",
 			},
-			"spec": map[string]interface{}{
-				"externalOIDC": map[string]interface{}{
+			"spec": map[string]any{
+				"externalOIDC": map[string]any{
 					"issuerUrl": "https://keycloak.example.com/realms/test",
 					"clientId":  "test-client",
 				},
@@ -112,14 +112,14 @@ func TestFetchOIDCConfig_EmptyIssuerURL(t *testing.T) {
 
 	// Create ModelsAsService with empty issuerUrl
 	maas := &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": "opendatahub.io/v1",
 			"kind":       "ModelsAsService",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name": "test-maas",
 			},
-			"spec": map[string]interface{}{
-				"externalOIDC": map[string]interface{}{
+			"spec": map[string]any{
+				"externalOIDC": map[string]any{
 					"issuerUrl": "",
 					"clientId":  "test-client",
 				},

@@ -165,9 +165,7 @@ class TestExternalOIDC:
         password_no_access = os.environ.get("OIDC_PASSWORD_NO_ACCESS", "")
 
         if not username_no_access or not password_no_access:
-            print("[oidc] Skipping test_oidc_user_without_group_access_gets_empty_list - "
-                  "OIDC_USERNAME_NO_ACCESS and OIDC_PASSWORD_NO_ACCESS not configured")
-            return
+            pytest.skip("OIDC_USERNAME_NO_ACCESS and OIDC_PASSWORD_NO_ACCESS not configured")
 
         # Get token for user without group access
         token_url = _required_env("OIDC_TOKEN_URL")
@@ -212,4 +210,4 @@ class TestExternalOIDC:
             f"Expected empty list for user without group access, got {len(items)} model(s)"
         )
 
-        print(f"[oidc] User without group access correctly received empty list (200 OK)")
+        print("[oidc] User without group access correctly received empty list (200 OK)")

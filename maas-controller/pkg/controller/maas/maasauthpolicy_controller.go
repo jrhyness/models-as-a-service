@@ -68,10 +68,6 @@ type MaaSAuthPolicyReconciler struct {
 	// AuthzCacheTTL is the TTL in seconds for Authorino OPA authorization caching.
 	// Applies to auth-valid, subscription-valid, and require-group-membership authorization evaluators.
 	AuthzCacheTTL int64
-
-	// oidcConfig stores OIDC configuration from ModelsAsService CR.
-	// This is updated dynamically when ModelsAsService CR changes.
-	oidcConfig *oidcConfig
 }
 
 // oidcConfig holds OIDC configuration from ModelsAsService CR
@@ -236,7 +232,7 @@ func (r *MaaSAuthPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Fetch OIDC configuration from ModelsAsService CR (if present)
 	// This is checked on every reconcile to handle dynamic updates to the CR
-	r.oidcConfig = r.fetchOIDCConfig(ctx, log)
+	oidcConfig := r.fetchOIDCConfig(ctx, log)
 
 	policy := &maasv1alpha1.MaaSAuthPolicy{}
 	if err := r.Get(ctx, req.NamespacedName, policy); err != nil {
@@ -261,7 +257,7 @@ func (r *MaaSAuthPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	statusSnapshot := policy.Status.DeepCopy()
 
-	refs, err := r.reconcileModelAuthPolicies(ctx, log, policy)
+	refs, err := r.reconcileModelAuthPolicies(ctx, log, policy, oidcConfig)
 	if err != nil {
 		log.Error(err, "failed to reconcile model AuthPolicies")
 		r.updateStatus(ctx, policy, "Failed", fmt.Sprintf("Failed to reconcile: %v", err), statusSnapshot)
@@ -280,7 +276,7 @@ type authPolicyRef struct {
 	ModelNamespace string
 }
 
-func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Context, log logr.Logger, policy *maasv1alpha1.MaaSAuthPolicy) ([]authPolicyRef, error) {
+func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Context, log logr.Logger, policy *maasv1alpha1.MaaSAuthPolicy, oidcConfig *oidcConfig) ([]authPolicyRef, error) {
 	var refs []authPolicyRef
 	// Model-centric approach: for each model referenced by this auth policy,
 	// find ALL auth policies for that model and build a single aggregated AuthPolicy.
@@ -460,11 +456,14 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 		}
 
 		// Add OIDC authentication if configured in ModelsAsService CR
-		if r.oidcConfig != nil && r.oidcConfig.IssuerURL != "" {
-			authenticationRules := rule["authentication"].(map[string]any)
+		if oidcConfig != nil && oidcConfig.IssuerURL != "" {
+			authenticationRules, ok := rule["authentication"].(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("failed to convert authentication rules to map[string]any")
+			}
 			authenticationRules["oidc-identities"] = map[string]any{
 				"jwt": map[string]any{
-					"issuerUrl": r.oidcConfig.IssuerURL,
+					"issuerUrl": oidcConfig.IssuerURL,
 				},
 				"when": []any{
 					// Only for /v1/models endpoint
@@ -518,7 +517,12 @@ allow {
 			// TTL cannot exceed metadata TTL (auth-valid depends on apiKeyValidation metadata)
 			"cache": map[string]any{
 				"key": map[string]any{
-					"selector": fmt.Sprintf(`(has(auth.metadata.apiKeyValidation) ? "api-key|" + request.headers.authorization.replace("Bearer ", "") : (has(auth.identity.sub) ? "oidc|" + auth.identity.sub : "k8s-token|" + auth.identity.user.username)) + "|%s/%s"`, ref.Namespace, ref.Name),
+					"selector": fmt.Sprintf(
+						`(has(auth.metadata.apiKeyValidation) ? "api-key|" + `+
+							`request.headers.authorization.replace("Bearer ", "") : `+
+							`(has(auth.identity.sub) ? "oidc|" + auth.identity.sub : `+
+							`"k8s-token|" + auth.identity.user.username)) + "|%s/%s"`,
+						ref.Namespace, ref.Name),
 				},
 				"ttl": r.authzCacheTTL(),
 			},
