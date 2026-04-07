@@ -147,8 +147,19 @@ func (r *MaaSAuthPolicyReconciler) fetchOIDCConfig(ctx context.Context, log logr
 	}
 
 	// Extract issuerUrl and clientId
-	issuerURL, _, _ := unstructured.NestedString(oidcSpec, "issuerUrl")
-	clientID, _, _ := unstructured.NestedString(oidcSpec, "clientId")
+	issuerURL, _, err := unstructured.NestedString(oidcSpec, "issuerUrl")
+	if err != nil {
+		log.Error(err, "ModelsAsService externalOIDC.issuerUrl has invalid type (expected string)",
+			"oidcSpec", oidcSpec)
+		return nil
+	}
+
+	clientID, _, err := unstructured.NestedString(oidcSpec, "clientId")
+	if err != nil {
+		log.Error(err, "ModelsAsService externalOIDC.clientId has invalid type (expected string)",
+			"oidcSpec", oidcSpec)
+		return nil
+	}
 
 	if issuerURL == "" {
 		log.V(1).Info("ModelsAsService externalOIDC has no issuerUrl")
