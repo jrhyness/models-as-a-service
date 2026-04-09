@@ -74,6 +74,7 @@ func (h *Handler) SelectSubscription(c *gin.Context) {
 		var accessDeniedErr *AccessDeniedError
 		var multipleSubsErr *MultipleSubscriptionsError
 		var modelNotInSubErr *ModelNotInSubscriptionError
+		var modelUnhealthyErr *ModelUnhealthyError
 
 		if errors.As(err, &noSubErr) {
 			h.logger.Debug("No subscription found for user",
@@ -129,6 +130,19 @@ func (h *Handler) SelectSubscription(c *gin.Context) {
 			)
 			c.JSON(http.StatusOK, SelectResponse{
 				Error:   "model_not_in_subscription",
+				Message: err.Error(),
+			})
+			return
+		}
+
+		if errors.As(err, &modelUnhealthyErr) {
+			h.logger.Debug("Requested model is unhealthy",
+				"subscription", modelUnhealthyErr.Subscription,
+				"reason", modelUnhealthyErr.Reason,
+				"message", modelUnhealthyErr.Message,
+			)
+			c.JSON(http.StatusOK, SelectResponse{
+				Error:   "model_unhealthy",
 				Message: err.Error(),
 			})
 			return

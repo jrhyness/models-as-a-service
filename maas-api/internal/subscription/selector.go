@@ -35,6 +35,15 @@ func NewSelector(log *logger.Logger, lister Lister) *Selector {
 	}
 }
 
+// ModelRefStatus represents the health status of a model reference.
+type ModelRefStatus struct {
+	Name      string
+	Namespace string
+	Ready     bool
+	Reason    string
+	Message   string
+}
+
 // subscription represents a parsed MaaSSubscription for selection.
 type subscription struct {
 	Name              string
@@ -52,6 +61,7 @@ type subscription struct {
 	Phase             string // status.phase: "Active", "Failed", "Pending", or ""
 	Ready             bool   // computed from status.conditions Ready condition
 	DeletionTimestamp *string // metadata.deletionTimestamp (set when being deleted)
+	ModelRefStatuses  []ModelRefStatus // per-model health status from status.modelRefStatuses
 }
 
 // GetAllAccessible returns all subscriptions the user has access to.
@@ -114,6 +124,10 @@ func (s *Selector) Select(groups []string, username string, requestedSubscriptio
 				if requestedModel != "" && !subscriptionIncludesModel(&sub, requestedModel) {
 					return nil, &ModelNotInSubscriptionError{Subscription: requestedSubscription, Model: requestedModel}
 				}
+				// Check model health for Degraded subscriptions
+				if err := checkModelHealth(&sub, requestedModel); err != nil {
+					return nil, err
+				}
 				return toResponse(&sub), nil
 			}
 		}
@@ -129,6 +143,10 @@ func (s *Selector) Select(groups []string, username string, requestedSubscriptio
 				}
 				if requestedModel != "" && !subscriptionIncludesModel(&sub, requestedModel) {
 					return nil, &ModelNotInSubscriptionError{Subscription: requestedSubscription, Model: requestedModel}
+				}
+				// Check model health for Degraded subscriptions
+				if err := checkModelHealth(&sub, requestedModel); err != nil {
+					return nil, err
 				}
 				return toResponse(&sub), nil
 			}
@@ -155,6 +173,10 @@ func (s *Selector) Select(groups []string, username string, requestedSubscriptio
 	}
 
 	if len(accessibleSubs) == 1 {
+		// Check model health for Degraded subscriptions
+		if err := checkModelHealth(&accessibleSubs[0], requestedModel); err != nil {
+			return nil, err
+		}
 		return toResponse(&accessibleSubs[0]), nil
 	}
 
@@ -302,6 +324,31 @@ func parseSubscription(obj *unstructured.Unstructured) (subscription, error) {
 				}
 			}
 		}
+
+		// Parse status.modelRefStatuses to extract per-model health
+		if modelRefStatuses, found, _ := unstructured.NestedSlice(status, "modelRefStatuses"); found {
+			for _, statusRaw := range modelRefStatuses {
+				if statusMap, ok := statusRaw.(map[string]any); ok {
+					refStatus := ModelRefStatus{}
+					if name, ok := statusMap["name"].(string); ok {
+						refStatus.Name = name
+					}
+					if namespace, ok := statusMap["namespace"].(string); ok {
+						refStatus.Namespace = namespace
+					}
+					if ready, ok := statusMap["ready"].(bool); ok {
+						refStatus.Ready = ready
+					}
+					if reason, ok := statusMap["reason"].(string); ok {
+						refStatus.Reason = reason
+					}
+					if message, ok := statusMap["message"].(string); ok {
+						refStatus.Message = message
+					}
+					sub.ModelRefStatuses = append(sub.ModelRefStatuses, refStatus)
+				}
+			}
+		}
 	}
 
 	// Parse metadata.deletionTimestamp
@@ -414,6 +461,55 @@ func subscriptionIncludesModel(sub *subscription, requestedModel string) bool {
 	}
 
 	return false
+}
+
+// checkModelHealth validates that the requested model is healthy in a Degraded subscription.
+// Returns ModelUnhealthyError if the subscription is Degraded and the model is not ready.
+func checkModelHealth(sub *subscription, requestedModel string) error {
+	// Only check health for Degraded subscriptions
+	if sub.Phase != "Degraded" {
+		return nil
+	}
+
+	// If no model requested, can't check health
+	if requestedModel == "" {
+		return nil
+	}
+
+	// Parse the requested model (format: "namespace/name")
+	parts := strings.SplitN(requestedModel, "/", 2)
+	if len(parts) != 2 {
+		return nil // invalid format, will be caught elsewhere
+	}
+	requestedNS := parts[0]
+	requestedName := parts[1]
+
+	// Check modelRefStatuses for the requested model
+	for _, status := range sub.ModelRefStatuses {
+		if status.Namespace == requestedNS && status.Name == requestedName {
+			if !status.Ready {
+				return &ModelUnhealthyError{
+					Subscription: sub.Name,
+					Reason:       status.Reason,
+					Message:      status.Message,
+				}
+			}
+			// Model found and ready
+			return nil
+		}
+	}
+
+	// Model not found in status - if modelRefStatuses is empty, allow (backward compat)
+	// Otherwise, treat missing status as unhealthy (fail-closed)
+	if len(sub.ModelRefStatuses) > 0 {
+		return &ModelUnhealthyError{
+			Subscription: sub.Name,
+			Reason:       "ModelStatusMissing",
+			Message:      "model status not reported",
+		}
+	}
+
+	return nil
 }
 
 // hasModel returns true if the subscription includes the given model name.
@@ -588,4 +684,16 @@ type ModelNotInSubscriptionError struct {
 
 func (e *ModelNotInSubscriptionError) Error() string {
 	return fmt.Sprintf("subscription %s does not include model %s", e.Subscription, e.Model)
+}
+
+// ModelUnhealthyError indicates the requested model is not healthy in a Degraded subscription.
+// Note: Model field is intentionally omitted to prevent XSS attacks.
+type ModelUnhealthyError struct {
+	Subscription string
+	Reason       string
+	Message      string
+}
+
+func (e *ModelUnhealthyError) Error() string {
+	return "requested model is unhealthy in subscription"
 }

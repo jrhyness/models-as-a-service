@@ -457,16 +457,20 @@ allow {
 		}
 
 		// Fail-close: require successful subscription selection AND health checks
-		// Rejects requests if subscription is not in Active phase or is being deleted
+		// Allows Active and Degraded subscriptions (selector checks per-model health for Degraded)
+		// Rejects Failed, Pending, and deleting subscriptions
 		authRules["subscription-valid"] = map[string]any{
 			"metrics":  false,
 			"priority": int64(0),
 			"opa": map[string]any{
 				"rego": `allow {
-	# Subscription name must be present
+	# Subscription name must be present (selector succeeded)
 	object.get(input.auth.metadata["subscription-info"], "name", "") != ""
-	# Subscription must be in Active phase (not Failed, Pending, or empty)
-	object.get(input.auth.metadata["subscription-info"], "phase", "") == "Active"
+	# Subscription must be Active or Degraded (selector checks model health for Degraded)
+	phase := object.get(input.auth.metadata["subscription-info"], "phase", "")
+	phase != ""
+	phase != "Failed"
+	phase != "Pending"
 	# Subscription must not be deleting
 	object.get(input.auth.metadata["subscription-info"], "deletionTimestamp", "") == ""
 }`,

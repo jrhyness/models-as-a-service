@@ -135,21 +135,21 @@ func (s *Service) CreateAPIKey(
 		return nil, selectErr
 	}
 
-	// Reject if subscription is not in Active phase or is being deleted
+	// API keys can be created for subscriptions in any phase
+	// Authorization at inference time will enforce phase-based access control
+	// Log subscription health for awareness but don't block key creation
 	if subResp.Phase != "Active" {
-		s.logger.Warn("Cannot create API key for subscription in non-Active phase",
+		s.logger.Info("Creating API key for subscription in non-Active phase",
 			"user", username,
 			"subscription", subResp.Name,
 			"phase", subResp.Phase,
 		)
-		return nil, fmt.Errorf("subscription %s is not active (phase: %s)", subResp.Name, subResp.Phase)
 	}
 	if subResp.DeletionTimestamp != "" {
-		s.logger.Warn("Cannot create API key for subscription being deleted",
+		s.logger.Info("Creating API key for subscription being deleted",
 			"user", username,
 			"subscription", subResp.Name,
 		)
-		return nil, fmt.Errorf("subscription %s is being deleted", subResp.Name)
 	}
 
 	subscriptionName := subResp.Name
