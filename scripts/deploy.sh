@@ -555,6 +555,31 @@ main() {
     log_info "  Subscription controller ready."
     log_info "  Create MaaSModelRef, MaaSAuthPolicy, and MaaSSubscription to enable per-model auth and rate limiting."
 
+    # When using a custom controller image, annotate deployment to prevent operator reconciliation
+    # and verify the correct image is running
+    if [[ -n "${MAAS_CONTROLLER_IMAGE:-}" ]]; then
+      # Log the current image before annotating
+      local actual_image
+      actual_image=$(kubectl get deployment/maas-controller -n "$NAMESPACE" -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || echo "")
+      log_info "  Controller image before annotation: $actual_image"
+      log_info "  Expected image: $MAAS_CONTROLLER_IMAGE"
+      
+      log_info "  Annotating maas-controller deployment to prevent operator reconciliation..."
+      kubectl annotate deployment/maas-controller -n "$NAMESPACE" \
+        opendatahub.io/managed="false" --overwrite 2>/dev/null || true
+      
+      # Verify the controller is running the expected image
+      if [[ -n "$actual_image" ]]; then
+        if [[ "$actual_image" != *"${MAAS_CONTROLLER_IMAGE##*/}"* && "$actual_image" != "$MAAS_CONTROLLER_IMAGE" ]]; then
+          log_warn "  WARNING: Controller may not be running the expected image!"
+          log_warn "    Expected: $MAAS_CONTROLLER_IMAGE"
+          log_warn "    Actual:   $actual_image"
+        else
+          log_info "  ✓ Controller image verified"
+        fi
+      fi
+    fi
+
     # Patch controller with correct audience for HyperShift/ROSA clusters.
     # The controller creates AuthPolicies with kubernetesTokenReview.audiences;
     # on non-standard clusters the default audience (https://kubernetes.default.svc)
