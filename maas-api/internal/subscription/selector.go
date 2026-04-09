@@ -84,7 +84,7 @@ func (s *Selector) GetAllAccessible(groups []string, username string) ([]*Select
 		return nil, fmt.Errorf("failed to load subscriptions: %w", err)
 	}
 
-	var accessible []*SelectResponse
+	accessible := make([]*SelectResponse, 0, len(subscriptions))
 	for _, sub := range subscriptions {
 		// Check user access
 		if !userHasAccess(&sub, username, groups) {
