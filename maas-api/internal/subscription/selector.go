@@ -58,9 +58,9 @@ type subscription struct {
 	CostCenter        string
 	Labels            map[string]string
 	ModelRefs         []ModelRefInfo
-	Phase             string // status.phase: "Active", "Failed", "Pending", or ""
-	Ready             bool   // computed from status.conditions Ready condition
-	DeletionTimestamp *string // metadata.deletionTimestamp (set when being deleted)
+	Phase             string           // status.phase: "Active", "Failed", "Pending", or ""
+	Ready             bool             // computed from status.conditions Ready condition
+	DeletionTimestamp *string          // metadata.deletionTimestamp (set when being deleted)
 	ModelRefStatuses  []ModelRefStatus // per-model health status from status.modelRefStatuses
 }
 
@@ -244,6 +244,8 @@ func (s *Selector) loadSubscriptions() ([]subscription, error) {
 }
 
 // parseSubscription extracts subscription data from unstructured object.
+//
+//nolint:gocyclo // TODO: refactor to reduce cyclomatic complexity
 func parseSubscription(obj *unstructured.Unstructured) (subscription, error) {
 	spec, found, err := unstructured.NestedMap(obj.Object, "spec")
 	if err != nil || !found {

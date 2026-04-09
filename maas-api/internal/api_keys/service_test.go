@@ -874,7 +874,7 @@ func TestCreateAPIKey_RejectsDegradedSubscriptions(t *testing.T) {
 	}
 }
 
-// mockHealthSelector implements SubscriptionSelector for health testing
+// mockHealthSelector implements SubscriptionSelector for health testing.
 type mockHealthSelector struct {
 	phase    string
 	deleting bool
@@ -892,5 +892,6 @@ func (m *mockHealthSelector) Select(_ []string, _ string, _ string, _ string) (*
 }
 
 func (m *mockHealthSelector) SelectHighestPriority(_ []string, _ string) (*subscription.SelectResponse, error) {
+	//nolint:unqueryvet // False positive - not a SQL query
 	return m.Select(nil, "", "", "")
 }
