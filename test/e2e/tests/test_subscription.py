@@ -3026,16 +3026,16 @@ class TestDegradedSubscriptionFiltering:
             log.info(f"Response: {r.status_code}")
 
             # Should succeed - API key can list models from Degraded subscription
-            if r.status_code == 200:
-                data = r.json()
-                models = data.get("data", [])
-                log.info(f"✅ /v1/models succeeded, returned {len(models)} models")
-                # At least the valid model should be present
-                assert len(models) > 0, "Expected at least one model from valid subscription"
-            else:
-                # May be rejected if selector fails on any unhealthy model
-                log.info(f"⚠️  /v1/models status: {r.status_code}: {r.text[:200]}")
-                # Don't fail test - just log behavior
+            assert r.status_code == 200, \
+                f"Expected 200 for /v1/models with Degraded subscription API key, got {r.status_code}: {r.text[:500]}"
+
+            data = r.json()
+            models = data.get("data", [])
+            log.info(f"✅ /v1/models succeeded, returned {len(models)} models")
+
+            # At least the valid model should be present
+            assert len(models) > 0, \
+                "Expected at least one model from Degraded subscription with valid model"
 
         finally:
             _delete_cr("maassubscription", subscription_name, namespace=ns)
@@ -3094,8 +3094,7 @@ class TestDegradedSubscriptionFiltering:
             models = data.get("data", [])
             log.info(f"Returned {len(models)} models")
 
-            # Verify at least one model is present (from valid subscription or others)
-            # Models may include the Degraded subscription in their subscriptions array
+            # Verify the Degraded subscription is included in model subscriptions
             found_degraded_sub = False
             for model in models:
                 subs = model.get("subscriptions", [])
@@ -3105,10 +3104,10 @@ class TestDegradedSubscriptionFiltering:
                     found_degraded_sub = True
                     break
 
-            if not found_degraded_sub:
-                log.info(f"Note: Degraded subscription {subscription_name} not found in model subscriptions (may be filtered)")
+            assert found_degraded_sub, \
+                f"Expected Degraded subscription '{subscription_name}' to be included in /v1/models response, but not found in any model's subscriptions"
 
-            log.info("✅ /v1/models with Kube token completed successfully")
+            log.info("✅ /v1/models with Kube token includes Degraded subscription")
 
         finally:
             _delete_cr("maassubscription", subscription_name, namespace=ns)
