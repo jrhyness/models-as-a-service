@@ -13,6 +13,15 @@ import (
 	"github.com/opendatahub-io/models-as-a-service/maas-api/internal/logger"
 )
 
+// Phase constants for MaaSSubscription status.
+// These must match the Phase values defined in maas-controller/api/maas/v1alpha1/common_types.go
+const (
+	PhasePending  = "Pending"
+	PhaseActive   = "Active"
+	PhaseDegraded = "Degraded"
+	PhaseFailed   = "Failed"
+)
+
 // Lister provides access to MaaSSubscription resources from an informer cache.
 type Lister interface {
 	List() ([]*unstructured.Unstructured, error)
@@ -307,10 +316,18 @@ func parseSubscription(obj *unstructured.Unstructured) (subscription, error) {
 	// Parse tokenMetadata
 	parseTokenMetadata(spec, &sub)
 
-	// Parse status.phase
+	// Parse status.phase with validation
 	if status, found, _ := unstructured.NestedMap(obj.Object, "status"); found {
 		if phase, ok := status["phase"].(string); ok {
-			sub.Phase = phase
+			// Normalize whitespace and validate against known phases
+			phase = strings.TrimSpace(phase)
+			switch phase {
+			case PhaseActive, PhaseDegraded, PhaseFailed, PhasePending:
+				sub.Phase = phase
+			default:
+				// Unknown phase value - keep raw for debugging but will be rejected by health checks
+				sub.Phase = phase
+			}
 		}
 
 		// Parse status.conditions to extract Ready condition
@@ -465,11 +482,28 @@ func subscriptionIncludesModel(sub *subscription, requestedModel string) bool {
 	return false
 }
 
-// checkModelHealth validates that the requested model is healthy in a Degraded subscription.
-// Returns ModelUnhealthyError if the subscription is Degraded and the model is not ready.
+// checkModelHealth validates subscription phase and model health.
+// Returns error if subscription is in Failed/Pending phase or if model is unhealthy in Degraded subscriptions.
 func checkModelHealth(sub *subscription, requestedModel string) error {
-	// Only check health for Degraded subscriptions
-	if sub.Phase != "Degraded" {
+	// Reject Failed and Pending subscriptions (allowlist: Active and Degraded only)
+	if sub.Phase == PhaseFailed {
+		return &ModelUnhealthyError{
+			Subscription: sub.Name,
+			Reason:       "SubscriptionFailed",
+			Message:      "subscription is in Failed phase",
+		}
+	}
+	if sub.Phase == PhasePending {
+		return &ModelUnhealthyError{
+			Subscription: sub.Name,
+			Reason:       "SubscriptionPending",
+			Message:      "subscription is in Pending phase",
+		}
+	}
+
+	// Only check per-model health for Degraded subscriptions
+	// Active subscriptions are allowed without health checks
+	if sub.Phase != PhaseDegraded {
 		return nil
 	}
 
@@ -501,17 +535,23 @@ func checkModelHealth(sub *subscription, requestedModel string) error {
 		}
 	}
 
-	// Model not found in status - if modelRefStatuses is empty, allow (backward compat)
-	// Otherwise, treat missing status as unhealthy (fail-closed)
-	if len(sub.ModelRefStatuses) > 0 {
+	// Model not found in modelRefStatuses
+	if len(sub.ModelRefStatuses) == 0 {
+		// Empty modelRefStatuses for Degraded subscription is fail-closed
+		// (subscription is Degraded for a reason - should have status)
 		return &ModelUnhealthyError{
 			Subscription: sub.Name,
 			Reason:       "ModelStatusMissing",
-			Message:      "model status not reported",
+			Message:      "subscription is Degraded but model status not reported",
 		}
 	}
 
-	return nil
+	// Model found in modelRefs but not in modelRefStatuses - unhealthy (fail-closed)
+	return &ModelUnhealthyError{
+		Subscription: sub.Name,
+		Reason:       "ModelStatusMissing",
+		Message:      "model status not reported",
+	}
 }
 
 // hasModel returns true if the subscription includes the given model name.

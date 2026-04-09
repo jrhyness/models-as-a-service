@@ -472,6 +472,7 @@ func TestSelector_HealthFieldParsing(t *testing.T) {
 		expectedPhase    string
 		expectedReady    bool
 		expectedDeleting bool
+		expectError      bool // Failed/Pending subscriptions should error
 	}{
 		{
 			name:             "Active subscription with Ready=True",
@@ -479,20 +480,23 @@ func TestSelector_HealthFieldParsing(t *testing.T) {
 			expectedPhase:    phaseActive,
 			expectedReady:    true,
 			expectedDeleting: false,
+			expectError:      false,
 		},
 		{
-			name:             "Failed subscription with Ready=False",
+			name:             "Failed subscription with Ready=False - rejected",
 			subscription:     createSubscriptionWithHealth("failed-sub", []string{"g1"}, nil, 10, 1000, phaseFailed, false, false),
 			expectedPhase:    phaseFailed,
 			expectedReady:    false,
 			expectedDeleting: false,
+			expectError:      true, // Failed subscriptions are rejected
 		},
 		{
-			name:             "Pending subscription with Ready=False",
+			name:             "Pending subscription with Ready=False - rejected",
 			subscription:     createSubscriptionWithHealth("pending-sub", []string{"g1"}, nil, 10, 1000, phasePending, false, false),
 			expectedPhase:    phasePending,
 			expectedReady:    false,
 			expectedDeleting: false,
+			expectError:      true, // Pending subscriptions are rejected
 		},
 		{
 			name:             "Degraded subscription with Ready=False",
@@ -500,6 +504,7 @@ func TestSelector_HealthFieldParsing(t *testing.T) {
 			expectedPhase:    phaseDegraded,
 			expectedReady:    false,
 			expectedDeleting: false,
+			expectError:      false,
 		},
 		{
 			name:             "Subscription being deleted",
@@ -507,6 +512,7 @@ func TestSelector_HealthFieldParsing(t *testing.T) {
 			expectedPhase:    phaseActive,
 			expectedReady:    true,
 			expectedDeleting: true,
+			expectError:      false,
 		},
 		{
 			name:             "Subscription without status",
@@ -514,6 +520,7 @@ func TestSelector_HealthFieldParsing(t *testing.T) {
 			expectedPhase:    "",
 			expectedReady:    false,
 			expectedDeleting: false,
+			expectError:      false,
 		},
 	}
 
@@ -524,6 +531,15 @@ func TestSelector_HealthFieldParsing(t *testing.T) {
 
 			//nolint:unqueryvet // False positive - not a SQL query
 			result, err := selector.Select([]string{"g1"}, "", "", "")
+
+			if tt.expectError {
+				if err == nil {
+					t.Fatalf("Expected error for %s subscription, got nil", tt.expectedPhase)
+				}
+				// Error expected - test passes
+				return
+			}
+
 			if err != nil {
 				t.Fatalf("Select() error = %v", err)
 			}
@@ -665,7 +681,7 @@ func TestSelector_DegradedSubscriptionActiveFiltering(t *testing.T) {
 			expectedErrorType: "ModelUnhealthyError",
 		},
 		{
-			name: "Degraded subscription with empty modelRefStatuses - allows access (backward compat)",
+			name: "Degraded subscription with empty modelRefStatuses - rejects access (fail-closed)",
 			subscription: func() *unstructured.Unstructured {
 				// Create a subscription with test-model in modelRefs but empty modelRefStatuses
 				sub := createSubscription("degraded-sub", []string{"g1"}, nil, 10, 1000, "", "")
@@ -686,7 +702,7 @@ func TestSelector_DegradedSubscriptionActiveFiltering(t *testing.T) {
 						},
 					},
 				}
-				// Add Degraded phase status
+				// Add Degraded phase status with empty modelRefStatuses
 				sub.Object["status"] = map[string]any{
 					"phase": phaseDegraded,
 					"conditions": []any{
@@ -697,11 +713,13 @@ func TestSelector_DegradedSubscriptionActiveFiltering(t *testing.T) {
 							"message": "Some models unhealthy",
 						},
 					},
+					// Empty modelRefStatuses - should be rejected for Degraded subscription
 				}
 				return sub
 			}(),
-			requestedModel: "test-ns/test-model",
-			expectError:    false,
+			requestedModel:    "test-ns/test-model",
+			expectError:       true,
+			expectedErrorType: "ModelUnhealthyError",
 		},
 		{
 			name: "Active subscription - always allows access regardless of model health",
