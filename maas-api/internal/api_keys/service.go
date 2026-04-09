@@ -134,6 +134,24 @@ func (s *Service) CreateAPIKey(
 		)
 		return nil, selectErr
 	}
+
+	// Reject if subscription is not in Active phase or is being deleted
+	if subResp.Phase != "Active" {
+		s.logger.Warn("Cannot create API key for subscription in non-Active phase",
+			"user", username,
+			"subscription", subResp.Name,
+			"phase", subResp.Phase,
+		)
+		return nil, fmt.Errorf("subscription %s is not active (phase: %s)", subResp.Name, subResp.Phase)
+	}
+	if subResp.DeletionTimestamp != "" {
+		s.logger.Warn("Cannot create API key for subscription being deleted",
+			"user", username,
+			"subscription", subResp.Name,
+		)
+		return nil, fmt.Errorf("subscription %s is being deleted", subResp.Name)
+	}
+
 	subscriptionName := subResp.Name
 
 	// Generate unique ID for this key

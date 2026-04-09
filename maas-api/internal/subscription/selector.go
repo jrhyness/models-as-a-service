@@ -37,18 +37,21 @@ func NewSelector(log *logger.Logger, lister Lister) *Selector {
 
 // subscription represents a parsed MaaSSubscription for selection.
 type subscription struct {
-	Name           string
-	Namespace      string
-	DisplayName    string
-	Description    string
-	Groups         []string
-	Users          []string
-	Priority       int32
-	MaxLimit       int64
-	OrganizationID string
-	CostCenter     string
-	Labels         map[string]string
-	ModelRefs      []ModelRefInfo
+	Name              string
+	Namespace         string
+	DisplayName       string
+	Description       string
+	Groups            []string
+	Users             []string
+	Priority          int32
+	MaxLimit          int64
+	OrganizationID    string
+	CostCenter        string
+	Labels            map[string]string
+	ModelRefs         []ModelRefInfo
+	Phase             string // status.phase: "Active", "Failed", "Pending", or ""
+	Ready             bool   // computed from status.conditions Ready condition
+	DeletionTimestamp *string // metadata.deletionTimestamp (set when being deleted)
 }
 
 // GetAllAccessible returns all subscriptions the user has access to.
@@ -280,6 +283,36 @@ func parseSubscription(obj *unstructured.Unstructured) (subscription, error) {
 	// Parse tokenMetadata
 	parseTokenMetadata(spec, &sub)
 
+	// Parse status.phase
+	if status, found, _ := unstructured.NestedMap(obj.Object, "status"); found {
+		if phase, ok := status["phase"].(string); ok {
+			sub.Phase = phase
+		}
+
+		// Parse status.conditions to extract Ready condition
+		if conditions, found, _ := unstructured.NestedSlice(status, "conditions"); found {
+			for _, condRaw := range conditions {
+				if condMap, ok := condRaw.(map[string]any); ok {
+					condType, _ := condMap["type"].(string)
+					if condType == "Ready" {
+						condStatus, _ := condMap["status"].(string)
+						sub.Ready = condStatus == "True"
+						break
+					}
+				}
+			}
+		}
+	}
+
+	// Parse metadata.deletionTimestamp
+	if metadata := obj.Object["metadata"]; metadata != nil {
+		if metadataMap, ok := metadata.(map[string]any); ok {
+			if deletionTimestamp, ok := metadataMap["deletionTimestamp"].(string); ok && deletionTimestamp != "" {
+				sub.DeletionTimestamp = &deletionTimestamp
+			}
+		}
+	}
+
 	return sub, nil
 }
 
@@ -442,7 +475,7 @@ func toSubscriptionInfo(sub *subscription) SubscriptionInfo {
 	if modelRefs == nil {
 		modelRefs = []ModelRefInfo{}
 	}
-	return SubscriptionInfo{
+	info := SubscriptionInfo{
 		SubscriptionIDHeader:    sub.Name,
 		SubscriptionDescription: desc,
 		DisplayName:             sub.DisplayName,
@@ -451,7 +484,13 @@ func toSubscriptionInfo(sub *subscription) SubscriptionInfo {
 		OrganizationID:          sub.OrganizationID,
 		CostCenter:              sub.CostCenter,
 		Labels:                  sub.Labels,
+		Phase:                   sub.Phase,
+		Ready:                   sub.Ready,
 	}
+	if sub.DeletionTimestamp != nil {
+		info.DeletionTimestamp = *sub.DeletionTimestamp
+	}
+	return info
 }
 
 // ResponseToSubscriptionInfo converts a SelectResponse to a SubscriptionInfo.
@@ -476,6 +515,9 @@ func ResponseToSubscriptionInfo(sub *SelectResponse) SubscriptionInfo {
 		OrganizationID:          sub.OrganizationID,
 		CostCenter:              sub.CostCenter,
 		Labels:                  sub.Labels,
+		Phase:                   sub.Phase,
+		Ready:                   sub.Ready,
+		DeletionTimestamp:       sub.DeletionTimestamp,
 	}
 }
 
@@ -485,7 +527,7 @@ func toResponse(sub *subscription) *SelectResponse {
 	if modelRefs == nil {
 		modelRefs = []ModelRefInfo{}
 	}
-	return &SelectResponse{
+	resp := &SelectResponse{
 		Name:           sub.Name,
 		Namespace:      sub.Namespace,
 		DisplayName:    sub.DisplayName,
@@ -495,7 +537,13 @@ func toResponse(sub *subscription) *SelectResponse {
 		OrganizationID: sub.OrganizationID,
 		CostCenter:     sub.CostCenter,
 		Labels:         sub.Labels,
+		Phase:          sub.Phase,
+		Ready:          sub.Ready,
 	}
+	if sub.DeletionTimestamp != nil {
+		resp.DeletionTimestamp = *sub.DeletionTimestamp
+	}
+	return resp
 }
 
 // NoSubscriptionError indicates no matching subscription found.

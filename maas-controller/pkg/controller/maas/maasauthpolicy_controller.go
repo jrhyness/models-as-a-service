@@ -397,12 +397,20 @@ allow {
 			},
 		}
 
-		// Fail-close: require successful subscription selection (name must be present)
+		// Fail-close: require successful subscription selection AND health checks
+		// Rejects requests if subscription is not in Active phase or is being deleted
 		authRules["subscription-valid"] = map[string]any{
 			"metrics":  false,
 			"priority": int64(0),
 			"opa": map[string]any{
-				"rego": `allow { object.get(input.auth.metadata["subscription-info"], "name", "") != "" }`,
+				"rego": `allow {
+	# Subscription name must be present
+	object.get(input.auth.metadata["subscription-info"], "name", "") != ""
+	# Subscription must be in Active phase (not Failed, Pending, or empty)
+	object.get(input.auth.metadata["subscription-info"], "phase", "") == "Active"
+	# Subscription must not be deleting
+	object.get(input.auth.metadata["subscription-info"], "deletionTimestamp", "") == ""
+}`,
 			},
 			// Cache authorization result keyed by subscription selection inputs.
 			// Uses same key dimensions as subscription-info metadata to ensure cache coherence.

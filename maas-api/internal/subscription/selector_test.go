@@ -333,3 +333,167 @@ func TestSelectHighestPriority(t *testing.T) {
 		}
 	})
 }
+
+// createSubscriptionWithHealth creates a subscription with health status fields.
+func createSubscriptionWithHealth(name string, groups []string, users []string, priority int32, tokenLimit int64, phase string, ready bool, deleting bool) *unstructured.Unstructured {
+	sub := createSubscription(name, groups, users, priority, tokenLimit, "", "")
+	
+	// Add status
+	if phase != "" || ready {
+		status := map[string]any{}
+		if phase != "" {
+			status["phase"] = phase
+		}
+		
+		// Add Ready condition
+		if phase != "" {
+			conditions := []any{
+				map[string]any{
+					"type":   "Ready",
+					"status": func() string {
+						if ready {
+							return "True"
+						}
+						return "False"
+					}(),
+					"reason":  "Test",
+					"message": "Test condition",
+				},
+			}
+			status["conditions"] = conditions
+		}
+		
+		sub.Object["status"] = status
+	}
+	
+	// Add deletionTimestamp if deleting
+	if deleting {
+		metadata := sub.Object["metadata"].(map[string]any)
+		metadata["deletionTimestamp"] = "2026-04-08T12:00:00Z"
+	}
+	
+	return sub
+}
+
+func TestSelector_HealthFieldParsing(t *testing.T) {
+	log := logger.New(false)
+
+	tests := []struct {
+		name              string
+		subscription      *unstructured.Unstructured
+		expectedPhase     string
+		expectedReady     bool
+		expectedDeleting  bool
+	}{
+		{
+			name:         "Active subscription with Ready=True",
+			subscription: createSubscriptionWithHealth("active-sub", []string{"g1"}, nil, 10, 1000, "Active", true, false),
+			expectedPhase: "Active",
+			expectedReady: true,
+			expectedDeleting: false,
+		},
+		{
+			name:         "Failed subscription with Ready=False",
+			subscription: createSubscriptionWithHealth("failed-sub", []string{"g1"}, nil, 10, 1000, "Failed", false, false),
+			expectedPhase: "Failed",
+			expectedReady: false,
+			expectedDeleting: false,
+		},
+		{
+			name:         "Pending subscription with Ready=False",
+			subscription: createSubscriptionWithHealth("pending-sub", []string{"g1"}, nil, 10, 1000, "Pending", false, false),
+			expectedPhase: "Pending",
+			expectedReady: false,
+			expectedDeleting: false,
+		},
+		{
+			name:         "Degraded subscription with Ready=False",
+			subscription: createSubscriptionWithHealth("degraded-sub", []string{"g1"}, nil, 10, 1000, "Degraded", false, false),
+			expectedPhase: "Degraded",
+			expectedReady: false,
+			expectedDeleting: false,
+		},
+		{
+			name:         "Subscription being deleted",
+			subscription: createSubscriptionWithHealth("deleting-sub", []string{"g1"}, nil, 10, 1000, "Active", true, true),
+			expectedPhase: "Active",
+			expectedReady: true,
+			expectedDeleting: true,
+		},
+		{
+			name:         "Subscription without status",
+			subscription: createSubscription("no-status-sub", []string{"g1"}, nil, 10, 1000, "", ""),
+			expectedPhase: "",
+			expectedReady: false,
+			expectedDeleting: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lister := &fakeLister{subscriptions: []*unstructured.Unstructured{tt.subscription}}
+			selector := subscription.NewSelector(log, lister)
+
+			result, err := selector.Select([]string{"g1"}, "", "", "")
+			if err != nil {
+				t.Fatalf("Select() error = %v", err)
+			}
+
+			if result.Phase != tt.expectedPhase {
+				t.Errorf("Phase = %v, want %v", result.Phase, tt.expectedPhase)
+			}
+
+			if result.Ready != tt.expectedReady {
+				t.Errorf("Ready = %v, want %v", result.Ready, tt.expectedReady)
+			}
+
+			gotDeleting := result.DeletionTimestamp != ""
+			if gotDeleting != tt.expectedDeleting {
+				t.Errorf("DeletionTimestamp set = %v, want %v", gotDeleting, tt.expectedDeleting)
+			}
+		})
+	}
+}
+
+func TestSelector_ListAccessibleWithHealth(t *testing.T) {
+	log := logger.New(false)
+
+	subscriptions := []*unstructured.Unstructured{
+		createSubscriptionWithHealth("active-sub", []string{"g1"}, nil, 10, 1000, "Active", true, false),
+		createSubscriptionWithHealth("failed-sub", []string{"g1"}, nil, 5, 1000, "Failed", false, false),
+		createSubscriptionWithHealth("deleting-sub", []string{"g1"}, nil, 8, 1000, "Active", true, true),
+	}
+
+	lister := &fakeLister{subscriptions: subscriptions}
+	selector := subscription.NewSelector(log, lister)
+
+	results, err := selector.GetAllAccessible([]string{"g1"}, "")
+	if err != nil {
+		t.Fatalf("GetAllAccessible() error = %v", err)
+	}
+
+	if len(results) != 3 {
+		t.Fatalf("Expected 3 subscriptions, got %d", len(results))
+	}
+
+	// Check that health fields are populated in all results
+	for _, result := range results {
+		switch result.Name {
+		case "active-sub":
+			if result.Phase != "Active" || !result.Ready || result.DeletionTimestamp != "" {
+				t.Errorf("active-sub health fields incorrect: Phase=%s, Ready=%v, DeletionTimestamp=%s",
+					result.Phase, result.Ready, result.DeletionTimestamp)
+			}
+		case "failed-sub":
+			if result.Phase != "Failed" || result.Ready || result.DeletionTimestamp != "" {
+				t.Errorf("failed-sub health fields incorrect: Phase=%s, Ready=%v, DeletionTimestamp=%s",
+					result.Phase, result.Ready, result.DeletionTimestamp)
+			}
+		case "deleting-sub":
+			if result.Phase != "Active" || !result.Ready || result.DeletionTimestamp == "" {
+				t.Errorf("deleting-sub health fields incorrect: Phase=%s, Ready=%v, DeletionTimestamp=%s",
+					result.Phase, result.Ready, result.DeletionTimestamp)
+			}
+		}
+	}
+}

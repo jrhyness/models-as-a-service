@@ -18,13 +18,13 @@ type serviceTestSubSelector struct{}
 
 func (serviceTestSubSelector) Select(_ []string, _ string, requested string, _ string) (*subscription.SelectResponse, error) {
 	if requested != "" {
-		return &subscription.SelectResponse{Name: requested}, nil
+		return &subscription.SelectResponse{Name: requested, Phase: "Active"}, nil
 	}
-	return &subscription.SelectResponse{Name: "default-sub"}, nil
+	return &subscription.SelectResponse{Name: "default-sub", Phase: "Active"}, nil
 }
 
 func (serviceTestSubSelector) SelectHighestPriority(_ []string, _ string) (*subscription.SelectResponse, error) {
-	return &subscription.SelectResponse{Name: "default-sub"}, nil
+	return &subscription.SelectResponse{Name: "default-sub", Phase: "Active"}, nil
 }
 
 func createTestService(t *testing.T) (*api_keys.Service, *api_keys.MockStore) {
@@ -641,7 +641,7 @@ func (s subSelectorStub) Select(_ []string, _ string, requested string, _ string
 	if s.selectErr != nil {
 		return nil, s.selectErr
 	}
-	return &subscription.SelectResponse{Name: requested}, nil
+	return &subscription.SelectResponse{Name: requested, Phase: "Active"}, nil
 }
 
 func (s subSelectorStub) SelectHighestPriority(_ []string, _ string) (*subscription.SelectResponse, error) {
@@ -652,7 +652,7 @@ func (s subSelectorStub) SelectHighestPriority(_ []string, _ string) (*subscript
 	if name == "" {
 		name = "from-priority"
 	}
-	return &subscription.SelectResponse{Name: name}, nil
+	return &subscription.SelectResponse{Name: name, Phase: "Active"}, nil
 }
 
 func TestCreateAPIKey_Subscription(t *testing.T) {
@@ -798,4 +798,104 @@ func createTestAPIKey(t *testing.T) (string, string) {
 	plainKey, hash, _, err := api_keys.GenerateAPIKey()
 	require.NoError(t, err)
 	return plainKey, hash
+}
+
+func TestCreateAPIKey_RejectsDegradedSubscriptions(t *testing.T) {
+	ctx := context.Background()
+	cfg := &config.Config{}
+	user := "testuser"
+	groups := []string{"g1"}
+
+	tests := []struct {
+		name        string
+		phase       string
+		deleting    bool
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "rejects Failed subscription",
+			phase:       "Failed",
+			deleting:    false,
+			expectError: true,
+			errorMsg:    "not active (phase: Failed)",
+		},
+		{
+			name:        "rejects Pending subscription",
+			phase:       "Pending",
+			deleting:    false,
+			expectError: true,
+			errorMsg:    "not active (phase: Pending)",
+		},
+		{
+			name:        "rejects Degraded subscription",
+			phase:       "Degraded",
+			deleting:    false,
+			expectError: true,
+			errorMsg:    "not active (phase: Degraded)",
+		},
+		{
+			name:        "rejects empty phase subscription",
+			phase:       "",
+			deleting:    false,
+			expectError: true,
+			errorMsg:    "not active (phase: )",
+		},
+		{
+			name:        "rejects deleting subscription",
+			phase:       "Active",
+			deleting:    true,
+			expectError: true,
+			errorMsg:    "being deleted",
+		},
+		{
+			name:        "allows Active subscription",
+			phase:       "Active",
+			deleting:    false,
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Mock selector that returns subscription with specific health status
+			selector := &mockHealthSelector{
+				phase:    tt.phase,
+				deleting: tt.deleting,
+			}
+
+			store := api_keys.NewMockStore()
+			svc := api_keys.NewServiceWithLogger(store, cfg, selector, logger.Development())
+
+			_, err := svc.CreateAPIKey(ctx, user, groups, "test-key", "", nil, false, "test-sub")
+
+			if tt.expectError {
+				require.Error(t, err, "Expected error for %s", tt.name)
+				require.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err, "Expected no error for %s", tt.name)
+			}
+		})
+	}
+}
+
+// mockHealthSelector implements SubscriptionSelector for health testing
+type mockHealthSelector struct {
+	phase    string
+	deleting bool
+}
+
+func (m *mockHealthSelector) Select(_ []string, _ string, _ string, _ string) (*subscription.SelectResponse, error) {
+	resp := &subscription.SelectResponse{
+		Name:  "test-sub",
+		Phase: m.phase,
+	}
+	if m.deleting {
+		resp.DeletionTimestamp = "2026-04-08T12:00:00Z"
+	}
+	return resp, nil
+}
+
+func (m *mockHealthSelector) SelectHighestPriority(_ []string, _ string) (*subscription.SelectResponse, error) {
+	return m.Select(nil, "", "", "")
 }

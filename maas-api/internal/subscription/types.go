@@ -28,6 +28,11 @@ type SelectResponse struct {
 	CostCenter     string            `json:"costCenter,omitempty"`     // Cost center for attribution
 	Labels         map[string]string `json:"labels,omitempty"`         // Additional tracking labels
 
+	// Health fields (populated from status and metadata)
+	Phase             string `json:"phase,omitempty"`             // Subscription phase: "Active", "Failed", "Pending", or ""
+	Ready             bool   `json:"ready,omitempty"`             // Whether subscription is ready (from Ready condition)
+	DeletionTimestamp string `json:"deletionTimestamp,omitempty"` // Set when subscription is being deleted
+
 	// Error fields (populated when selection fails)
 	Error   string `json:"error,omitempty"`   // Error code (e.g., "bad_request", "not_found", "access_denied", "multiple_subscriptions")
 	Message string `json:"message,omitempty"` // Human-readable error message
@@ -44,6 +49,9 @@ type SubscriptionInfo struct {
 	OrganizationID          string            `json:"organization_id,omitempty"`
 	CostCenter              string            `json:"cost_center,omitempty"`
 	Labels                  map[string]string `json:"labels,omitempty"`
+	Phase                   string            `json:"phase,omitempty"`              // Subscription phase from status
+	Ready                   bool              `json:"ready,omitempty"`              // Whether subscription is ready
+	DeletionTimestamp       string            `json:"deletion_timestamp,omitempty"` // Set when being deleted
 }
 
 // ModelRefInfo represents a model reference with its rate limits.
