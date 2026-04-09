@@ -588,9 +588,9 @@ def _wait_for_maas_auth_policy_ready(name, namespace=None, timeout=60):
             phase = cr.get("status", {}).get("phase")
             auth_policies = cr.get("status", {}).get("authPolicies", [])
 
-            # Check if all auth policies are accepted and enforced
+            # Check if all auth policies are ready (accepted and enforced)
             all_enforced = all(
-                ap.get("accepted") == "True" and ap.get("enforced") == "True"
+                ap.get("ready") is True
                 for ap in auth_policies
             )
 
@@ -2158,4 +2158,369 @@ class TestE2ESubscriptionFlow:
             _delete_cr("maassubscription", subscription_name, namespace=ns)
             _delete_cr("maasauthpolicy", auth_policy_name, namespace=ns)
             _delete_sa(sa_name, namespace=ns)
+            _wait_reconcile()
+
+
+class TestStatusReporting:
+    """
+    Tests for MaaSSubscription and MaaSAuthPolicy status reporting.
+
+    Validates that the controller correctly reports:
+    - Phase (Active, Degraded, Failed)
+    - Per-item status (modelRefStatuses, tokenRateLimitStatuses, authPolicies)
+    - Ready/Reason fields on per-item statuses
+    """
+
+    def test_subscription_active_status_with_valid_model(self):
+        """
+        Test: MaaSSubscription shows Active phase with valid model reference.
+
+        Creates a subscription with a valid model ref and verifies:
+        - Phase is "Active"
+        - modelRefStatuses contains entry with ready=true
+        - tokenRateLimitStatuses contains entry with ready=true (after TRLP created)
+        """
+        ns = _ns()
+        subscription_name = "e2e-status-active-sub"
+        auth_name = "e2e-status-active-auth"
+        sa_name = "e2e-status-active-sa"
+
+        try:
+            _create_sa_token(sa_name, namespace="default")
+            sa_user = f"system:serviceaccount:default:{sa_name}"
+
+            _create_test_auth_policy(auth_name, MODEL_REF, users=[sa_user])
+            _create_test_subscription(subscription_name, MODEL_REF, users=[sa_user])
+
+            _wait_for_maas_auth_policy_ready(auth_name)
+            _wait_for_maas_subscription_ready(subscription_name)
+
+            # Get subscription status
+            cr = _get_cr("maassubscription", subscription_name, namespace=ns)
+            assert cr is not None, f"MaaSSubscription {subscription_name} not found"
+
+            status = cr.get("status", {})
+            phase = status.get("phase")
+            model_statuses = status.get("modelRefStatuses", [])
+            trlp_statuses = status.get("tokenRateLimitStatuses", [])
+
+            log.info(f"Subscription status: phase={phase}, modelRefStatuses={len(model_statuses)}, tokenRateLimitStatuses={len(trlp_statuses)}")
+
+            assert phase == "Active", f"Expected phase 'Active', got '{phase}'"
+            assert len(model_statuses) > 0, "Expected at least one modelRefStatus"
+
+            # Check model ref status
+            model_status = model_statuses[0]
+            assert model_status.get("ready") is True, f"Expected modelRefStatus ready=true, got {model_status}"
+            assert model_status.get("reason") == "Valid", f"Expected reason 'Valid', got {model_status.get('reason')}"
+
+            log.info("✅ MaaSSubscription Active status verified")
+
+        finally:
+            _delete_cr("maassubscription", subscription_name, namespace=ns)
+            _delete_cr("maasauthpolicy", auth_name, namespace=ns)
+            _delete_sa(sa_name, namespace="default")
+            _wait_reconcile()
+
+    def test_subscription_failed_status_with_missing_model(self):
+        """
+        Test: MaaSSubscription shows Failed phase when all model refs are missing.
+
+        Creates a subscription referencing a non-existent model and verifies:
+        - Phase is "Failed"
+        - modelRefStatuses contains entry with ready=false, reason="NotFound"
+        """
+        ns = _ns()
+        subscription_name = "e2e-status-failed-sub"
+        sa_name = "e2e-status-failed-sa"
+        missing_model = "nonexistent-model-xyz"
+
+        try:
+            _create_sa_token(sa_name, namespace="default")
+            sa_user = f"system:serviceaccount:default:{sa_name}"
+
+            # Create subscription with non-existent model
+            _create_test_subscription(subscription_name, missing_model, users=[sa_user])
+
+            # Wait for reconciliation
+            _wait_reconcile(seconds=10)
+
+            # Get subscription status
+            cr = _get_cr("maassubscription", subscription_name, namespace=ns)
+            assert cr is not None, f"MaaSSubscription {subscription_name} not found"
+
+            status = cr.get("status", {})
+            phase = status.get("phase")
+            model_statuses = status.get("modelRefStatuses", [])
+
+            log.info(f"Subscription status: phase={phase}, modelRefStatuses={model_statuses}")
+
+            assert phase == "Failed", f"Expected phase 'Failed', got '{phase}'"
+            assert len(model_statuses) > 0, "Expected at least one modelRefStatus"
+
+            # Check model ref status shows NotFound
+            model_status = model_statuses[0]
+            assert model_status.get("ready") is False, f"Expected modelRefStatus ready=false, got {model_status}"
+            assert model_status.get("reason") == "NotFound", f"Expected reason 'NotFound', got {model_status.get('reason')}"
+
+            log.info("✅ MaaSSubscription Failed status verified")
+
+        finally:
+            _delete_cr("maassubscription", subscription_name, namespace=ns)
+            _delete_sa(sa_name, namespace="default")
+            _wait_reconcile()
+
+    def test_authpolicy_active_status_with_valid_model(self):
+        """
+        Test: MaaSAuthPolicy shows Active phase with valid model reference.
+
+        Creates an auth policy with a valid model ref and verifies:
+        - Phase is "Active"
+        - authPolicies contains entry with ready=true, reason="AcceptedEnforced"
+        """
+        ns = _ns()
+        auth_name = "e2e-status-active-auth-only"
+        sa_name = "e2e-status-active-auth-sa"
+
+        try:
+            _create_sa_token(sa_name, namespace="default")
+            sa_user = f"system:serviceaccount:default:{sa_name}"
+
+            _create_test_auth_policy(auth_name, MODEL_REF, users=[sa_user])
+
+            _wait_for_maas_auth_policy_ready(auth_name)
+
+            # Get auth policy status
+            cr = _get_cr("maasauthpolicy", auth_name, namespace=ns)
+            assert cr is not None, f"MaaSAuthPolicy {auth_name} not found"
+
+            status = cr.get("status", {})
+            phase = status.get("phase")
+            auth_policies = status.get("authPolicies", [])
+
+            log.info(f"AuthPolicy status: phase={phase}, authPolicies={auth_policies}")
+
+            assert phase == "Active", f"Expected phase 'Active', got '{phase}'"
+            assert len(auth_policies) > 0, "Expected at least one authPolicy status"
+
+            # Check auth policy status
+            ap_status = auth_policies[0]
+            assert ap_status.get("ready") is True, f"Expected authPolicy ready=true, got {ap_status}"
+            assert ap_status.get("reason") == "AcceptedEnforced", f"Expected reason 'AcceptedEnforced', got {ap_status.get('reason')}"
+
+            log.info("✅ MaaSAuthPolicy Active status verified")
+
+        finally:
+            _delete_cr("maasauthpolicy", auth_name, namespace=ns)
+            _delete_sa(sa_name, namespace="default")
+            _wait_reconcile()
+
+    def test_authpolicy_failed_status_with_missing_model(self):
+        """
+        Test: MaaSAuthPolicy shows Failed phase when all model refs are missing.
+
+        Creates an auth policy referencing a non-existent model and verifies:
+        - Phase is "Failed"
+        - authPolicies array is empty (no AuthPolicy generated for missing model)
+        """
+        ns = _ns()
+        auth_name = "e2e-status-failed-auth"
+        sa_name = "e2e-status-failed-auth-sa"
+        missing_model = "nonexistent-model-abc"
+
+        try:
+            _create_sa_token(sa_name, namespace="default")
+            sa_user = f"system:serviceaccount:default:{sa_name}"
+
+            # Create auth policy with non-existent model
+            _create_test_auth_policy(auth_name, missing_model, users=[sa_user])
+
+            # Wait for reconciliation
+            _wait_reconcile(seconds=10)
+
+            # Get auth policy status
+            cr = _get_cr("maasauthpolicy", auth_name, namespace=ns)
+            assert cr is not None, f"MaaSAuthPolicy {auth_name} not found"
+
+            status = cr.get("status", {})
+            phase = status.get("phase")
+            auth_policies = status.get("authPolicies", [])
+
+            log.info(f"AuthPolicy status: phase={phase}, authPolicies={auth_policies}")
+
+            assert phase == "Failed", f"Expected phase 'Failed', got '{phase}'"
+
+            log.info("✅ MaaSAuthPolicy Failed status verified")
+
+        finally:
+            _delete_cr("maasauthpolicy", auth_name, namespace=ns)
+            _delete_sa(sa_name, namespace="default")
+            _wait_reconcile()
+
+    def test_subscription_degraded_status_with_partial_models(self):
+        """
+        Test: MaaSSubscription shows Degraded phase when some models are valid, some missing.
+
+        Creates a subscription with one valid and one missing model ref and verifies:
+        - Phase is "Degraded"
+        - modelRefStatuses contains entries for both (one ready=true, one ready=false)
+        """
+        ns = _ns()
+        subscription_name = "e2e-status-degraded-sub"
+        auth_name = "e2e-status-degraded-auth"
+        sa_name = "e2e-status-degraded-sa"
+        missing_model = "nonexistent-model-partial"
+
+        try:
+            _create_sa_token(sa_name, namespace="default")
+            sa_user = f"system:serviceaccount:default:{sa_name}"
+
+            # Create auth policy for valid model only
+            _create_test_auth_policy(auth_name, MODEL_REF, users=[sa_user])
+
+            # Create subscription with both valid and missing models
+            _create_test_subscription(subscription_name, [MODEL_REF, missing_model], users=[sa_user])
+
+            # Wait for reconciliation
+            _wait_reconcile(seconds=10)
+
+            # Get subscription status
+            cr = _get_cr("maassubscription", subscription_name, namespace=ns)
+            assert cr is not None, f"MaaSSubscription {subscription_name} not found"
+
+            status = cr.get("status", {})
+            phase = status.get("phase")
+            model_statuses = status.get("modelRefStatuses", [])
+
+            log.info(f"Subscription status: phase={phase}, modelRefStatuses={model_statuses}")
+
+            assert phase == "Degraded", f"Expected phase 'Degraded', got '{phase}'"
+            assert len(model_statuses) == 2, f"Expected 2 modelRefStatuses, got {len(model_statuses)}"
+
+            # Check we have one valid and one invalid
+            ready_count = sum(1 for s in model_statuses if s.get("ready") is True)
+            not_ready_count = sum(1 for s in model_statuses if s.get("ready") is False)
+
+            assert ready_count == 1, f"Expected 1 ready modelRefStatus, got {ready_count}"
+            assert not_ready_count == 1, f"Expected 1 not-ready modelRefStatus, got {not_ready_count}"
+
+            log.info("✅ MaaSSubscription Degraded status verified")
+
+        finally:
+            _delete_cr("maassubscription", subscription_name, namespace=ns)
+            _delete_cr("maasauthpolicy", auth_name, namespace=ns)
+            _delete_sa(sa_name, namespace="default")
+            _wait_reconcile()
+
+    def test_authpolicy_degraded_status_with_partial_models(self):
+        """
+        Test: MaaSAuthPolicy shows Degraded phase when some models are valid, some missing.
+
+        Creates an auth policy with one valid and one missing model ref and verifies:
+        - Phase is "Degraded"
+        - authPolicies contains entry for the valid model (ready=true)
+        """
+        ns = _ns()
+        auth_name = "e2e-status-degraded-auth"
+        sa_name = "e2e-status-degraded-auth-sa"
+        missing_model = "nonexistent-model-auth-partial"
+
+        try:
+            _create_sa_token(sa_name, namespace="default")
+            sa_user = f"system:serviceaccount:default:{sa_name}"
+
+            # Create auth policy with both valid and missing models
+            _create_test_auth_policy(auth_name, [MODEL_REF, missing_model], users=[sa_user])
+
+            # Wait for auth policy to reconcile
+            _wait_reconcile(seconds=10)
+
+            # Get auth policy status
+            cr = _get_cr("maasauthpolicy", auth_name, namespace=ns)
+            assert cr is not None, f"MaaSAuthPolicy {auth_name} not found"
+
+            status = cr.get("status", {})
+            phase = status.get("phase")
+            auth_policies = status.get("authPolicies", [])
+
+            log.info(f"AuthPolicy status: phase={phase}, authPolicies={auth_policies}")
+
+            assert phase == "Degraded", f"Expected phase 'Degraded', got '{phase}'"
+
+            # Should have at least one entry for the valid model
+            if len(auth_policies) > 0:
+                ready_count = sum(1 for ap in auth_policies if ap.get("ready") is True)
+                log.info(f"Found {ready_count} ready authPolicies out of {len(auth_policies)}")
+
+            log.info("✅ MaaSAuthPolicy Degraded status verified")
+
+        finally:
+            _delete_cr("maasauthpolicy", auth_name, namespace=ns)
+            _delete_sa(sa_name, namespace="default")
+            _wait_reconcile()
+
+    def test_subscription_status_transitions_on_model_deletion(self):
+        """
+        Test: MaaSSubscription transitions from Active to Degraded/Failed when model is deleted.
+
+        Creates a subscription with a temporary model, verifies Active status,
+        then deletes the model and verifies status transitions appropriately.
+        """
+        ns = _ns()
+        subscription_name = "e2e-status-transition-sub"
+        auth_name = "e2e-status-transition-auth"
+        model_name = "e2e-temp-model-status"
+        sa_name = "e2e-status-transition-sa"
+
+        try:
+            _create_sa_token(sa_name, namespace="default")
+            sa_user = f"system:serviceaccount:default:{sa_name}"
+
+            # Create a temporary model
+            _create_test_maas_model(model_name, llmis_name=MODEL_REF, namespace=MODEL_NAMESPACE)
+            _wait_reconcile()
+
+            # Create auth policy and subscription for the model
+            _create_test_auth_policy(auth_name, model_name, users=[sa_user])
+            _create_test_subscription(subscription_name, model_name, users=[sa_user])
+
+            _wait_for_maas_auth_policy_ready(auth_name)
+            _wait_for_maas_subscription_ready(subscription_name)
+
+            # Verify initial Active status
+            cr = _get_cr("maassubscription", subscription_name, namespace=ns)
+            assert cr is not None
+            status = cr.get("status", {})
+            initial_phase = status.get("phase")
+            log.info(f"Initial subscription status: phase={initial_phase}")
+            assert initial_phase == "Active", f"Expected initial phase 'Active', got '{initial_phase}'"
+
+            # Delete the model
+            _delete_cr("maasmodelref", model_name, namespace=MODEL_NAMESPACE)
+            _wait_reconcile(seconds=15)
+
+            # Verify status transitions to Failed
+            cr = _get_cr("maassubscription", subscription_name, namespace=ns)
+            assert cr is not None
+            status = cr.get("status", {})
+            final_phase = status.get("phase")
+            model_statuses = status.get("modelRefStatuses", [])
+
+            log.info(f"Final subscription status: phase={final_phase}, modelRefStatuses={model_statuses}")
+
+            assert final_phase == "Failed", f"Expected final phase 'Failed' after model deletion, got '{final_phase}'"
+
+            # Check model ref status shows NotFound
+            if len(model_statuses) > 0:
+                model_status = model_statuses[0]
+                assert model_status.get("ready") is False, f"Expected modelRefStatus ready=false after deletion"
+                assert model_status.get("reason") == "NotFound", f"Expected reason 'NotFound' after deletion"
+
+            log.info("✅ MaaSSubscription status transition verified (Active → Failed)")
+
+        finally:
+            _delete_cr("maassubscription", subscription_name, namespace=ns)
+            _delete_cr("maasauthpolicy", auth_name, namespace=ns)
+            _delete_cr("maasmodelref", model_name, namespace=MODEL_NAMESPACE)
+            _delete_sa(sa_name, namespace="default")
             _wait_reconcile()

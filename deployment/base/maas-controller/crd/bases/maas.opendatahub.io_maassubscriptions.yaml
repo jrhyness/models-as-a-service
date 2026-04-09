@@ -217,13 +217,78 @@ spec:
                   - type
                   type: object
                 type: array
+              modelRefStatuses:
+                description: ModelRefStatuses reports the status of each referenced
+                  MaaSModelRef
+                items:
+                  description: ModelRefStatus reports the status of a referenced MaaSModelRef.
+                  properties:
+                    message:
+                      description: Message is a human-readable description of the
+                        status
+                      type: string
+                    name:
+                      description: Name of the referenced resource
+                      type: string
+                    namespace:
+                      description: Namespace of the referenced resource
+                      type: string
+                    ready:
+                      description: Ready indicates whether the resource is valid and
+                        healthy
+                      type: boolean
+                    reason:
+                      description: Reason is a machine-readable reason code
+                      type: string
+                  required:
+                  - name
+                  - namespace
+                  - ready
+                  type: object
+                type: array
               phase:
                 description: Phase represents the current phase of the subscription
                 enum:
                 - Pending
                 - Active
+                - Degraded
                 - Failed
                 type: string
+              tokenRateLimitStatuses:
+                description: TokenRateLimitStatuses reports the status of each generated
+                  TokenRateLimitPolicy
+                items:
+                  description: TokenRateLimitStatus reports the status of a generated
+                    TokenRateLimitPolicy.
+                  properties:
+                    message:
+                      description: Message is a human-readable description of the
+                        status
+                      type: string
+                    model:
+                      description: Model is the MaaSModelRef name this TokenRateLimitPolicy
+                        targets
+                      type: string
+                    name:
+                      description: Name of the referenced resource
+                      type: string
+                    namespace:
+                      description: Namespace of the referenced resource
+                      type: string
+                    ready:
+                      description: Ready indicates whether the resource is valid and
+                        healthy
+                      type: boolean
+                    reason:
+                      description: Reason is a machine-readable reason code
+                      type: string
+                  required:
+                  - model
+                  - name
+                  - namespace
+                  - ready
+                  type: object
+                type: array
             type: object
         type: object
     served: true
