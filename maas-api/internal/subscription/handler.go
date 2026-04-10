@@ -69,6 +69,9 @@ func (h *Handler) SelectSubscription(c *gin.Context) {
 
 	response, err := h.selector.Select(req.Groups, req.Username, req.RequestedSubscription, req.RequestedModel)
 	if err != nil {
+		// NOTE: All error responses return http.StatusOK with error fields populated in SelectResponse.
+		// This is intentional for Authorino integration, which expects 200 OK responses with metadata
+		// fields (not HTTP error codes). See SelectResponse type documentation in types.go.
 		var noSubErr *NoSubscriptionError
 		var notFoundErr *SubscriptionNotFoundError
 		var accessDeniedErr *AccessDeniedError

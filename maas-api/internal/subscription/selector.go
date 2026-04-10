@@ -498,21 +498,16 @@ func subscriptionIncludesModel(sub *subscription, requestedModel string) bool {
 }
 
 // checkModelHealth validates subscription phase and model health.
-// Returns error if subscription is in Failed/Pending phase or if model is unhealthy in Degraded subscriptions.
+// Returns error if subscription is not in Active/Degraded phase or if model is unhealthy in Degraded subscriptions.
 func checkModelHealth(sub *subscription, requestedModel string) error {
-	// Reject Failed and Pending subscriptions (allowlist: Active and Degraded only)
-	if sub.Phase == PhaseFailed {
+	// Allowlist: only Active and Degraded subscriptions are allowed
+	// Empty phase is treated as Active (backward compatible)
+	// Any other phase (Failed, Pending, or future phases) is rejected
+	if sub.Phase != "" && sub.Phase != PhaseActive && sub.Phase != PhaseDegraded {
 		return &ModelUnhealthyError{
 			Subscription: sub.Name,
-			Reason:       "SubscriptionFailed",
-			Message:      "subscription is in Failed phase",
-		}
-	}
-	if sub.Phase == PhasePending {
-		return &ModelUnhealthyError{
-			Subscription: sub.Name,
-			Reason:       "SubscriptionPending",
-			Message:      "subscription is in Pending phase",
+			Reason:       "SubscriptionNotReady",
+			Message:      fmt.Sprintf("subscription is in %s phase (allowed: Active, Degraded)", sub.Phase),
 		}
 	}
 
