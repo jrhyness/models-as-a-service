@@ -146,6 +146,7 @@ def external_models_setup(gateway_url, headers, api_keys_base_url):
         "metadata": {"name": EXTERNAL_MODEL_NAME, "namespace": MODEL_NAMESPACE},
         "spec": {
             "provider": "openai",
+            "targetModel": "gpt-4o",  # Required: upstream model name
             "endpoint": EXTERNAL_ENDPOINT,
             "credentialRef": {
                 "name": f"{EXTERNAL_MODEL_NAME}-api-key",
@@ -190,7 +191,11 @@ def external_models_setup(gateway_url, headers, api_keys_base_url):
         "spec": {
             "owner": {"groups": [{"name": "system:authenticated"}]},
             "modelRefs": [
-                {"name": EXTERNAL_MODEL_NAME, "namespace": MODEL_NAMESPACE},
+                {
+                    "name": EXTERNAL_MODEL_NAME,
+                    "namespace": MODEL_NAMESPACE,
+                    "tokenRateLimits": [{"limit": 1000, "window": "1m"}],
+                },
             ],
         },
     })
@@ -327,6 +332,7 @@ class TestExternalModelCleanup:
             "metadata": {"name": temp_name, "namespace": MODEL_NAMESPACE},
             "spec": {
                 "provider": "openai",
+                "targetModel": "gpt-4o",  # Required: upstream model name
                 "endpoint": EXTERNAL_ENDPOINT,
                 "credentialRef": {
                     "name": f"{EXTERNAL_MODEL_NAME}-api-key",
