@@ -233,6 +233,11 @@ func (r *MaaSAuthPolicyReconciler) deriveAuthPolicyPhase(policy *maasv1alpha1.Ma
 		return maasv1alpha1.PhaseDegraded, fmt.Sprintf("%d of %d AuthPolicies not accepted/enforced", unhealthyPolicies, len(policy.Status.AuthPolicies))
 	}
 
+	// No AuthPolicies generated yet -> Degraded
+	if healthyPolicies == 0 {
+		return maasv1alpha1.PhaseDegraded, "no generated AuthPolicies attached to models"
+	}
+
 	return maasv1alpha1.PhaseActive, "successfully reconciled"
 }
 
