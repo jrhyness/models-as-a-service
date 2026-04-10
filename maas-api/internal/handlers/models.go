@@ -172,6 +172,8 @@ func (h *ModelsHandler) addSubscriptionIfNew(model *models.Model, subInfo models
 }
 
 // ListLLMs handles GET /v1/models.
+//
+//nolint:maintidx // TODO: refactor to reduce complexity (tracked from PR #549 merge)
 func (h *ModelsHandler) ListLLMs(c *gin.Context) {
 	// Require Authorization header and pass it through as-is to list and access validation.
 	authHeader := strings.TrimSpace(c.GetHeader("Authorization"))
