@@ -1504,8 +1504,8 @@ create_maas_db_config_secret() {
 #   fi
 #
 # Output:
-#   - LLMInferenceService YAML
-#   - Pod status and descriptions
+#   - LLMInferenceService status (conditions, observedGeneration)
+#   - Pod status (wide format)
 #   - ReplicaSet/Deployment status
 #   - Container logs (current and previous)
 #   - Namespace events
@@ -1526,7 +1526,10 @@ dump_llmis_diagnostics() {
 
     echo ""
     echo "========== LLMInferenceService Status =========="
-    kubectl get llminferenceservice/"$llmis_name" -n "$namespace" -o yaml 2>&1 || echo "  (failed to get LLMIS)"
+    # Only output status (not full YAML) to avoid logging potentially sensitive spec fields
+    kubectl get llminferenceservice/"$llmis_name" -n "$namespace" -o jsonpath='{.status}' 2>&1 | jq -C '.' 2>/dev/null || \
+        kubectl get llminferenceservice/"$llmis_name" -n "$namespace" -o jsonpath='{.status}' 2>&1 || \
+        echo "  (failed to get LLMIS status)"
 
     echo ""
     echo "========== Pod Status =========="
@@ -1534,19 +1537,6 @@ dump_llmis_diagnostics() {
     # Use name-based filtering since label selectors may not match
     if kubectl get pods -n "$namespace" 2>/dev/null | grep -q "^${llmis_name}-"; then
         kubectl get pods -n "$namespace" 2>&1 | grep "^NAME\|^${llmis_name}-" || echo "  (no matching pods found)"
-    else
-        echo "  (no pods found matching pattern: ${llmis_name}-*)"
-    fi
-
-    echo ""
-    echo "========== Pod Descriptions =========="
-    local matching_pods
-    matching_pods=$(kubectl get pods -n "$namespace" --no-headers 2>/dev/null | grep "^${llmis_name}-" | awk '{print $1}')
-    if [[ -n "$matching_pods" ]]; then
-        for pod in $matching_pods; do
-            kubectl describe pod "$pod" -n "$namespace" 2>&1
-            echo ""
-        done
     else
         echo "  (no pods found matching pattern: ${llmis_name}-*)"
     fi
@@ -1570,7 +1560,8 @@ dump_llmis_diagnostics() {
     echo ""
     echo "========== Container Logs =========="
     local pods
-    pods=$(kubectl get pods -n "$namespace" --no-headers 2>/dev/null | grep "^${llmis_name}-" | awk '{print $1}')
+    # Use awk alone to avoid grep exit code 1 when no matches found
+    pods=$(kubectl get pods -n "$namespace" --no-headers 2>/dev/null | awk '/^'"${llmis_name}"'-/ {print $1}')
 
     if [[ -z "$pods" ]]; then
         echo "  (no pods found - container logs unavailable)"
