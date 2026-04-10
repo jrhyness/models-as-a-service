@@ -2543,7 +2543,19 @@ class TestStatusReporting:
             _delete_cr("maasmodelref", model_name, namespace=MODEL_NAMESPACE)
 
             # Wait for subscription to transition to Failed phase with polling
-            cr = _wait_for_subscription_phase(subscription_name, "Failed", timeout=60)
+            # Use longer timeout to allow for cache invalidation
+            cr = _wait_for_subscription_phase(subscription_name, "Failed", timeout=120)
+
+            # Poll for modelRefStatuses to also reflect the deletion
+            # (cache may take additional time to invalidate)
+            deadline = time.time() + 60
+            while time.time() < deadline:
+                cr = _get_cr("maassubscription", subscription_name, namespace=ns)
+                status = cr.get("status", {})
+                model_statuses = status.get("modelRefStatuses", [])
+                if len(model_statuses) > 0 and model_statuses[0].get("ready") is False:
+                    break
+                time.sleep(2)
 
             status = cr.get("status", {})
             model_statuses = status.get("modelRefStatuses", [])
