@@ -485,6 +485,19 @@ setup_premium_test_token() {
         exit 1
     fi
 
+    # Restart maas-api to force informer cache resync with subscription status
+    # Race condition: After patching subscriptions, they reconcile and reach Active phase
+    # in the API server, but the maas-api informer cache may have stale data (subscriptions
+    # without status fields). The subscription selector rejects empty phase as "unreconciled",
+    # causing 403 errors in tests. Restarting ensures the cache loads fresh data with status.
+    echo "Restarting maas-api to force informer cache resync with subscription status..."
+    kubectl rollout restart deployment/maas-api -n "$DEPLOYMENT_NAMESPACE"
+    kubectl rollout status deployment/maas-api -n "$DEPLOYMENT_NAMESPACE" --timeout=60s
+
+    # Give informer cache a moment to populate after restart
+    echo "Waiting 5s for informer cache to populate..."
+    sleep 5
+
     echo "✅ Premium test token setup complete (E2E_TEST_TOKEN_SA_* exported)"
 }
 
