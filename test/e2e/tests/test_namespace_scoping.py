@@ -186,6 +186,38 @@ def _wait_reconcile(seconds=None):
     time.sleep(seconds or RECONCILE_WAIT)
 
 
+def _wait_for_subscription_phase(name: str, expected_phase: str, namespace: str, timeout: int = 60):
+    """Wait for MaaSSubscription to reach a specific phase.
+
+    Args:
+        name: Name of the MaaSSubscription
+        expected_phase: Expected phase (e.g., "Active", "Degraded")
+        namespace: Namespace where the subscription exists
+        timeout: Maximum wait time in seconds (default: 60)
+
+    Returns:
+        The subscription CR dict when the expected phase is reached
+
+    Raises:
+        TimeoutError: If subscription doesn't reach expected phase within timeout
+    """
+    deadline = time.time() + timeout
+    log.info(f"Waiting for MaaSSubscription {namespace}/{name} to reach phase '{expected_phase}'...")
+
+    while time.time() < deadline:
+        cr = _get_cr("maassubscription", name, namespace)
+        if cr:
+            phase = cr.get("status", {}).get("phase")
+            if phase == expected_phase:
+                log.info(f"✅ MaaSSubscription {namespace}/{name} reached phase '{expected_phase}'")
+                return cr
+        time.sleep(2)
+
+    raise TimeoutError(
+        f"MaaSSubscription {namespace}/{name} did not reach phase '{expected_phase}' within {timeout}s"
+    )
+
+
 def _get_cr_annotation(kind: str, name: str, namespace: str, key: str):
     """Return the annotation value for key on the CR, or \"\" if not found."""
     result = subprocess.run(
@@ -227,7 +259,7 @@ class TestMaaSAPIWatchNamespace:
                     "modelRefs": [{"name": MODEL_REF, "namespace": MODEL_NAMESPACE, "tokenRateLimits": [{"limit": 1, "window": "1m"}]}],
                 },
             })
-            _wait_reconcile()
+            _wait_for_subscription_phase(sub_name, "Active", ns)
 
             r = _call_subscriptions_select(api_key, "e2e-api-user", ["system:authenticated"], requested_subscription=sub_name)
             assert r.status_code == 200, f"subscriptions/select failed: {r.status_code} {r.text}"

@@ -2790,7 +2790,7 @@ class TestDegradedSubscriptionFiltering:
                             "name": MODEL_REF,
                             "namespace": MODEL_NAMESPACE,
                             "ready": False,
-                            "reason": "ModelNotReady",
+                            "reason": "BackendNotReady",
                             "message": "Model deployment failed"
                         },
                         {
@@ -2933,7 +2933,7 @@ class TestDegradedSubscriptionFiltering:
                             "name": MODEL_REF,
                             "namespace": MODEL_NAMESPACE,
                             "ready": False,
-                            "reason": "Failed",
+                            "reason": "ReconcileFailed",
                             "message": "Model failed"
                         }
                     ]
