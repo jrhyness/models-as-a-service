@@ -260,6 +260,14 @@ func (s *Selector) loadSubscriptions() ([]subscription, error) {
 			)
 			continue
 		}
+		s.logger.Debug("Parsed subscription from informer cache",
+			"name", sub.Name,
+			"namespace", sub.Namespace,
+			"phase", sub.Phase,
+			"ready", sub.Ready,
+			"numModelRefs", len(sub.ModelRefStatuses),
+			"deleting", sub.DeletionTimestamp != nil,
+		)
 		subscriptions = append(subscriptions, sub)
 	}
 

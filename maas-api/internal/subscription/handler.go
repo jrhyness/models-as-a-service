@@ -163,9 +163,12 @@ func (h *Handler) SelectSubscription(c *gin.Context) {
 		return
 	}
 
-	h.logger.Debug("Subscription selected successfully",
+	h.logger.Info("Subscription selected successfully",
 		"username", req.Username,
 		"subscription", response.Name,
+		"namespace", response.Namespace,
+		"phase", response.Phase,
+		"ready", response.Ready,
 		"organizationId", response.OrganizationID,
 	)
 	c.JSON(http.StatusOK, response)
