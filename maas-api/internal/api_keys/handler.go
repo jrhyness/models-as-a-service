@@ -204,7 +204,7 @@ func (h *Handler) CreateAPIKey(c *gin.Context) {
 		}
 		if errors.As(err, &modelUnhealthy) {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
+				"error": modelUnhealthy.Message,
 				"code":  "subscription_not_ready",
 			})
 			return

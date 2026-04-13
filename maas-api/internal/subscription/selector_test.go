@@ -883,3 +883,256 @@ func TestSelector_DegradedSubscriptionActiveFiltering(t *testing.T) {
 		})
 	}
 }
+
+func TestSelector_DegradedSubscriptionTRLPFiltering(t *testing.T) {
+	log := logger.Production()
+
+	tests := []struct {
+		name               string
+		subscription       *unstructured.Unstructured
+		requestedModel     string
+		expectError        bool
+		expectedErrorReason string
+	}{
+		{
+			name: "Degraded subscription with TRLP not ready - blocks inference",
+			subscription: createSubscriptionWithTRLPStatus("degraded-sub", []string{"g1"}, phaseDegraded, []map[string]any{
+				{
+					"name":      "model-a",
+					"namespace": "ns",
+					"ready":     true,
+					"reason":    "Valid",
+				},
+			}, []map[string]any{
+				{
+					"model":     "model-a",
+					"name":      "maas-trlp-model-a",
+					"namespace": "ns",
+					"ready":     false,
+					"reason":    "NotAccepted",
+					"message":   "status not available",
+				},
+			}),
+			requestedModel:      "ns/model-a",
+			expectError:         true,
+			expectedErrorReason: "RateLimitNotEnforced",
+		},
+		{
+			name: "Degraded subscription with all TRLPs ready - allows inference (partial model failure)",
+			subscription: createSubscriptionWithTRLPStatus("degraded-sub", []string{"g1"}, phaseDegraded, []map[string]any{
+				{
+					"name":      "model-a",
+					"namespace": "ns",
+					"ready":     true,
+					"reason":    "Valid",
+				},
+				{
+					"name":      "model-b",
+					"namespace": "ns",
+					"ready":     false,
+					"reason":    "NotFound",
+					"message":   "model not found",
+				},
+			}, []map[string]any{
+				{
+					"model":     "model-a",
+					"name":      "maas-trlp-model-a",
+					"namespace": "ns",
+					"ready":     true,
+					"reason":    "Accepted",
+				},
+			}),
+			requestedModel:      "ns/model-a",
+			expectError:         false,
+		},
+		{
+			name: "Active subscription - TRLP status doesn't matter",
+			subscription: createSubscriptionWithTRLPStatus("active-sub", []string{"g1"}, phaseActive, []map[string]any{
+				{
+					"name":      "model-a",
+					"namespace": "ns",
+					"ready":     true,
+					"reason":    "Valid",
+				},
+			}, []map[string]any{
+				{
+					"model":     "model-a",
+					"name":      "maas-trlp-model-a",
+					"namespace": "ns",
+					"ready":     false,
+					"reason":    "NotAccepted",
+				},
+			}),
+			requestedModel:      "ns/model-a",
+			expectError:         false,
+		},
+		{
+			name: "Degraded subscription with multiple TRLPs - requested model TRLP ready allows inference",
+			subscription: createSubscriptionWithTRLPStatus("degraded-sub", []string{"g1"}, phaseDegraded, []map[string]any{
+				{
+					"name":      "model-a",
+					"namespace": "ns",
+					"ready":     true,
+					"reason":    "Valid",
+				},
+				{
+					"name":      "model-b",
+					"namespace": "ns",
+					"ready":     true,
+					"reason":    "Valid",
+				},
+			}, []map[string]any{
+				{
+					"model":     "model-a",
+					"name":      "maas-trlp-model-a",
+					"namespace": "ns",
+					"ready":     true,
+					"reason":    "Accepted",
+				},
+				{
+					"model":     "model-b",
+					"name":      "maas-trlp-model-b",
+					"namespace": "ns",
+					"ready":     false,
+					"reason":    "NotAccepted",
+					"message":   "policy not accepted",
+				},
+			}),
+			requestedModel: "ns/model-a",
+			expectError:    false,
+		},
+		{
+			name: "Degraded subscription with multiple TRLPs - requested model TRLP not ready blocks inference",
+			subscription: createSubscriptionWithTRLPStatus("degraded-sub", []string{"g1"}, phaseDegraded, []map[string]any{
+				{
+					"name":      "model-a",
+					"namespace": "ns",
+					"ready":     true,
+					"reason":    "Valid",
+				},
+				{
+					"name":      "model-b",
+					"namespace": "ns",
+					"ready":     true,
+					"reason":    "Valid",
+				},
+			}, []map[string]any{
+				{
+					"model":     "model-a",
+					"name":      "maas-trlp-model-a",
+					"namespace": "ns",
+					"ready":     true,
+					"reason":    "Accepted",
+				},
+				{
+					"model":     "model-b",
+					"name":      "maas-trlp-model-b",
+					"namespace": "ns",
+					"ready":     false,
+					"reason":    "NotAccepted",
+					"message":   "policy not accepted",
+				},
+			}),
+			requestedModel:      "ns/model-b",
+			expectError:         true,
+			expectedErrorReason: "RateLimitNotEnforced",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lister := &fakeLister{subscriptions: []*unstructured.Unstructured{tt.subscription}}
+			selector := subscription.NewSelector(log, lister)
+
+			result, err := selector.Select([]string{"g1"}, "", "", tt.requestedModel)
+
+			if tt.expectError {
+				if err == nil {
+					t.Fatalf("Expected error but got none")
+				}
+				var modelUnhealthyErr *subscription.ModelUnhealthyError
+				if !errors.As(err, &modelUnhealthyErr) {
+					t.Fatalf("Expected ModelUnhealthyError, got %T: %v", err, err)
+				}
+				if tt.expectedErrorReason != "" && modelUnhealthyErr.Reason != tt.expectedErrorReason {
+					t.Fatalf("Expected error reason %q, got %q", tt.expectedErrorReason, modelUnhealthyErr.Reason)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("Expected no error but got: %v", err)
+				}
+				if result == nil {
+					t.Fatal("Expected result but got nil")
+				}
+			}
+		})
+	}
+}
+
+// createSubscriptionWithTRLPStatus creates a test subscription with model and TRLP status.
+func createSubscriptionWithTRLPStatus(name string, groups []string, phase string, modelStatuses []map[string]any, trlpStatuses []map[string]any) *unstructured.Unstructured {
+	groupsSlice := make([]any, len(groups))
+	for i, g := range groups {
+		groupsSlice[i] = map[string]any{"name": g}
+	}
+
+	// Convert []map[string]any to []any for k8s deep copy compatibility
+	modelStatusesAny := make([]any, len(modelStatuses))
+	for i, status := range modelStatuses {
+		modelStatusesAny[i] = status
+	}
+
+	trlpStatusesAny := make([]any, len(trlpStatuses))
+	for i, status := range trlpStatuses {
+		trlpStatusesAny[i] = status
+	}
+
+	// Build modelRefs from modelStatuses
+	modelRefs := make([]any, 0, len(modelStatuses))
+	for _, status := range modelStatuses {
+		modelName := status["name"].(string)
+		modelNamespace := status["namespace"].(string)
+		modelRefs = append(modelRefs, map[string]any{
+			"name":      modelName,
+			"namespace": modelNamespace,
+			"tokenRateLimits": []any{
+				map[string]any{
+					"limit":  int64(100),
+					"window": "1m",
+				},
+			},
+		})
+	}
+
+	obj := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "maas.opendatahub.io/v1alpha1",
+			"kind":       "MaaSSubscription",
+			"metadata": map[string]any{
+				"name":      name,
+				"namespace": "test-ns",
+			},
+			"spec": map[string]any{
+				"owner": map[string]any{
+					"groups": groupsSlice,
+				},
+				"priority": int64(10),
+				"modelRefs": modelRefs,
+			},
+			"status": map[string]any{
+				"phase": phase,
+				"conditions": []any{
+					map[string]any{
+						"type":    "Ready",
+						"status":  "True",
+						"reason":  phase,
+						"message": "test",
+					},
+				},
+				"modelRefStatuses":        modelStatusesAny,
+				"tokenRateLimitStatuses":  trlpStatusesAny,
+			},
+		},
+	}
+	return obj
+}

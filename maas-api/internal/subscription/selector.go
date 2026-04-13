@@ -67,10 +67,11 @@ type subscription struct {
 	CostCenter        string
 	Labels            map[string]string
 	ModelRefs         []ModelRefInfo
-	Phase             string           // status.phase: "Active", "Failed", "Pending", or ""
-	Ready             bool             // computed from status.conditions Ready condition
-	DeletionTimestamp *string          // metadata.deletionTimestamp (set when being deleted)
-	ModelRefStatuses  []ModelRefStatus // per-model health status from status.modelRefStatuses
+	Phase                   string                 // status.phase: "Active", "Failed", "Pending", or ""
+	Ready                   bool                   // computed from status.conditions Ready condition
+	DeletionTimestamp       *string                // metadata.deletionTimestamp (set when being deleted)
+	ModelRefStatuses        []ModelRefStatus       // per-model health status from status.modelRefStatuses
+	TokenRateLimitStatuses  []TokenRateLimitStatus // per-model TRLP status from status.tokenRateLimitStatuses
 }
 
 // GetAllAccessible returns all subscriptions the user has access to.
@@ -390,6 +391,34 @@ func parseSubscription(obj *unstructured.Unstructured) (subscription, error) {
 				}
 			}
 		}
+
+		// Parse status.tokenRateLimitStatuses to extract TRLP health
+		if trlpStatuses, found, _ := unstructured.NestedSlice(status, "tokenRateLimitStatuses"); found {
+			for _, statusRaw := range trlpStatuses {
+				if statusMap, ok := statusRaw.(map[string]any); ok {
+					trlpStatus := TokenRateLimitStatus{}
+					if model, ok := statusMap["model"].(string); ok {
+						trlpStatus.Model = model
+					}
+					if name, ok := statusMap["name"].(string); ok {
+						trlpStatus.Name = name
+					}
+					if namespace, ok := statusMap["namespace"].(string); ok {
+						trlpStatus.Namespace = namespace
+					}
+					if ready, ok := statusMap["ready"].(bool); ok {
+						trlpStatus.Ready = ready
+					}
+					if reason, ok := statusMap["reason"].(string); ok {
+						trlpStatus.Reason = reason
+					}
+					if message, ok := statusMap["message"].(string); ok {
+						trlpStatus.Message = message
+					}
+					sub.TokenRateLimitStatuses = append(sub.TokenRateLimitStatuses, trlpStatus)
+				}
+			}
+		}
 	}
 
 	// Parse metadata.deletionTimestamp
@@ -516,6 +545,7 @@ func checkModelHealth(sub *subscription, requestedModel string) error {
 		if sub.Phase == "" {
 			return &ModelUnhealthyError{
 				Subscription: sub.Name,
+				Phase:        sub.Phase,
 				Reason:       "SubscriptionNotReady",
 				Message:      "subscription is unreconciled (no status.phase set)",
 			}
@@ -533,12 +563,12 @@ func checkModelHealth(sub *subscription, requestedModel string) error {
 		}
 		return &ModelUnhealthyError{
 			Subscription: sub.Name,
+			Phase:        sub.Phase,
 			Reason:       "SubscriptionNotReady",
 			Message:      fmt.Sprintf("subscription is in %s phase (allowed: Active, Degraded)", phaseDisplay),
 		}
 	}
 
-	// Only check per-model health for Degraded subscriptions
 	// Active subscriptions are allowed without health checks
 	if sub.Phase != PhaseDegraded {
 		return nil
@@ -563,11 +593,27 @@ func checkModelHealth(sub *subscription, requestedModel string) error {
 			if !status.Ready {
 				return &ModelUnhealthyError{
 					Subscription: sub.Name,
+					Phase:        sub.Phase,
 					Reason:       status.Reason,
 					Message:      status.Message,
 				}
 			}
-			// Model found and ready
+			// Model found and ready - now check if its TRLP is ready
+			// For Degraded subscriptions, we must verify rate limits can be enforced
+			for _, trlp := range sub.TokenRateLimitStatuses {
+				if trlp.Model == requestedName {
+					if !trlp.Ready {
+						return &ModelUnhealthyError{
+							Subscription: sub.Name,
+							Phase:        sub.Phase,
+							Reason:       "RateLimitNotEnforced",
+							Message:      "subscription rate limiting policies are not ready",
+						}
+					}
+					break
+				}
+			}
+			// Model and TRLP are both ready
 			return nil
 		}
 	}
@@ -578,6 +624,7 @@ func checkModelHealth(sub *subscription, requestedModel string) error {
 		// (subscription is Degraded for a reason - should have status)
 		return &ModelUnhealthyError{
 			Subscription: sub.Name,
+			Phase:        sub.Phase,
 			Reason:       "ModelStatusMissing",
 			Message:      "subscription is Degraded but model status not reported",
 		}
@@ -586,6 +633,7 @@ func checkModelHealth(sub *subscription, requestedModel string) error {
 	// Model found in modelRefs but not in modelRefStatuses - unhealthy (fail-closed)
 	return &ModelUnhealthyError{
 		Subscription: sub.Name,
+		Phase:        sub.Phase,
 		Reason:       "ModelStatusMissing",
 		Message:      "model status not reported",
 	}
@@ -769,6 +817,7 @@ func (e *ModelNotInSubscriptionError) Error() string {
 // Note: Model field is intentionally omitted to prevent XSS attacks.
 type ModelUnhealthyError struct {
 	Subscription string
+	Phase        string // Subscription phase for Authorino OPA evaluation
 	Reason       string
 	Message      string
 }

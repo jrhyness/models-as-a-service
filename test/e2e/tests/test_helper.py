@@ -490,6 +490,57 @@ def _wait_for_subscription_phase(name, expected_phase="Active", namespace=None, 
     )
 
 
+def _wait_for_subscription_trlp_status(name, expected_ready=True, namespace=None, timeout=60):
+    """Wait for MaaSSubscription's TokenRateLimitPolicy status to reach expected ready state.
+
+    Args:
+        name: Name of the MaaSSubscription
+        expected_ready: Expected ready state for all TRLPs (True or False)
+        namespace: Namespace (defaults to _ns())
+        timeout: Maximum wait time in seconds (default: 60)
+
+    Returns:
+        The subscription CR dict when all TRLPs reach the expected ready state
+
+    Raises:
+        TimeoutError: If TRLPs don't reach expected state within timeout
+    """
+    namespace = namespace or _ns()
+    deadline = time.time() + timeout
+    log.info(f"Waiting for MaaSSubscription {name} TRLP ready={expected_ready} (timeout: {timeout}s)...")
+
+    while time.time() < deadline:
+        cr = _get_cr("maassubscription", name, namespace)
+        if cr:
+            status = cr.get("status", {})
+            trlp_statuses = status.get("tokenRateLimitStatuses", [])
+
+            # If we expect ready and there are no TRLPs yet, keep waiting
+            if expected_ready and len(trlp_statuses) == 0:
+                log.debug(f"MaaSSubscription {name}: waiting for TRLP statuses to appear")
+                time.sleep(2)
+                continue
+
+            # Check if all TRLPs match expected ready state
+            if len(trlp_statuses) > 0:
+                all_match = all(trlp.get("ready") == expected_ready for trlp in trlp_statuses)
+                if all_match:
+                    log.info(f"✅ MaaSSubscription {name} has {len(trlp_statuses)} TRLP(s) with ready={expected_ready}")
+                    return cr
+                log.debug(f"MaaSSubscription {name}: TRLP statuses={trlp_statuses}")
+
+        time.sleep(2)
+
+    # Timeout - return current state for debugging
+    cr = _get_cr("maassubscription", name, namespace)
+    status = cr.get("status", {}) if cr else {}
+    trlp_statuses = status.get("tokenRateLimitStatuses", [])
+    raise TimeoutError(
+        f"MaaSSubscription {name} TRLPs did not reach ready={expected_ready} within {timeout}s "
+        f"(current TRLPs: {trlp_statuses})"
+    )
+
+
 def _wait_for_authpolicy_phase(name, expected_phase="Active", namespace=None, timeout=60, require_auth_policies=True):
     """Wait for MaaSAuthPolicy to reach a specific phase with populated status.
 
@@ -659,3 +710,69 @@ def _scale_controller_down(namespace=None, timeout=60):
 def _scale_controller_up(namespace=None, timeout=60):
     """Scale maas-controller to 1 replica (convenience wrapper)."""
     _scale_controller(1, namespace, timeout)
+
+
+def _scale_kuadrant_controller(replicas, namespace="kuadrant-system", timeout=60):
+    """
+    Scale the kuadrant-operator deployment.
+
+    Args:
+        replicas: Target replica count (0 to disable, 1+ to enable)
+        namespace: Deployment namespace (default: kuadrant-system)
+        timeout: Max seconds to wait for scaling operation (default: 60)
+
+    Raises:
+        subprocess.CalledProcessError: If kubectl scale fails
+        TimeoutError: If pods don't reach desired state within timeout
+    """
+    log.info(f"Scaling kuadrant-operator to {replicas} replicas in namespace {namespace}...")
+
+    # Scale the deployment
+    result = subprocess.run(
+        ["kubectl", "scale", "deployment", "kuadrant-operator-controller-manager",
+         f"--replicas={replicas}", "-n", namespace],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=timeout
+    )
+
+    # Wait for pods to reach desired state
+    if replicas == 0:
+        # Wait for all pods to terminate
+        log.debug(f"Waiting for kuadrant-operator pods to terminate (timeout: {timeout}s)...")
+        subprocess.run(
+            ["kubectl", "wait", "--for=delete", "pod",
+             "-l", "control-plane=controller-manager", "-n", namespace,
+             f"--timeout={timeout}s"],
+            check=False,  # Don't fail if no pods exist
+            capture_output=True,
+            text=True
+        )
+        log.info("✓ kuadrant-operator scaled down to 0 replicas")
+    else:
+        # Wait for pods to become ready
+        log.debug(f"Waiting for kuadrant-operator pods to become ready (timeout: {timeout}s)...")
+        try:
+            subprocess.run(
+                ["kubectl", "wait", "--for=condition=ready", "pod",
+                 "-l", "control-plane=controller-manager", "-n", namespace,
+                 f"--timeout={timeout}s"],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            log.info(f"✓ kuadrant-operator scaled to {replicas} replica(s)")
+        except subprocess.CalledProcessError:
+            log.warning(f"Pods may not be ready yet (timeout: {timeout}s)")
+            raise
+
+
+def _scale_kuadrant_controller_down(namespace="kuadrant-system", timeout=60):
+    """Scale kuadrant-operator to 0 replicas (convenience wrapper)."""
+    _scale_kuadrant_controller(0, namespace, timeout)
+
+
+def _scale_kuadrant_controller_up(namespace="kuadrant-system", timeout=60):
+    """Scale kuadrant-operator to 1 replica (convenience wrapper)."""
+    _scale_kuadrant_controller(1, namespace, timeout)

@@ -471,6 +471,8 @@ allow {
 				"rego": `allow {
 	# Subscription name must be present (selector succeeded)
 	object.get(input.auth.metadata["subscription-info"], "name", "") != ""
+	# Error field must be empty (no validation errors from selector)
+	object.get(input.auth.metadata["subscription-info"], "error", "") == ""
 	# Allowlist: phase must be exactly "Active" or "Degraded" (reject empty/unreconciled)
 	phase := object.get(input.auth.metadata["subscription-info"], "phase", "")
 	any([phase == "Active", phase == "Degraded"])

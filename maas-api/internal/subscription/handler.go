@@ -141,12 +141,14 @@ func (h *Handler) SelectSubscription(c *gin.Context) {
 		if errors.As(err, &modelUnhealthyErr) {
 			h.logger.Debug("Requested model is unhealthy",
 				"subscription", modelUnhealthyErr.Subscription,
+				"phase", modelUnhealthyErr.Phase,
 				"reason", modelUnhealthyErr.Reason,
 				"message", modelUnhealthyErr.Message,
 			)
 			c.JSON(http.StatusOK, SelectResponse{
 				Error:   "model_unhealthy",
-				Message: err.Error(),
+				Message: modelUnhealthyErr.Message,
+				Phase:   modelUnhealthyErr.Phase,
 			})
 			return
 		}
