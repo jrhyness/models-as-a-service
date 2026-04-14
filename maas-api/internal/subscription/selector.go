@@ -55,23 +55,23 @@ type ModelRefStatus struct {
 
 // subscription represents a parsed MaaSSubscription for selection.
 type subscription struct {
-	Name              string
-	Namespace         string
-	DisplayName       string
-	Description       string
-	Groups            []string
-	Users             []string
-	Priority          int32
-	MaxLimit          int64
-	OrganizationID    string
-	CostCenter        string
-	Labels            map[string]string
-	ModelRefs         []ModelRefInfo
-	Phase                   string                 // status.phase: "Active", "Failed", "Pending", or ""
-	Ready                   bool                   // computed from status.conditions Ready condition
-	DeletionTimestamp       *string                // metadata.deletionTimestamp (set when being deleted)
-	ModelRefStatuses        []ModelRefStatus       // per-model health status from status.modelRefStatuses
-	TokenRateLimitStatuses  []TokenRateLimitStatus // per-model TRLP status from status.tokenRateLimitStatuses
+	Name                   string
+	Namespace              string
+	DisplayName            string
+	Description            string
+	Groups                 []string
+	Users                  []string
+	Priority               int32
+	MaxLimit               int64
+	OrganizationID         string
+	CostCenter             string
+	Labels                 map[string]string
+	ModelRefs              []ModelRefInfo
+	Phase                  string                 // status.phase: "Active", "Failed", "Pending", or ""
+	Ready                  bool                   // computed from status.conditions Ready condition
+	DeletionTimestamp      *string                // metadata.deletionTimestamp (set when being deleted)
+	ModelRefStatuses       []ModelRefStatus       // per-model health status from status.modelRefStatuses
+	TokenRateLimitStatuses []TokenRateLimitStatus // per-model TRLP status from status.tokenRateLimitStatuses
 }
 
 // GetAllAccessible returns all subscriptions the user has access to.

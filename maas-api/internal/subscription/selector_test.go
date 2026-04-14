@@ -888,10 +888,10 @@ func TestSelector_DegradedSubscriptionTRLPFiltering(t *testing.T) {
 	log := logger.Production()
 
 	tests := []struct {
-		name               string
-		subscription       *unstructured.Unstructured
-		requestedModel     string
-		expectError        bool
+		name                string
+		subscription        *unstructured.Unstructured
+		requestedModel      string
+		expectError         bool
 		expectedErrorReason string
 	}{
 		{
@@ -1044,6 +1044,7 @@ func TestSelector_DegradedSubscriptionTRLPFiltering(t *testing.T) {
 			lister := &fakeLister{subscriptions: []*unstructured.Unstructured{tt.subscription}}
 			selector := subscription.NewSelector(log, lister)
 
+			//nolint:unqueryvet // false positive: this is not a SQL query
 			result, err := selector.Select([]string{"g1"}, "", "", tt.requestedModel)
 
 			if tt.expectError {
@@ -1090,8 +1091,8 @@ func createSubscriptionWithTRLPStatus(name string, groups []string, phase string
 	// Build modelRefs from modelStatuses
 	modelRefs := make([]any, 0, len(modelStatuses))
 	for _, status := range modelStatuses {
-		modelName := status["name"].(string)
-		modelNamespace := status["namespace"].(string)
+		modelName, _ := status["name"].(string)
+		modelNamespace, _ := status["namespace"].(string)
 		modelRefs = append(modelRefs, map[string]any{
 			"name":      modelName,
 			"namespace": modelNamespace,
