@@ -627,13 +627,13 @@ class TestSubscriptionEnforcement:
         auth_policy_name = "e2e-rate-limit-test-auth"
         subscription_name = "e2e-rate-limit-test-subscription"
 
-        # Very low limit for fast test: 15 tokens/min with max_tokens=3 per request
-        # Expected behavior:
-        #   - Requests 1-5 succeed (use 15 tokens total)
-        #   - Request 6 gets 429 (would need 18 tokens total)
-        token_limit = 15
+        # Low limit so we exhaust it quickly. Actual tokens consumed per
+        # response are non-deterministic (max_tokens is a ceiling, not exact),
+        # so we send enough requests to be confident we hit the limit without
+        # asserting exactly when the 429 arrives.
+        token_limit = 10
         window = "1m"
-        max_tokens = 3  # Explicitly track tokens per request for clarity
+        total_requests = 15
 
         try:
             # 1. Create auth policy allowing system:authenticated
@@ -667,16 +667,11 @@ class TestSubscriptionEnforcement:
             )
 
             # 4. Send requests to exhaust the limit
-            # Calculate expected successful requests: token_limit / max_tokens = 15 / 3 = 5
-            expected_success = token_limit // max_tokens
-            # Send 2 extra requests to ensure we hit the limit
-            total_requests = expected_success + 2
-
             rate_limited = False
             success_count = 0
 
             for i in range(total_requests):
-                r = _inference(api_key, path=model_path)
+                r = _inference(api_key, path=model_path, max_tokens=1)
                 request_num = i + 1
                 log.info(f"Request {request_num}/{total_requests}: {r.status_code}")
 
@@ -684,12 +679,7 @@ class TestSubscriptionEnforcement:
                     success_count += 1
                 elif r.status_code == 429:
                     rate_limited = True
-                    log.info(f"Rate limit exceeded after {success_count} successful requests "
-                            f"({success_count * max_tokens} tokens used)")
-
-                    # Verify we hit the limit at approximately the right point (±1 for rounding)
-                    assert abs(success_count - expected_success) <= 1, \
-                        f"Expected ~{expected_success} successful requests before 429, got {success_count}"
+                    log.info(f"Rate limit exceeded after {success_count} successful requests")
 
                     # Verify it's a rate limit 429, not a subscription error
                     response_text = r.text.lower() if r.text else ""
@@ -715,8 +705,13 @@ class TestSubscriptionEnforcement:
                 # Brief pause to avoid overwhelming the system, but stay within the window
                 time.sleep(0.1)
 
+            # Verify we actually exhausted the limit (at least one successful request)
+            assert success_count > 0, \
+                f"Got 429 on request #{request_num} without any successful requests. " \
+                f"This indicates a configuration issue, not rate limit exhaustion. Response: {r.text[:500]}"
+
             assert rate_limited, \
-                f"Expected 429 after ~{expected_success} requests with {token_limit} tokens/{window} limit, " \
+                f"Expected 429 with {token_limit} tokens/{window} limit, " \
                 f"but got {success_count} successful requests without hitting limit"
 
             # Note: Skipping rate limit reset test to keep test fast (<5s)
@@ -728,6 +723,135 @@ class TestSubscriptionEnforcement:
             _delete_cr("maasauthpolicy", auth_policy_name)
             _wait_reconcile()
             log.info("Cleaned up rate limit test resources")
+
+    def test_models_endpoint_exempt_from_rate_limiting(self):
+        """
+        Test that /v1/models endpoint remains accessible when token quota is exhausted.
+
+        This verifies that users can discover model capabilities even when they've
+        used all their inference tokens. The /v1/models endpoint is a discovery/metadata
+        endpoint that does not consume tokens and should remain accessible.
+
+        Ref: https://issues.redhat.com/browse/RHOAIENG-46770
+
+        Test steps:
+        1. Create subscription with very low token limit (15 tokens)
+        2. Exhaust the limit with inference requests (5 requests × 3 tokens = 15)
+        3. Verify inference requests get 429 (rate limited)
+        4. Verify /v1/models endpoint still returns 200 (not rate limited)
+        """
+        # Use unconfigured model to isolate this test
+        model_ref = UNCONFIGURED_MODEL_REF
+        model_path = UNCONFIGURED_MODEL_PATH
+
+        # Create unique subscription and auth policy names
+        auth_policy_name = "e2e-models-exempt-test-auth"
+        subscription_name = "e2e-models-exempt-test-subscription"
+
+        # Very low limit for fast, deterministic test
+        # With 3 token limit and max_tokens=1, we're guaranteed to exhaust quota within 5 requests
+        # (even if each request uses exactly 1 token: 5 requests > 3 token limit)
+        token_limit = 3
+        window = "1m"
+        max_tokens = 1
+
+        try:
+            # 1. Create auth policy allowing system:authenticated
+            _create_test_auth_policy(
+                name=auth_policy_name,
+                model_refs=[model_ref],
+                groups=["system:authenticated"]
+            )
+            _wait_reconcile()
+            _wait_for_maas_auth_policy_ready(auth_policy_name, timeout=90)
+
+            # 2. Create subscription with low token limit
+            _create_test_subscription(
+                name=subscription_name,
+                model_refs=[model_ref],
+                groups=["system:authenticated"],
+                token_limit=token_limit,
+                window=window
+            )
+            _wait_reconcile()
+            _wait_for_maas_subscription_ready(subscription_name, timeout=90)
+
+            # Wait for TRLP to be created AND enforced by Kuadrant/Limitador
+            _wait_for_token_rate_limit_policy(model_ref, model_namespace=MODEL_NAMESPACE, timeout=90)
+
+            # 3. Create API key for this subscription
+            oc_token = _get_cluster_token()
+            api_key = _create_api_key(
+                oc_token,
+                name=f"e2e-models-exempt-{uuid.uuid4().hex[:8]}",
+                subscription=subscription_name,
+            )
+
+            # 4. Exhaust the token limit
+            # With 3 token limit and 5 requests, we're guaranteed to hit the limit
+            # (each successful request consumes ≥1 token, so 5 requests > 3 token limit)
+            max_requests = 5
+            success_count = 0
+            rate_limited = False
+
+            log.info(f"Exhausting token quota: sending up to {max_requests} requests")
+            for i in range(max_requests):
+                r = _inference(api_key, path=model_path)
+                request_num = i + 1
+                log.info(f"Request {request_num}: status {r.status_code}")
+
+                if r.status_code == 200:
+                    success_count += 1
+                elif r.status_code == 429:
+                    log.info(f"Rate limit hit after {success_count} successful requests")
+                    rate_limited = True
+                    break
+                else:
+                    # Unexpected status during exhaustion
+                    log.warning(f"Unexpected status during quota exhaustion: {r.status_code}")
+
+            # Verify we hit rate limit (otherwise test setup is broken)
+            assert rate_limited, \
+                f"Expected to hit rate limit within {max_requests} requests with {token_limit} token limit, " \
+                f"but got {success_count} successful requests without hitting limit"
+
+            # 5. Verify inference is now blocked with 429
+            log.info("Verifying inference endpoint is blocked...")
+            r_inference = _inference(api_key, path=model_path)
+            assert r_inference.status_code == 429, \
+                f"Expected 429 for inference after exhausting tokens, got {r_inference.status_code}. " \
+                f"Response: {r_inference.text[:500]}"
+            log.info("✓ Inference endpoint correctly blocked with 429")
+
+            # 6. Verify /v1/models endpoint is still accessible with 200
+            log.info("Verifying /v1/models endpoint is still accessible...")
+            url = f"{_gateway_url()}{model_path}/v1/models"
+            headers = {"Authorization": f"Bearer {api_key}"}
+            r_models = requests.get(url, headers=headers, timeout=TIMEOUT, verify=TLS_VERIFY)
+
+            assert r_models.status_code == 200, \
+                f"Expected 200 for /v1/models endpoint even when quota exhausted, got {r_models.status_code}. " \
+                f"The /v1/models endpoint does not consume tokens and should remain accessible. " \
+                f"Response: {r_models.text[:500]}"
+
+            # Verify it returns valid model metadata (sanity check)
+            try:
+                models_data = r_models.json()
+            except (json.JSONDecodeError, ValueError) as e:
+                # Non-JSON response is acceptable for some vLLM versions
+                log.info(f"✓ /v1/models endpoint accessible (200), non-JSON response: {r_models.text[:200]}")
+            else:
+                # JSON response - validate structure
+                assert "data" in models_data or "object" in models_data, \
+                    f"Expected valid models response with 'data' or 'object' field, got: {models_data}"
+                log.info(f"✓ /v1/models endpoint accessible (200) despite exhausted quota. Response keys: {list(models_data.keys())}")
+
+        finally:
+            # Clean up
+            _delete_cr("maassubscription", subscription_name)
+            _delete_cr("maasauthpolicy", auth_policy_name)
+            _wait_reconcile()
+            log.info("Cleaned up models endpoint exemption test resources")
 
 
 class TestMultipleSubscriptionsPerModel:
