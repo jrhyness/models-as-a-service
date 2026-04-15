@@ -492,6 +492,14 @@ func subscriptionIncludesModel(sub *subscription, requestedModel string) bool {
 
 // checkModelHealth validates subscription phase and model health.
 // Returns error if subscription is not in Active/Degraded phase or if model is unhealthy in Degraded subscriptions.
+//
+// Two validation paths:
+// 1. API key creation (requestedModel=""): Allow Active/Degraded/Pending, block Failed/unreconciled
+//    - Rationale: Users can create keys while subscription is setting up (Pending), but enforcement
+//      happens at inference time. This provides better UX than blocking key creation preemptively.
+//    - Failed subscriptions are blocked to prevent key spam on permanently broken subscriptions.
+// 2. Inference (requestedModel set): Strict allowlist of Active/Degraded only
+//    - Blocks Pending/Failed/unreconciled at authorization time
 func checkModelHealth(sub *subscription, requestedModel string) error {
 	// API key creation path: Allow Active, Degraded, Pending
 	// Block Failed (prevents key spam on permanently broken subscriptions)
@@ -540,7 +548,12 @@ func checkModelHealth(sub *subscription, requestedModel string) error {
 	// Parse the requested model (format: "namespace/name")
 	parts := strings.SplitN(requestedModel, "/", 2)
 	if len(parts) != 2 {
-		return nil // invalid format, will be caught elsewhere
+		return &ModelUnhealthyError{
+			Subscription: sub.Name,
+			Phase:        sub.Phase,
+			Reason:       "InvalidModelFormat",
+			Message:      "invalid model format: must be namespace/name",
+		}
 	}
 	requestedNS := parts[0]
 	requestedName := parts[1]

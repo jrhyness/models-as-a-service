@@ -800,7 +800,7 @@ func createTestAPIKey(t *testing.T) (string, string) {
 	return plainKey, hash
 }
 
-func TestCreateAPIKey_RejectsDegradedSubscriptions(t *testing.T) {
+func TestCreateAPIKey_ValidatesSubscriptionPhase(t *testing.T) {
 	ctx := context.Background()
 	cfg := &config.Config{}
 	user := "testuser"
@@ -814,34 +814,30 @@ func TestCreateAPIKey_RejectsDegradedSubscriptions(t *testing.T) {
 		errorMsg    string
 	}{
 		{
-			name:        "allows Failed subscription (authorization at inference time)",
+			name:        "rejects Failed subscription (prevents key spam)",
 			phase:       "Failed",
 			deleting:    false,
-			expectError: false,
+			expectError: true,
+			errorMsg:    "Failed phase",
 		},
 		{
-			name:        "allows Pending subscription (authorization at inference time)",
+			name:        "allows Pending subscription (enforcement at inference time)",
 			phase:       "Pending",
 			deleting:    false,
 			expectError: false,
 		},
 		{
-			name:        "allows Degraded subscription (authorization at inference time)",
+			name:        "allows Degraded subscription (enforcement at inference time)",
 			phase:       "Degraded",
 			deleting:    false,
 			expectError: false,
 		},
 		{
-			name:        "allows empty phase subscription (authorization at inference time)",
+			name:        "rejects unreconciled subscription (empty phase)",
 			phase:       "",
 			deleting:    false,
-			expectError: false,
-		},
-		{
-			name:        "allows deleting subscription (authorization at inference time)",
-			phase:       "Active",
-			deleting:    true,
-			expectError: false,
+			expectError: true,
+			errorMsg:    "unreconciled",
 		},
 		{
 			name:        "allows Active subscription",

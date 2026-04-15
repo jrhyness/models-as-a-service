@@ -134,7 +134,6 @@ func (s *Service) CreateAPIKey(
 		)
 		return nil, selectErr
 	}
-
 	subscriptionName := subResp.Name
 
 	// Generate unique ID for this key
