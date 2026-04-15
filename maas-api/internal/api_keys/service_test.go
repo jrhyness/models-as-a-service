@@ -862,7 +862,9 @@ func TestCreateAPIKey_ValidatesSubscriptionPhase(t *testing.T) {
 
 			if tt.expectError {
 				require.Error(t, err, "Expected error for %s", tt.name)
-				require.Contains(t, err.Error(), tt.errorMsg)
+				var modelErr *subscription.ModelUnhealthyError
+				require.ErrorAs(t, err, &modelErr, "Expected ModelUnhealthyError")
+				require.Contains(t, modelErr.Message, tt.errorMsg, "Error message should contain: %s", tt.errorMsg)
 			} else {
 				require.NoError(t, err, "Expected no error for %s", tt.name)
 			}
@@ -877,6 +879,25 @@ type mockHealthSelector struct {
 }
 
 func (m *mockHealthSelector) Select(_ []string, _ string, _ string, _ string) (*subscription.SelectResponse, error) {
+	// Simulate health validation that real selector does for API key creation
+	// API key creation path blocks Failed and unreconciled (empty phase)
+	if m.phase == "" {
+		return nil, &subscription.ModelUnhealthyError{
+			Subscription: "test-sub",
+			Phase:        "",
+			Reason:       "SubscriptionNotReady",
+			Message:      "subscription is unreconciled (no status.phase set)",
+		}
+	}
+	if m.phase == "Failed" {
+		return nil, &subscription.ModelUnhealthyError{
+			Subscription: "test-sub",
+			Phase:        "Failed",
+			Reason:       "SubscriptionNotReady",
+			Message:      "subscription is in Failed phase (cannot create API keys)",
+		}
+	}
+
 	resp := &subscription.SelectResponse{
 		Name:  "test-sub",
 		Phase: m.phase,
