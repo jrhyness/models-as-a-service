@@ -457,17 +457,19 @@ The controller accepts the following command-line flags (configured via `deploym
 
 HyperShift and ROSA clusters use custom OIDC provider URLs. You **must** configure `cluster-audience` to match your cluster's OIDC audience.
 
-**Find your cluster's audience:**
+**Find your cluster's OIDC issuer:**
 
 ```bash
-kubectl create token default -n default --duration=1m | cut -d. -f2 | base64 -d 2>/dev/null | jq -r .aud
+kubectl get --raw /.well-known/openid-configuration | jq -r .issuer
 ```
+
+Use this issuer URL as the `cluster-audience` value.
 
 **Configure via params.env (kustomize deployment):**
 
 Edit `deployment/overlays/odh/params.env` and update the `cluster-audience` line:
 
-```
+```env
 cluster-audience=https://your-cluster-oidc-issuer
 ```
 
@@ -480,12 +482,15 @@ kustomize build deployment/overlays/odh | kubectl apply -f -
 **Configure via kubectl patch (running deployment):**
 
 ```bash
-kubectl patch configmap maas-parameters -n opendatahub \
+# Replace 'opendatahub' with your controller namespace if different
+CONTROLLER_NS=opendatahub
+
+kubectl patch configmap maas-parameters -n $CONTROLLER_NS \
   --type merge \
   -p '{"data":{"cluster-audience":"https://your-cluster-oidc-issuer"}}'
 
 # Restart controller to pick up new config
-kubectl rollout restart deployment/maas-controller -n opendatahub
+kubectl rollout restart deployment/maas-controller -n $CONTROLLER_NS
 ```
 
 ### Other Configuration
