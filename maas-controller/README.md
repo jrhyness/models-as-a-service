@@ -110,7 +110,7 @@ MaaSModelRef's `spec.modelRef.kind` selects how the controller discovers and exp
 | **LLMInferenceService** | Validates that an HTTPRoute exists for the referenced LLMInferenceService (created by KServe). Reads endpoint and readiness from the LLMInferenceService/HTTPRoute. |
 | **ExternalModel** | References an [ExternalModel](../docs/content/reference/crds/external-model.md) CR that defines an external AI/ML provider (e.g., OpenAI, Anthropic). The ExternalModel controller creates an HTTPRoute named `<model-name>` in the same namespace. MaaSModelRef validates the HTTPRoute exists and references the configured gateway, then derives the endpoint from the gateway's hostname. Model is ready once the HTTPRoute is accepted by the gateway. See `providers_external.go` for implementation. |
 
-The CRD enum for `kind` is `LLMInferenceService` and `ExternalModel` (see `api/maas/v1alpha1/maasmodelref_types.go`). The registry accepts **LLMInferenceService** (and the alias **llmisvc** for backwards compatibility).
+The CRD enum for `kind` is `LLMInferenceService` and `ExternalModel` (see `api/maas/v1alpha1/maasmodelref_types.go`). The registry accepts **LLMInferenceService**, **ExternalModel**, and the alias **llmisvc** (for backwards compatibility).
 
 **Endpoint override:** MaaSModelRef supports an optional `spec.endpointOverride` field. When set, the controller uses this value for `status.endpoint` instead of the auto-discovered endpoint. This applies to all kinds and is useful when the discovered endpoint is wrong (e.g. wrong gateway or hostname). The controller still validates the backend normally — only the final endpoint URL is overridden.
 
