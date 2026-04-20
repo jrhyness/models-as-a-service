@@ -27,13 +27,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestFetchOIDCConfig_NoModelsAsService(t *testing.T) {
+func TestFetchOIDCConfig_NoTenant(t *testing.T) {
 	scheme := runtime.NewScheme()
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 	reconciler := &MaaSAuthPolicyReconciler{
-		Client: client,
-		Scheme: scheme,
+		Client:          client,
+		Scheme:          scheme,
+		TenantNamespace: "models-as-a-service",
 	}
 
 	config := reconciler.fetchOIDCConfig(context.Background(), logr.Discard())
@@ -64,8 +65,9 @@ func TestFetchOIDCConfig_NoExternalOIDC(t *testing.T) {
 		Build()
 
 	reconciler := &MaaSAuthPolicyReconciler{
-		Client: client,
-		Scheme: scheme,
+		Client:          client,
+		Scheme:          scheme,
+		TenantNamespace: "models-as-a-service",
 	}
 
 	config := reconciler.fetchOIDCConfig(context.Background(), logr.Discard())
@@ -99,8 +101,9 @@ func TestFetchOIDCConfig_WithExternalOIDC(t *testing.T) {
 		Build()
 
 	reconciler := &MaaSAuthPolicyReconciler{
-		Client: client,
-		Scheme: scheme,
+		Client:          client,
+		Scheme:          scheme,
+		TenantNamespace: "models-as-a-service",
 	}
 
 	config := reconciler.fetchOIDCConfig(context.Background(), logr.Discard())
@@ -136,8 +139,9 @@ func TestFetchOIDCConfig_EmptyIssuerURL(t *testing.T) {
 		Build()
 
 	reconciler := &MaaSAuthPolicyReconciler{
-		Client: client,
-		Scheme: scheme,
+		Client:          client,
+		Scheme:          scheme,
+		TenantNamespace: "models-as-a-service",
 	}
 
 	config := reconciler.fetchOIDCConfig(context.Background(), logr.Discard())
@@ -171,8 +175,9 @@ func TestFetchOIDCConfig_EmptyClientID(t *testing.T) {
 		Build()
 
 	reconciler := &MaaSAuthPolicyReconciler{
-		Client: client,
-		Scheme: scheme,
+		Client:          client,
+		Scheme:          scheme,
+		TenantNamespace: "models-as-a-service",
 	}
 
 	config := reconciler.fetchOIDCConfig(context.Background(), logr.Discard())

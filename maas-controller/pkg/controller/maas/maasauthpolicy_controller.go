@@ -54,6 +54,10 @@ type MaaSAuthPolicyReconciler struct {
 	// Used to construct the subscription selector endpoint URL.
 	MaaSAPINamespace string
 
+	// TenantNamespace is the namespace where the Tenant CR lives (configurable via flags).
+	// Defaults to "models-as-a-service".
+	TenantNamespace string
+
 	// GatewayName is the name of the Gateway used for model HTTPRoutes (configurable via flags).
 	GatewayName string
 
@@ -117,18 +121,22 @@ func (r *MaaSAuthPolicyReconciler) fetchOIDCConfig(ctx context.Context, log logr
 		Kind:    "Tenant",
 	})
 
-	// Get the default-tenant in models-as-a-service namespace
+	// Get the singleton Tenant CR (name enforced by CRD validation)
 	tenantKey := client.ObjectKey{
-		Name:      "default-tenant",
-		Namespace: "models-as-a-service",
+		Name:      maasv1alpha1.TenantInstanceName,
+		Namespace: r.TenantNamespace,
 	}
 
 	if err := r.Get(ctx, tenantKey, tenant); err != nil {
 		if apimeta.IsNoMatchError(err) || apierrors.IsNotFound(err) {
-			log.V(1).Info("Tenant CRD not installed or default-tenant not found, OIDC support disabled")
+			log.V(1).Info("Tenant CRD not installed or Tenant not found, OIDC support disabled",
+				"tenantName", maasv1alpha1.TenantInstanceName,
+				"tenantNamespace", r.TenantNamespace)
 			return nil
 		}
-		log.Error(err, "failed to get default-tenant resource")
+		log.Error(err, "failed to get Tenant resource",
+			"tenantName", maasv1alpha1.TenantInstanceName,
+			"tenantNamespace", r.TenantNamespace)
 		return nil
 	}
 
@@ -247,7 +255,7 @@ const maasAuthPolicyFinalizer = "maas.opendatahub.io/authpolicy-cleanup"
 func (r *MaaSAuthPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithValues("MaaSAuthPolicy", req.NamespacedName)
 
-	// Fetch OIDC configuration from ModelsAsService CR (if present)
+	// Fetch OIDC configuration from Tenant CR (if present)
 	// This is checked on every reconcile to handle dynamic updates to the CR
 	oidcConfig := r.fetchOIDCConfig(ctx, log)
 
@@ -537,7 +545,7 @@ func (r *MaaSAuthPolicyReconciler) reconcileModelAuthPolicies(ctx context.Contex
 			},
 		}
 
-		// Add OIDC authentication if configured in ModelsAsService CR
+		// Add OIDC authentication if configured in Tenant CR
 		if oidcConfig != nil && oidcConfig.IssuerURL != "" {
 			authenticationRules, ok := rule["authentication"].(map[string]any)
 			if !ok {
