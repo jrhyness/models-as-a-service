@@ -105,73 +105,70 @@ func (r *MaaSAuthPolicyReconciler) authzCacheTTL() int64 {
 	return metadata
 }
 
-// fetchOIDCConfig fetches OIDC configuration from the ModelsAsService CR.
-// Returns nil if ModelsAsService CR doesn't exist or doesn't have externalOIDC configured.
+// fetchOIDCConfig fetches OIDC configuration from the Tenant CR.
+// Returns nil if Tenant CR doesn't exist or doesn't have externalOIDC configured.
 func (r *MaaSAuthPolicyReconciler) fetchOIDCConfig(ctx context.Context, log logr.Logger) *oidcConfig {
-	// ModelsAsService is a cluster-scoped singleton resource
-	// GVK: opendatahub.io/v1, Kind: ModelsAsService
-	// List all ModelsAsService resources (should be at most one)
-	list := &unstructured.UnstructuredList{}
-	list.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "components.platform.opendatahub.io",
+	// Tenant is a namespace-scoped singleton resource named "default-tenant"
+	// GVK: maas.opendatahub.io/v1alpha1, Kind: Tenant
+	tenant := &unstructured.Unstructured{}
+	tenant.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "maas.opendatahub.io",
 		Version: "v1alpha1",
-		Kind:    "ModelsAsServiceList",
+		Kind:    "Tenant",
 	})
 
-	if err := r.List(ctx, list); err != nil {
+	// Get the default-tenant in models-as-a-service namespace
+	tenantKey := client.ObjectKey{
+		Name:      "default-tenant",
+		Namespace: "models-as-a-service",
+	}
+
+	if err := r.Get(ctx, tenantKey, tenant); err != nil {
 		if apimeta.IsNoMatchError(err) || apierrors.IsNotFound(err) {
-			log.V(1).Info("ModelsAsService CRD not installed, OIDC support disabled")
+			log.V(1).Info("Tenant CRD not installed or default-tenant not found, OIDC support disabled")
 			return nil
 		}
-		log.Error(err, "failed to list ModelsAsService resources")
+		log.Error(err, "failed to get default-tenant resource")
 		return nil
 	}
-
-	if len(list.Items) == 0 {
-		log.V(1).Info("No ModelsAsService CR found, OIDC support disabled")
-		return nil
-	}
-
-	// Use the first ModelsAsService (should only be one)
-	maas := &list.Items[0]
 
 	// Extract spec.externalOIDC if present
-	oidcSpec, found, err := unstructured.NestedMap(maas.Object, "spec", "externalOIDC")
+	oidcSpec, found, err := unstructured.NestedMap(tenant.Object, "spec", "externalOIDC")
 	if err != nil {
-		log.Error(err, "failed to extract spec.externalOIDC from ModelsAsService")
+		log.Error(err, "failed to extract spec.externalOIDC from Tenant")
 		return nil
 	}
 	if !found || oidcSpec == nil {
-		log.V(1).Info("ModelsAsService CR has no externalOIDC configuration")
+		log.V(1).Info("Tenant CR has no externalOIDC configuration")
 		return nil
 	}
 
 	// Extract issuerUrl and clientId
 	issuerURL, _, err := unstructured.NestedString(oidcSpec, "issuerUrl")
 	if err != nil {
-		log.Error(err, "ModelsAsService externalOIDC.issuerUrl has invalid type (expected string)",
+		log.Error(err, "Tenant externalOIDC.issuerUrl has invalid type (expected string)",
 			"oidcSpec", oidcSpec)
 		return nil
 	}
 
 	clientID, _, err := unstructured.NestedString(oidcSpec, "clientId")
 	if err != nil {
-		log.Error(err, "ModelsAsService externalOIDC.clientId has invalid type (expected string)",
+		log.Error(err, "Tenant externalOIDC.clientId has invalid type (expected string)",
 			"oidcSpec", oidcSpec)
 		return nil
 	}
 
 	if issuerURL == "" {
-		log.V(1).Info("ModelsAsService externalOIDC has no issuerUrl")
+		log.V(1).Info("Tenant externalOIDC has no issuerUrl")
 		return nil
 	}
 
 	if clientID == "" {
-		log.Error(nil, "ModelsAsService externalOIDC has no clientId - audience validation is required for security")
+		log.Error(nil, "Tenant externalOIDC has no clientId - audience validation is required for security")
 		return nil
 	}
 
-	log.Info("OIDC configuration loaded from ModelsAsService CR",
+	log.Info("OIDC configuration loaded from Tenant CR",
 		"issuerUrl", issuerURL,
 		"clientId", clientID)
 

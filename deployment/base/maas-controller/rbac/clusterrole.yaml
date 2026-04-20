@@ -96,14 +96,6 @@ rules:
   - patch
   - watch
 - apiGroups:
-  - components.platform.opendatahub.io
-  resources:
-  - modelsasservices
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
   - config.openshift.io
   resources:
   - authentications

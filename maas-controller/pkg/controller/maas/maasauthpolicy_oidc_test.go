@@ -37,19 +37,20 @@ func TestFetchOIDCConfig_NoModelsAsService(t *testing.T) {
 	}
 
 	config := reconciler.fetchOIDCConfig(context.Background(), logr.Discard())
-	assert.Nil(t, config, "should return nil when ModelsAsService doesn't exist")
+	assert.Nil(t, config, "should return nil when Tenant doesn't exist")
 }
 
 func TestFetchOIDCConfig_NoExternalOIDC(t *testing.T) {
 	scheme := runtime.NewScheme()
 
-	// Create ModelsAsService without externalOIDC
-	maas := &unstructured.Unstructured{
+	// Create Tenant without externalOIDC
+	tenant := &unstructured.Unstructured{
 		Object: map[string]any{
-			"apiVersion": "components.platform.opendatahub.io/v1alpha1",
-			"kind":       "ModelsAsService",
+			"apiVersion": "maas.opendatahub.io/v1alpha1",
+			"kind":       "Tenant",
 			"metadata": map[string]any{
-				"name": "test-maas",
+				"name":      "default-tenant",
+				"namespace": "models-as-a-service",
 			},
 			"spec": map[string]any{
 				"otherField": "value",
@@ -59,7 +60,7 @@ func TestFetchOIDCConfig_NoExternalOIDC(t *testing.T) {
 
 	client := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(maas).
+		WithObjects(tenant).
 		Build()
 
 	reconciler := &MaaSAuthPolicyReconciler{
@@ -74,13 +75,14 @@ func TestFetchOIDCConfig_NoExternalOIDC(t *testing.T) {
 func TestFetchOIDCConfig_WithExternalOIDC(t *testing.T) {
 	scheme := runtime.NewScheme()
 
-	// Create ModelsAsService with externalOIDC
-	maas := &unstructured.Unstructured{
+	// Create Tenant with externalOIDC
+	tenant := &unstructured.Unstructured{
 		Object: map[string]any{
-			"apiVersion": "components.platform.opendatahub.io/v1alpha1",
-			"kind":       "ModelsAsService",
+			"apiVersion": "maas.opendatahub.io/v1alpha1",
+			"kind":       "Tenant",
 			"metadata": map[string]any{
-				"name": "test-maas",
+				"name":      "default-tenant",
+				"namespace": "models-as-a-service",
 			},
 			"spec": map[string]any{
 				"externalOIDC": map[string]any{
@@ -93,7 +95,7 @@ func TestFetchOIDCConfig_WithExternalOIDC(t *testing.T) {
 
 	client := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(maas).
+		WithObjects(tenant).
 		Build()
 
 	reconciler := &MaaSAuthPolicyReconciler{
@@ -110,13 +112,14 @@ func TestFetchOIDCConfig_WithExternalOIDC(t *testing.T) {
 func TestFetchOIDCConfig_EmptyIssuerURL(t *testing.T) {
 	scheme := runtime.NewScheme()
 
-	// Create ModelsAsService with empty issuerUrl
-	maas := &unstructured.Unstructured{
+	// Create Tenant with empty issuerUrl
+	tenant := &unstructured.Unstructured{
 		Object: map[string]any{
-			"apiVersion": "components.platform.opendatahub.io/v1alpha1",
-			"kind":       "ModelsAsService",
+			"apiVersion": "maas.opendatahub.io/v1alpha1",
+			"kind":       "Tenant",
 			"metadata": map[string]any{
-				"name": "test-maas",
+				"name":      "default-tenant",
+				"namespace": "models-as-a-service",
 			},
 			"spec": map[string]any{
 				"externalOIDC": map[string]any{
@@ -129,7 +132,7 @@ func TestFetchOIDCConfig_EmptyIssuerURL(t *testing.T) {
 
 	client := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(maas).
+		WithObjects(tenant).
 		Build()
 
 	reconciler := &MaaSAuthPolicyReconciler{
@@ -144,13 +147,14 @@ func TestFetchOIDCConfig_EmptyIssuerURL(t *testing.T) {
 func TestFetchOIDCConfig_EmptyClientID(t *testing.T) {
 	scheme := runtime.NewScheme()
 
-	// Create ModelsAsService with empty clientId
-	maas := &unstructured.Unstructured{
+	// Create Tenant with empty clientId
+	tenant := &unstructured.Unstructured{
 		Object: map[string]any{
-			"apiVersion": "components.platform.opendatahub.io/v1alpha1",
-			"kind":       "ModelsAsService",
+			"apiVersion": "maas.opendatahub.io/v1alpha1",
+			"kind":       "Tenant",
 			"metadata": map[string]any{
-				"name": "test-maas",
+				"name":      "default-tenant",
+				"namespace": "models-as-a-service",
 			},
 			"spec": map[string]any{
 				"externalOIDC": map[string]any{
@@ -163,7 +167,7 @@ func TestFetchOIDCConfig_EmptyClientID(t *testing.T) {
 
 	client := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(maas).
+		WithObjects(tenant).
 		Build()
 
 	reconciler := &MaaSAuthPolicyReconciler{
