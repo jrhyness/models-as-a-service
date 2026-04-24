@@ -47,14 +47,19 @@ These values are injected into the maas-controller deployment via ConfigMap.
 
 #### Via manager.yaml (Base Deployment)
 
-Edit `deployment/base/maas-controller/manager/manager.yaml`:
+Edit `deployment/base/maas-controller/manager/manager.yaml` to change hardcoded values and add env vars:
 
 ```yaml
+args:
+  # ... other args ...
+  - --metadata-cache-ttl=$(METADATA_CACHE_TTL)  # Change from hardcoded 60
+  - --authz-cache-ttl=$(AUTHZ_CACHE_TTL)        # Change from hardcoded 60
 env:
   - name: METADATA_CACHE_TTL
     value: "300"  # 5 minutes
   - name: AUTHZ_CACHE_TTL
     value: "30"   # 30 seconds
+  # ... other env vars ...
 ```
 
 > **Note on Customization:** Direct modification of Authorino deployments or settings may interact with operator reconciliation during upgrades. Test changes in non-production environments and document any customizations for support handoff.
@@ -69,7 +74,7 @@ Cache TTL represents the maximum staleness window for access control changes:
 
 - **API key revocation or group membership changes:** May take up to `METADATA_CACHE_TTL` seconds to propagate
 - **Subscription selection:** If a user's group membership changes, the cached subscription selection uses the old groups until the TTL expires (up to `METADATA_CACHE_TTL` seconds)
-- **Authorization policy changes:** May take up to `AUTHZ_CACHE_TTL` seconds to propagate
+- **Authorization policy changes:** May take up to the effective authorization cache TTL (the minimum of `AUTHZ_CACHE_TTL` and `METADATA_CACHE_TTL`) to propagate
 
 For immediate enforcement after changes:
 1. Delete the affected AuthPolicy to clear Authorino's cache (triggers reconciliation)
