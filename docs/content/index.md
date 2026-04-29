@@ -17,7 +17,7 @@ Use this platform to streamline the deployment of your models, monitor usage, an
 
 - **[Access and Quota Overview](concepts/subscription-overview.md)** - Policies (access) and subscriptions (quota) for model access
 - **[Model Setup (On Cluster)](configuration-and-management/model-setup.md)** - Setting up models for MaaS
-- **[Self-Service Model Access](user-guide/self-service-model-access.md)** - Managing model access and policies
+- **[Self-Service Model Access](user-guide/self-service-model-access.md)** - Creating API keys and calling models
 
 ### 📋 Release Notes
 
