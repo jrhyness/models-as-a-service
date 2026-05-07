@@ -17,6 +17,10 @@
          <lastmod>2026-05-07</lastmod>
     </url>
     <url>
+         <loc>https://opendatahub-io.github.io/models-as-a-service/dev/advanced-administration/subscription-cardinality/</loc>
+         <lastmod>2026-05-07</lastmod>
+    </url>
+    <url>
          <loc>https://opendatahub-io.github.io/models-as-a-service/dev/architecture-internals/authentication-internals/</loc>
          <lastmod>2026-05-07</lastmod>
     </url>
@@ -89,6 +93,10 @@
          <lastmod>2026-05-07</lastmod>
     </url>
     <url>
+         <loc>https://opendatahub-io.github.io/models-as-a-service/dev/contributing/release-strategy/</loc>
+         <lastmod>2026-05-07</lastmod>
+    </url>
+    <url>
          <loc>https://opendatahub-io.github.io/models-as-a-service/dev/contributing/testing-guide/</loc>
          <lastmod>2026-05-07</lastmod>
     </url>
@@ -122,6 +130,10 @@
     </url>
     <url>
          <loc>https://opendatahub-io.github.io/models-as-a-service/dev/migration/tier-to-subscription/</loc>
+         <lastmod>2026-05-07</lastmod>
+    </url>
+    <url>
+         <loc>https://opendatahub-io.github.io/models-as-a-service/dev/migration/upgrade-3.2-to-3.4/</loc>
          <lastmod>2026-05-07</lastmod>
     </url>
     <url>
