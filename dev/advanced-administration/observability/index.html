@@ -2327,6 +2327,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#sensitive-header-redaction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sensitive Header Redaction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#common-queries" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3778,6 +3789,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#sensitive-header-redaction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sensitive Header Redaction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#common-queries" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5172,6 +5194,40 @@ spec:
 <p class="admonition-title">Security</p>
 <p>The <code>X-MaaS-Subscription</code> header should be injected server-side by AuthPolicy. Ensure your AuthPolicy injects this header from the subscription selection (not client input) for accurate metrics attribution.</p>
 </div>
+<h3 id="sensitive-header-redaction">Sensitive Header Redaction</h3>
+<div class="admonition warning">
+<p class="admonition-title">Security</p>
+<p>Authorization headers, API keys, and cookies are never logged in full. Only presence indicators (where explicitly added) and request IDs are logged for debugging.</p>
+</div>
+<p><strong>What's logged:</strong>
+- Request IDs (<code>X-Request-ID</code> in all HTTP responses) for correlation
+- User/subscription identifiers (post-validation only)
+- Header presence indicators where explicitly added (e.g., <code>authHeaderProvided: true/false</code> in model discovery logs)
+- No header values or lengths</p>
+<p><strong>What's NOT logged:</strong>
+- Authorization header values or lengths
+- API key values (only shown once at creation)
+- Session cookies
+- Any sensitive header contents</p>
+<p><strong>Debugging auth failures:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Get request ID from response header, search logs</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>kubectl<span class="w"> </span>logs<span class="w"> </span>-n<span class="w"> </span>models-as-a-service<span class="w"> </span>deployment/maas-api<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;&lt;request-id&gt;&quot;</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># Check Authorino auth metrics</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>kuadrant-system<span class="w"> </span>deployment/authorino<span class="w"> </span>--<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">  </span>curl<span class="w"> </span>-s<span class="w"> </span>localhost:8080/metrics<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;auth_server_response_status&quot;</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="c1"># Query gateway metrics for auth failures</span>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="c1"># Prometheus: sum by (response_code) (rate(istio_requests_total{response_code=~&quot;401|403&quot;}[5m]))</span>
+</code></pre></div></p>
+<p><strong>Gateway access logging:</strong>
+Access logging is disabled by default. If needed for troubleshooting, configure Istio Telemetry with proper header redaction using Envoy CEL expressions:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># Example Envoy CEL for safe access logging</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="nt">auth_header_present</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;has(request.headers[&#39;authorization&#39;])</span><span class="nv"> </span><span class="s">?</span><span class="nv"> </span><span class="s">&#39;true&#39;</span><span class="nv"> </span><span class="s">:</span><span class="nv"> </span><span class="s">&#39;false&#39;&quot;</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="c1"># NEVER: request.headers[&#39;authorization&#39;] - this logs the full value</span>
+</code></pre></div>
+<p><strong>Future tracing:</strong>
+If distributed tracing is implemented, Authorization headers must be excluded from span attributes using OpenTelemetry span processors or Istio Telemetry configuration.</p>
 <h3 id="common-queries">Common Queries</h3>
 <p><strong>Token-based queries (billing/cost):</strong></p>
 <div class="highlight"><pre><span></span><code># Total tokens consumed per user
@@ -5435,7 +5491,7 @@ histogram_quantile(0.99, sum by (subscription, le) (rate(istio_request_duration_
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="May 7, 2026 14:37:02 UTC">May 7, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="May 8, 2026 14:00:55 UTC">May 8, 2026</span>
   </span>
 
     
