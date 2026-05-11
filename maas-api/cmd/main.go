@@ -23,6 +23,7 @@ import (
 	"github.com/opendatahub-io/models-as-a-service/maas-api/internal/handlers"
 	"github.com/opendatahub-io/models-as-a-service/maas-api/internal/logger"
 	"github.com/opendatahub-io/models-as-a-service/maas-api/internal/metrics"
+	"github.com/opendatahub-io/models-as-a-service/maas-api/internal/middleware"
 	"github.com/opendatahub-io/models-as-a-service/maas-api/internal/models"
 	"github.com/opendatahub-io/models-as-a-service/maas-api/internal/subscription"
 	"github.com/opendatahub-io/models-as-a-service/maas-api/internal/token"
@@ -75,14 +76,24 @@ func serve() error {
 		gin.SetMode(gin.DebugMode)
 	}
 
-	router := gin.Default()
+	// Use gin.New() instead of gin.Default() to control middleware order
+	router := gin.New()
 
+	// Add request ID middleware first so it's available to logger
+	router.Use(middleware.RequestID())
+
+	// Add Logger and Recovery middleware after RequestID
+	router.Use(gin.Logger())
+	router.Use(gin.Recovery())
+
+	// Add metrics middleware
 	metricsRecorder, err := metrics.NewPrometheusRecorder(metricsRegistry)
 	if err != nil {
 		return fmt.Errorf("failed to create metrics recorder: %w", err)
 	}
 	router.Use(metrics.NewMiddleware(metricsRecorder))
 
+	// Start metrics server
 	metricsSrv, err := metrics.NewMetricsServer(cfg.MetricsAddress(), metricsRegistry)
 	if err != nil {
 		return fmt.Errorf("failed to create metrics server: %w", err)
@@ -175,7 +186,15 @@ func registerHandlers(ctx context.Context, log *logger.Logger, router *gin.Engin
 
 	subscriptionSelector := subscription.NewSelector(log, cluster.MaaSSubscriptionLister)
 
-	modelManager, err := models.NewManager(log, cfg.AccessCheckTimeoutSeconds)
+	resolveCtx, resolveCancel := context.WithTimeout(ctx, time.Duration(cfg.AccessCheckTimeoutSeconds)*time.Second)
+	gatewayInternalHost, err := config.ResolveGatewayInternalHost(resolveCtx, cluster.ClientSet, cfg.GatewayName, cfg.GatewayNamespace)
+	resolveCancel()
+	if err != nil {
+		return fmt.Errorf("failed to resolve gateway internal address: %w", err)
+	}
+	log.Info("Resolved gateway internal host for access probes", "host", gatewayInternalHost)
+
+	modelManager, err := models.NewManager(log, cfg.AccessCheckTimeoutSeconds, gatewayInternalHost)
 	if err != nil {
 		log.Fatal("Failed to create model manager", "error", err)
 	}
