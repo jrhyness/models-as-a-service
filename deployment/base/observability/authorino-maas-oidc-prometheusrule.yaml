@@ -25,12 +25,12 @@ spec:
           JWKS endpoint reachability, JWKS cache TTL configuration, and token validity.
       expr: |
         (
-          sum(rate(auth_server_authconfig_response_status{authconfig=~"maas-api.*",status="UNAUTHENTICATED"}[5m]))
+          sum(rate(auth_server_authconfig_response_status{namespace=~"rh-connectivity-link|kuadrant-system",status="UNAUTHENTICATED"}[5m]))
           /
-          sum(rate(auth_server_authconfig_response_status{authconfig=~"maas-api.*"}[5m]))
+          sum(rate(auth_server_authconfig_response_status{namespace=~"rh-connectivity-link|kuadrant-system"}[5m]))
         ) > 0.10
         and
-        sum(rate(auth_server_authconfig_response_status{authconfig=~"maas-api.*"}[5m])) > 0.001
+        sum(rate(auth_server_authconfig_response_status{namespace=~"rh-connectivity-link|kuadrant-system"}[5m])) > 0.001
       for: 5m
       labels:
         severity: warning
@@ -43,10 +43,10 @@ spec:
           and consider increasing JWKS cache TTL if IdP is slow but reliable.
       expr: |
         histogram_quantile(0.95,
-          sum(rate(auth_server_authconfig_duration_seconds_bucket{authconfig=~"maas-api.*"}[5m])) by (le)
+          sum(rate(auth_server_authconfig_duration_seconds_bucket{namespace=~"rh-connectivity-link|kuadrant-system"}[5m])) by (le)
         ) > 2
         and
-        sum(rate(auth_server_authconfig_duration_seconds_count{authconfig=~"maas-api.*"}[5m])) > 0.001
+        sum(rate(auth_server_authconfig_duration_seconds_count{namespace=~"rh-connectivity-link|kuadrant-system"}[5m])) > 0.001
       for: 5m
       labels:
         severity: warning

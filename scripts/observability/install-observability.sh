@@ -188,7 +188,9 @@ if [ -d "$BASE_OBSERVABILITY_DIR" ]; then
        || kubectl get podmonitor kuadrant-limitador-monitor -n "$AUTHORINO_NAMESPACE" &>/dev/null; then
         echo "   ℹ️  Kuadrant already scrapes Limitador /metrics - skipping MaaS ServiceMonitor (no duplicates)"
     else
-        kubectl apply -f "$BASE_OBSERVABILITY_DIR/limitador-servicemonitor.yaml"
+        # Apply ServiceMonitor with namespace substitution
+        yq eval ".metadata.namespace = \"$AUTHORINO_NAMESPACE\"" \
+            "$BASE_OBSERVABILITY_DIR/limitador-servicemonitor.yaml" | kubectl apply -f -
         echo "   ✅ Limitador ServiceMonitor deployed (Kuadrant PodMonitor not found)"
     fi
 
