@@ -107,7 +107,7 @@ func (r *TenantReconciler) reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	orig := tenant.DeepCopy()
-	if err := applyGatewayDefaults(&tenant); err != nil {
+	if err := r.applyGatewayDefaults(&tenant); err != nil {
 		if err2 := r.patchStatus(ctx, &tenant, "Failed", metav1.ConditionFalse, "InvalidGateway", err.Error()); err2 != nil {
 			return ctrl.Result{}, err2
 		}
@@ -171,7 +171,7 @@ func (r *TenantReconciler) reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{RequeueAfter: 45 * time.Second}, nil
 	}
 
-	runRes, err := tenantreconcile.RunPlatform(ctx, log, r.Client, r.Scheme, &tenant, r.ManifestPath, appNs, mcfg)
+	runRes, err := tenantreconcile.RunPlatform(ctx, log, r.Client, r.Scheme, &tenant, r.ManifestPath, appNs, r.ClusterAudience, mcfg)
 	if err != nil {
 		log.Error(err, "Tenant platform reconcile failed")
 		setDeploymentsAvailableCondition(&tenant, false, "PlatformReconcileFailed", err.Error())
@@ -276,11 +276,11 @@ func (r *TenantReconciler) operatorNamespace() string {
 	return os.Getenv("WATCH_NAMESPACE")
 }
 
-func applyGatewayDefaults(tenant *maasv1alpha1.Tenant) error {
+func (r *TenantReconciler) applyGatewayDefaults(tenant *maasv1alpha1.Tenant) error {
 	ref := &tenant.Spec.GatewayRef
 	if ref.Namespace == "" && ref.Name == "" {
-		ref.Namespace = tenantreconcile.DefaultGatewayNamespace
-		ref.Name = tenantreconcile.DefaultGatewayName
+		ref.Namespace = r.GatewayNamespace
+		ref.Name = r.GatewayName
 		return nil
 	}
 	if ref.Namespace == "" || ref.Name == "" {
