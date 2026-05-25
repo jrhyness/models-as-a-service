@@ -15,7 +15,7 @@ Before deploying the observability stack, ensure the following platform prerequi
     
     - ServiceMonitors deployed by MaaS will not be processed and no metrics will be collected
     - PrometheusRules will not be evaluated and no alerts will fire
-    - Operators will not be notified of OIDC authentication failures or maas-api metadata issues
+    - OIDC authentication failure alerts and other monitoring will not function
 
 **Step 1: Create or update the cluster-monitoring-config ConfigMap**
 
@@ -425,6 +425,26 @@ Authorino exposes metrics on two separate endpoints:
 
 !!! note "Lazily registered metrics"
     Authorino upstream [documents](https://github.com/Kuadrant/authorino/blob/main/docs/user-guides/observability.md) additional per-evaluator metrics (`auth_server_evaluator_total`, `auth_server_evaluator_duration_seconds`, `auth_server_evaluator_cancelled`, `auth_server_evaluator_denied`). These are **lazily registered** and only appear when specific evaluator types (e.g. OPA, HTTP authorization) are triggered. The MaaS AuthPolicy uses `kubernetesTokenReview`, which does not emit these metrics. They are not listed in the table above because they are not present in a standard MaaS deployment.
+
+#### OIDC Authentication Alerts
+
+When external OIDC is configured (`Tenant.spec.externalOIDC`), MaaS deploys PrometheusRules to alert operators when authentication issues occur.
+
+**MaaSAuthorinoOIDCAuthenticationHighFailureRate**
+
+Fires when more than 10% of authentication attempts fail for 5 consecutive minutes.
+
+- **Severity:** Warning
+- **Indicates:** IdP unavailable, JWKS unreachable, or token validation failures
+
+**MaaSAuthorinoOIDCAuthenticationHighLatency**
+
+Fires when P95 authentication latency exceeds 2 seconds for 5 consecutive minutes.
+
+- **Severity:** Warning
+- **Indicates:** Slow IdP response, network latency, or excessive JWKS fetches
+
+Access alerts in **Observe → Alerting** (User workload monitoring). For behavior during IdP outages and detailed troubleshooting, see [External OIDC Configuration](external-oidc.md).
 
 ### vLLM / Model Server Metrics
 
