@@ -1299,7 +1299,9 @@ class TestAPIKeySubscriptionPhases:
         """
         API key creation is rejected for unreconciled subscription (empty phase).
 
-        This test scales down the controller to ensure deterministic behavior.
+        Note: Resources must be created before scaling down the controller because
+        admission webhooks become unavailable when the controller is down. We simulate
+        an unreconciled state by clearing the subscription status after creation.
         """
         ns = _ns()
         subscription_name = "e2e-apikey-unreconciled-sub"
@@ -1307,21 +1309,30 @@ class TestAPIKeySubscriptionPhases:
         sa_name = "e2e-apikey-unreconciled-sa"
 
         try:
-            # Scale down controller to prevent reconciliation
-            _scale_controller_down()
-
+            # Create service account and get token
             oc_token = _create_sa_token(sa_name, namespace=MODEL_NAMESPACE)
             sa_user = _sa_to_user(sa_name, namespace=MODEL_NAMESPACE)
 
+            # Create resources while controller is up (webhooks are available)
             _create_test_auth_policy(auth_name, MODEL_REF, users=[sa_user])
-            # Create subscription (won't reconcile with controller scaled down)
             _create_test_subscription(subscription_name, MODEL_REF, users=[sa_user])
+            _wait_reconcile()
 
-            # Verify subscription is unreconciled
+            # Scale down controller to prevent re-reconciliation
+            _scale_controller_down()
+
+            # Clear subscription status to simulate unreconciled state
+            subprocess.run(
+                ["oc", "patch", "maassubscription", subscription_name, "-n", ns,
+                 "--type=json", "-p", '[{"op": "remove", "path": "/status"}]'],
+                capture_output=True, text=True, check=True
+            )
+
+            # Verify subscription status is cleared (empty phase)
             cr = _get_cr("maassubscription", subscription_name, namespace=ns)
             phase = cr.get("status", {}).get("phase", "")
             assert phase == "", f"Expected empty phase, got: {phase}"
-            log.info("✅ Subscription is unreconciled (empty phase)")
+            log.info("✅ Subscription has empty phase (simulating unreconciled state)")
 
             # Try to create API key (should fail with 400)
             response = requests.post(

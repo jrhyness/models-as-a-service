@@ -24,6 +24,7 @@ import http.client
 import json
 import logging
 import ssl
+import subprocess
 import time
 import uuid
 from urllib.parse import urlparse
@@ -428,4 +429,101 @@ class TestHeaderAbuse:
             # If the platform processes the header, it should return 403, not 500.
             assert r.status_code != 500, (
                 f"Server error with injection payload '{payload}': {r.text[:500]}"
+            )
+
+
+class TestWebhookValidation:
+    """Verify admission webhooks enforce namespace labeling requirements."""
+
+    def test_subscription_rejected_in_unlabeled_namespace(self):
+        """MaaSSubscription create is rejected in namespace without tenant label.
+
+        Webhooks require namespaces to have the ai-gateway.opendatahub.io/tenant label
+        (or be the default models-as-a-service namespace) to contain tenant resources.
+        """
+        test_ns = f"e2e-webhook-test-{uuid.uuid4().hex[:6]}"
+
+        try:
+            # Create namespace without tenant label
+            result = subprocess.run(
+                ["oc", "create", "namespace", test_ns],
+                capture_output=True, text=True
+            )
+            assert result.returncode == 0, f"Failed to create namespace: {result.stderr}"
+
+            # Try to create MaaSSubscription (should be rejected by webhook)
+            result = subprocess.run(
+                ["oc", "apply", "-f", "-"],
+                input=json.dumps({
+                    "apiVersion": "maas.opendatahub.io/v1alpha1",
+                    "kind": "MaaSSubscription",
+                    "metadata": {"name": "test-sub", "namespace": test_ns},
+                    "spec": {
+                        "owner": {"groups": [{"name": "system:authenticated"}]},
+                        "modelRefs": [{"name": MODEL_REF, "namespace": MODEL_NAMESPACE}],
+                    },
+                }),
+                capture_output=True, text=True
+            )
+
+            # Verify webhook rejection
+            assert result.returncode != 0, "Expected webhook to reject subscription in unlabeled namespace"
+            assert "admission webhook" in result.stderr.lower(), \
+                f"Expected webhook rejection, got: {result.stderr}"
+            assert "not enabled for MaaS tenant resources" in result.stderr, \
+                f"Expected helpful error message, got: {result.stderr}"
+            assert "ai-gateway.opendatahub.io/tenant" in result.stderr, \
+                f"Expected error to mention tenant label, got: {result.stderr}"
+
+            log.info("✅ Webhook correctly rejected MaaSSubscription in unlabeled namespace")
+            log.info(f"Error message: {result.stderr}")
+
+        finally:
+            # Clean up namespace
+            subprocess.run(
+                ["oc", "delete", "namespace", test_ns, "--ignore-not-found"],
+                capture_output=True, text=True
+            )
+
+    def test_authpolicy_rejected_in_unlabeled_namespace(self):
+        """MaaSAuthPolicy create is rejected in namespace without tenant label."""
+        test_ns = f"e2e-webhook-test-{uuid.uuid4().hex[:6]}"
+
+        try:
+            # Create namespace without tenant label
+            result = subprocess.run(
+                ["oc", "create", "namespace", test_ns],
+                capture_output=True, text=True
+            )
+            assert result.returncode == 0, f"Failed to create namespace: {result.stderr}"
+
+            # Try to create MaaSAuthPolicy (should be rejected by webhook)
+            result = subprocess.run(
+                ["oc", "apply", "-f", "-"],
+                input=json.dumps({
+                    "apiVersion": "maas.opendatahub.io/v1alpha1",
+                    "kind": "MaaSAuthPolicy",
+                    "metadata": {"name": "test-policy", "namespace": test_ns},
+                    "spec": {
+                        "modelRefs": [{"name": MODEL_REF, "namespace": MODEL_NAMESPACE}],
+                        "subjects": {"groups": [{"name": "system:authenticated"}]},
+                    },
+                }),
+                capture_output=True, text=True
+            )
+
+            # Verify webhook rejection
+            assert result.returncode != 0, "Expected webhook to reject auth policy in unlabeled namespace"
+            assert "admission webhook" in result.stderr.lower(), \
+                f"Expected webhook rejection, got: {result.stderr}"
+            assert "not enabled for MaaS tenant resources" in result.stderr, \
+                f"Expected helpful error message, got: {result.stderr}"
+
+            log.info("✅ Webhook correctly rejected MaaSAuthPolicy in unlabeled namespace")
+
+        finally:
+            # Clean up namespace
+            subprocess.run(
+                ["oc", "delete", "namespace", test_ns, "--ignore-not-found"],
+                capture_output=True, text=True
             )
