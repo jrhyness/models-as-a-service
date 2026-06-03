@@ -436,15 +436,14 @@ class TestWebhookValidation:
     """Verify admission webhooks enforce namespace labeling requirements."""
 
     def test_subscription_rejected_in_unlabeled_namespace(self):
-        """MaaSSubscription create is rejected in namespace without tenant label.
+        """MaaSSubscription create is rejected in namespace without Tenant CR.
 
-        Webhooks require namespaces to have the ai-gateway.opendatahub.io/tenant label
-        (or be the default models-as-a-service namespace) to contain tenant resources.
+        Webhooks require namespaces to have a Tenant CR to contain tenant resources.
         """
         test_ns = f"e2e-webhook-test-{uuid.uuid4().hex[:6]}"
 
         try:
-            # Create namespace without tenant label
+            # Create namespace without Tenant CR
             result = subprocess.run(
                 ["oc", "create", "namespace", test_ns],
                 capture_output=True, text=True, timeout=30
@@ -471,15 +470,15 @@ class TestWebhookValidation:
             )
 
             # Verify webhook rejection
-            assert result.returncode != 0, "Expected webhook to reject subscription in unlabeled namespace"
+            assert result.returncode != 0, "Expected webhook to reject subscription in namespace without Tenant CR"
             assert "admission webhook" in result.stderr.lower(), \
                 f"Expected webhook rejection, got: {result.stderr}"
             assert "not enabled for MaaS tenant resources" in result.stderr, \
                 f"Expected helpful error message, got: {result.stderr}"
-            assert "ai-gateway.opendatahub.io/tenant" in result.stderr, \
-                f"Expected error to mention tenant label, got: {result.stderr}"
+            assert "Create a Tenant CR" in result.stderr, \
+                f"Expected error to mention creating Tenant CR, got: {result.stderr}"
 
-            log.info("✅ Webhook correctly rejected MaaSSubscription in unlabeled namespace")
+            log.info("✅ Webhook correctly rejected MaaSSubscription in namespace without Tenant CR")
             log.info(f"Error message: {result.stderr}")
 
         finally:
@@ -490,11 +489,11 @@ class TestWebhookValidation:
             )
 
     def test_authpolicy_rejected_in_unlabeled_namespace(self):
-        """MaaSAuthPolicy create is rejected in namespace without tenant label."""
+        """MaaSAuthPolicy create is rejected in namespace without Tenant CR."""
         test_ns = f"e2e-webhook-test-{uuid.uuid4().hex[:6]}"
 
         try:
-            # Create namespace without tenant label
+            # Create namespace without Tenant CR
             result = subprocess.run(
                 ["oc", "create", "namespace", test_ns],
                 capture_output=True, text=True, timeout=30
@@ -517,13 +516,13 @@ class TestWebhookValidation:
             )
 
             # Verify webhook rejection
-            assert result.returncode != 0, "Expected webhook to reject auth policy in unlabeled namespace"
+            assert result.returncode != 0, "Expected webhook to reject auth policy in namespace without Tenant CR"
             assert "admission webhook" in result.stderr.lower(), \
                 f"Expected webhook rejection, got: {result.stderr}"
             assert "not enabled for MaaS tenant resources" in result.stderr, \
                 f"Expected helpful error message, got: {result.stderr}"
 
-            log.info("✅ Webhook correctly rejected MaaSAuthPolicy in unlabeled namespace")
+            log.info("✅ Webhook correctly rejected MaaSAuthPolicy in namespace without Tenant CR")
 
         finally:
             # Clean up namespace
