@@ -42,19 +42,11 @@ func TestMaaSSubscriptionValidator_ValidateCreate(t *testing.T) {
 		errContains  string
 	}{
 		{
-			name: "allow subscription in labeled namespace with Tenant CR",
+			name: "allow subscription in namespace with Tenant CR",
 			subscription: &maasv1alpha1.MaaSSubscription{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-sub",
 					Namespace: "ai-tenant-redteam",
-				},
-			},
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "ai-tenant-redteam",
-					Labels: map[string]string{
-						TenantNamespaceLabel: "",
-					},
 				},
 			},
 			tenant: &maasv1alpha1.Tenant{
@@ -66,39 +58,15 @@ func TestMaaSSubscriptionValidator_ValidateCreate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "reject subscription in unlabeled namespace",
+			name: "reject subscription in namespace without Tenant CR",
 			subscription: &maasv1alpha1.MaaSSubscription{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-sub",
 					Namespace: "random-namespace",
 				},
 			},
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "random-namespace",
-				},
-			},
 			wantErr:     true,
 			errContains: "not enabled for MaaS tenant resources",
-		},
-		{
-			name: "reject subscription in labeled namespace without Tenant CR",
-			subscription: &maasv1alpha1.MaaSSubscription{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-sub",
-					Namespace: "labeled-only",
-				},
-			},
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "labeled-only",
-					Labels: map[string]string{
-						TenantNamespaceLabel: "",
-					},
-				},
-			},
-			wantErr:     true,
-			errContains: "no Tenant CR exists",
 		},
 	}
 

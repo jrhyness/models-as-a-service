@@ -42,16 +42,8 @@ func TestTenantNamespaceValidator_ValidateNamespace(t *testing.T) {
 		expectedErrMsg string
 	}{
 		{
-			name:      "allow namespace with tenant label and Tenant CR",
+			name:      "allow namespace with Tenant CR",
 			namespace: "ai-tenant-redteam",
-			namespaceObj: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "ai-tenant-redteam",
-					Labels: map[string]string{
-						TenantNamespaceLabel: "",
-					},
-				},
-			},
 			tenantObj: &maasv1alpha1.Tenant{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default-tenant",
@@ -61,16 +53,8 @@ func TestTenantNamespaceValidator_ValidateNamespace(t *testing.T) {
 			expectedAllow: true,
 		},
 		{
-			name:      "allow ai-tenant-default with tenant label and Tenant CR",
+			name:      "allow ai-tenant-default with Tenant CR",
 			namespace: "ai-tenant-default",
-			namespaceObj: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "ai-tenant-default",
-					Labels: map[string]string{
-						TenantNamespaceLabel: "",
-					},
-				},
-			},
 			tenantObj: &maasv1alpha1.Tenant{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default-tenant",
@@ -80,50 +64,10 @@ func TestTenantNamespaceValidator_ValidateNamespace(t *testing.T) {
 			expectedAllow: true,
 		},
 		{
-			name:      "reject namespace without tenant label",
-			namespace: "random-namespace",
-			namespaceObj: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "random-namespace",
-				},
-			},
+			name:           "reject namespace without Tenant CR",
+			namespace:      "random-namespace",
 			expectedAllow:  false,
 			expectedErrMsg: "not enabled for MaaS tenant resources",
-		},
-		{
-			name:      "reject namespace with wrong label",
-			namespace: "wrong-label",
-			namespaceObj: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "wrong-label",
-					Labels: map[string]string{
-						"some-other-label": "value",
-					},
-				},
-			},
-			expectedAllow:  false,
-			expectedErrMsg: "not enabled for MaaS tenant resources",
-		},
-		{
-			name:      "reject namespace with label but no Tenant CR",
-			namespace: "labeled-but-no-tenant",
-			namespaceObj: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "labeled-but-no-tenant",
-					Labels: map[string]string{
-						TenantNamespaceLabel: "",
-					},
-				},
-			},
-			expectedAllow:  false,
-			expectedErrMsg: "has the tenant label but no Tenant CR exists",
-		},
-		{
-			name:           "reject non-existent namespace",
-			namespace:      "does-not-exist",
-			namespaceObj:   nil,
-			expectedAllow:  false,
-			expectedErrMsg: "does not exist",
 		},
 	}
 
@@ -164,51 +108,19 @@ func TestTenantNamespaceValidator_ValidateNamespace(t *testing.T) {
 
 func TestTenantNamespaceValidator_ErrorMessageContent(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = corev1.AddToScheme(scheme)
 	_ = maasv1alpha1.AddToScheme(scheme)
 
-	tests := []struct {
-		name           string
-		namespace      *corev1.Namespace
-		expectedPhrase string
-	}{
-		{
-			name: "error message for unlabeled namespace mentions label",
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-namespace",
-				},
-			},
-			expectedPhrase: TenantNamespaceLabel,
-		},
-		{
-			name: "error message for labeled namespace without Tenant CR mentions creating Tenant",
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "labeled-namespace",
-					Labels: map[string]string{
-						TenantNamespaceLabel: "",
-					},
-				},
-			},
-			expectedPhrase: "Create a Tenant CR",
-		},
+	client := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	validator := &TenantNamespaceValidator{
+		Client: client,
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(tt.namespace).Build()
+	_, errMsg := validator.ValidateNamespace(context.Background(), "test-namespace")
 
-			validator := &TenantNamespaceValidator{
-				Client: client,
-			}
-
-			_, errMsg := validator.ValidateNamespace(context.Background(), tt.namespace.Name)
-
-			if !contains(errMsg, tt.expectedPhrase) {
-				t.Errorf("Error message missing expected phrase %q. Full message: %q", tt.expectedPhrase, errMsg)
-			}
-		})
+	expectedPhrase := "Create a Tenant CR"
+	if !contains(errMsg, expectedPhrase) {
+		t.Errorf("Error message missing expected phrase %q. Full message: %q", expectedPhrase, errMsg)
 	}
 }
 

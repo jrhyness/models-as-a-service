@@ -42,19 +42,11 @@ func TestMaaSAuthPolicyValidator_ValidateCreate(t *testing.T) {
 		errContains string
 	}{
 		{
-			name: "allow policy in labeled namespace with Tenant CR",
+			name: "allow policy in namespace with Tenant CR",
 			policy: &maasv1alpha1.MaaSAuthPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-policy",
 					Namespace: "ai-tenant-blueteam",
-				},
-			},
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "ai-tenant-blueteam",
-					Labels: map[string]string{
-						TenantNamespaceLabel: "",
-					},
 				},
 			},
 			tenant: &maasv1alpha1.Tenant{
@@ -66,39 +58,15 @@ func TestMaaSAuthPolicyValidator_ValidateCreate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "reject policy in unlabeled namespace",
+			name: "reject policy in namespace without Tenant CR",
 			policy: &maasv1alpha1.MaaSAuthPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-policy",
 					Namespace: "unauthorized-namespace",
 				},
 			},
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "unauthorized-namespace",
-				},
-			},
 			wantErr:     true,
 			errContains: "not enabled for MaaS tenant resources",
-		},
-		{
-			name: "reject policy in labeled namespace without Tenant CR",
-			policy: &maasv1alpha1.MaaSAuthPolicy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-policy",
-					Namespace: "labeled-only",
-				},
-			},
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "labeled-only",
-					Labels: map[string]string{
-						TenantNamespaceLabel: "",
-					},
-				},
-			},
-			wantErr:     true,
-			errContains: "no Tenant CR exists",
 		},
 	}
 
