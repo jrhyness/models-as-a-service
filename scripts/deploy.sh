@@ -1414,11 +1414,11 @@ patch_authpolicy_from_template() {
   # Merge patch cannot reliably delete "when" arrays or replace "selector"
   # with "expression" inside CRD objects, causing stale fields to persist.
   local resource_version
-  resource_version=$(kubectl get authpolicy "$authpolicy_name" -n "$NAMESPACE" \
+  resource_version=$(kubectl get authpolicy "$authpolicy_name" -n "$maas_namespace" \
     -o jsonpath='{.metadata.resourceVersion}')
 
   local when_predicate
-  when_predicate=$(kubectl get authpolicy "$authpolicy_name" -n "$NAMESPACE" \
+  when_predicate=$(kubectl get authpolicy "$authpolicy_name" -n "$maas_namespace" \
     -o jsonpath='{.spec.when[0].predicate}')
 
   local manifest
@@ -1428,7 +1428,7 @@ apiVersion: kuadrant.io/v1
 kind: AuthPolicy
 metadata:
   name: ${authpolicy_name}
-  namespace: ${NAMESPACE}
+  namespace: ${maas_namespace}
   resourceVersion: "${resource_version}"
   annotations:
     opendatahub.io/managed: "false"
@@ -1461,12 +1461,13 @@ configure_maas_api_authpolicy() {
   }
 
   local authpolicy_name="maas-api-auth-policy"
+  local authpolicy_namespace="redhat-ai-gateway-infra"  # AuthPolicy deploys with maas-api in infrastructure namespace
   local wait_timeout=120
   local elapsed=0
 
   log_info "  Waiting for AuthPolicy '$authpolicy_name' to be created (timeout: ${wait_timeout}s)..."
   while [[ $elapsed -lt $wait_timeout ]]; do
-    if kubectl get authpolicy "$authpolicy_name" -n "$NAMESPACE" &>/dev/null; then
+    if kubectl get authpolicy "$authpolicy_name" -n "$authpolicy_namespace" &>/dev/null; then
       log_info "  Found AuthPolicy '$authpolicy_name'"
       break
     fi
@@ -1474,13 +1475,13 @@ configure_maas_api_authpolicy() {
     elapsed=$((elapsed + 5))
   done
 
-  if ! kubectl get authpolicy "$authpolicy_name" -n "$NAMESPACE" &>/dev/null; then
+  if ! kubectl get authpolicy "$authpolicy_name" -n "$authpolicy_namespace" &>/dev/null; then
     log_warn "AuthPolicy '$authpolicy_name' not found after ${wait_timeout}s, skipping auth configuration"
     return 0
   fi
 
   log_info "  Annotating AuthPolicy to prevent operator reconciliation..."
-  kubectl annotate authpolicy "$authpolicy_name" -n "$NAMESPACE" \
+  kubectl annotate authpolicy "$authpolicy_name" -n "$authpolicy_namespace" \
     opendatahub.io/managed="false" --overwrite 2>/dev/null || true
 
   if [[ "$EXTERNAL_OIDC" != "true" ]]; then
@@ -1507,7 +1508,7 @@ configure_maas_api_authpolicy() {
 
   local oidc_patch="$project_root/scripts/data/maas-api-authpolicy-external-oidc-patch.yaml"
   log_info "  Enabling OIDC JWT validation with issuer: $oidc_issuer_url, clientId: $oidc_client_id"
-  if ! patch_authpolicy_from_template "$authpolicy_name" "$oidc_patch" "$NAMESPACE" "$oidc_issuer_url" "$oidc_client_id" "$cluster_aud"; then
+  if ! patch_authpolicy_from_template "$authpolicy_name" "$oidc_patch" "$authpolicy_namespace" "$oidc_issuer_url" "$oidc_client_id" "$cluster_aud"; then
     log_error "  Failed to patch AuthPolicy with external OIDC configuration"
     return 1
   fi
