@@ -491,7 +491,9 @@ func main() {
 	nsCfg := map[string]cache.Config{maasSubscriptionNamespace: {}}
 	cacheOpts := cache.Options{
 		ByObject: map[client.Object]cache.ByObject{
-			&maasv1alpha1.Tenant{}:           {Namespaces: nsCfg},
+			// Tenant CRs are watched cluster-wide to support AITenant-created tenants in any namespace.
+			// TODO: Replace with proper namespace discovery from S1 when merged.
+			&maasv1alpha1.Tenant{}:           {},
 			&maasv1alpha1.MaaSAuthPolicy{}:   {Namespaces: nsCfg},
 			&maasv1alpha1.MaaSSubscription{}: {Namespaces: nsCfg},
 		},

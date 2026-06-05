@@ -611,14 +611,16 @@ EOF
   # Wait for the Tenant reconciler to deploy maas-api.
   # The controller creates a default-tenant CR on startup, and the Tenant
   # reconciler renders and SSA-applies maas-api manifests + gateway policies.
+  # All maas-api instances deploy to redhat-ai-gateway-infra infrastructure namespace.
   log_info ""
   log_info "Waiting for Tenant reconciler to deploy maas-api..."
+  local maas_api_namespace="redhat-ai-gateway-infra"
   local maas_api_timeout="${CUSTOM_RESOURCE_TIMEOUT:-600}"
   local elapsed=0
   while [[ $elapsed -lt $maas_api_timeout ]]; do
-    if kubectl get deployment maas-api -n "$NAMESPACE" &>/dev/null; then
-      log_info "  maas-api deployment found, waiting for rollout..."
-      if kubectl rollout status deployment/maas-api -n "$NAMESPACE" --timeout="$((maas_api_timeout - elapsed))s" 2>/dev/null; then
+    if kubectl get deployment maas-api -n "$maas_api_namespace" &>/dev/null; then
+      log_info "  maas-api deployment found in $maas_api_namespace, waiting for rollout..."
+      if kubectl rollout status deployment/maas-api -n "$maas_api_namespace" --timeout="$((maas_api_timeout - elapsed))s" 2>/dev/null; then
         log_info "  maas-api is ready"
         break
       fi
@@ -630,8 +632,9 @@ EOF
     fi
   done
 
-  if ! kubectl get deployment maas-api -n "$NAMESPACE" &>/dev/null; then
+  if ! kubectl get deployment maas-api -n "$maas_api_namespace" &>/dev/null; then
     log_error "maas-api deployment not created by Tenant reconciler after ${maas_api_timeout}s"
+    log_error "Expected in namespace: $maas_api_namespace"
     log_error "Check maas-controller logs: kubectl logs -l app.kubernetes.io/name=maas-controller -n $NAMESPACE"
     return 1
   fi
@@ -649,10 +652,10 @@ EOF
   log_info ""
   log_info "MaaS API and MaaS Controller deployment completed successfully!"
   local deployed_api_image deployed_ctrl_image
-  deployed_api_image=$(kubectl get deployment/maas-api -n "$NAMESPACE" -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || echo "unknown")
+  deployed_api_image=$(kubectl get deployment/maas-api -n "$maas_api_namespace" -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || echo "unknown")
   deployed_ctrl_image=$(kubectl get deployment/maas-controller -n "$NAMESPACE" -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || echo "unknown")
-  log_info "  maas-api image:        $deployed_api_image"
-  log_info "  maas-controller image: $deployed_ctrl_image"
+  log_info "  maas-api image:        $deployed_api_image (namespace: $maas_api_namespace)"
+  log_info "  maas-controller image: $deployed_ctrl_image (namespace: $NAMESPACE)"
 
   log_info "==================================================="
   log_info "  Models-as-a-Service Deployment completed successfully!"
@@ -762,11 +765,15 @@ validate_postgres_connection() {
 }
 
 deploy_postgresql() {
+  # Infrastructure namespace where maas-api instances run
+  local infra_ns="redhat-ai-gateway-infra"
+
   if [[ -n "$POSTGRES_CONNECTION" ]]; then
     validate_postgres_connection "$POSTGRES_CONNECTION" || exit 1
     log_info "Using external PostgreSQL connection"
-    create_maas_db_config_secret "$NAMESPACE" "$POSTGRES_CONNECTION"
-    log_info "Created maas-db-config secret with external connection"
+    # Create secret in infrastructure namespace for maas-api access
+    create_maas_db_config_secret "$infra_ns" "$POSTGRES_CONNECTION"
+    log_info "Created maas-db-config secret in $infra_ns with external connection"
   else
     log_warn "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     log_warn "  DEPLOYING POC POSTGRESQL — NOT INTENDED FOR PRODUCTION USE"
@@ -774,7 +781,8 @@ deploy_postgresql() {
     log_warn "  For production, use --postgres-connection with an external database"
     log_warn "  (AWS RDS, Crunchy Operator, Azure Database, etc.)"
     log_warn "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    NAMESPACE="$NAMESPACE" "${SCRIPT_DIR}/setup-database.sh"
+    # setup-database.sh handles upgrade detection and namespace selection
+    "${SCRIPT_DIR}/setup-database.sh"
   fi
 }
 
@@ -1561,9 +1569,9 @@ configure_tls_backend() {
   # Restart deployments to pick up TLS config
   log_info "Restarting deployments to pick up TLS configuration..."
 
-  # Determine maas-api namespace based on deployment mode
-  local maas_namespace="${NAMESPACE:-maas-api}"
-  kubectl rollout restart deployment/maas-api -n "$maas_namespace" 2>/dev/null || log_debug "maas-api deployment not found or not yet ready"
+  # maas-api deploys to infrastructure namespace (all tenants)
+  local maas_api_namespace="redhat-ai-gateway-infra"
+  kubectl rollout restart deployment/maas-api -n "$maas_api_namespace" 2>/dev/null || log_debug "maas-api deployment not found or not yet ready"
   kubectl rollout restart deployment/authorino -n "$authorino_namespace" 2>/dev/null || log_debug "authorino deployment not found or not yet ready"
   
   # Wait for Authorino to be ready after restart

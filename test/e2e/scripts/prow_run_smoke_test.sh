@@ -428,13 +428,15 @@ wait_for_auth_policies_enforced() {
 
 validate_deployment() {
     echo "Deployment Validation"
-    echo "Using namespace: $DEPLOYMENT_NAMESPACE"
-    
+    echo "Using controller namespace: $DEPLOYMENT_NAMESPACE"
+    echo "Using maas-api namespace: redhat-ai-gateway-infra"
+
     if [ "$SKIP_VALIDATION" = false ]; then
-        if ! "$PROJECT_ROOT/scripts/validate-deployment.sh" --namespace "$DEPLOYMENT_NAMESPACE"; then
+        # maas-api deploys to infrastructure namespace, not controller namespace
+        if ! "$PROJECT_ROOT/scripts/validate-deployment.sh" --namespace redhat-ai-gateway-infra; then
             echo "⚠️  First validation attempt failed, waiting 30 seconds and retrying..."
             sleep 30
-            if ! "$PROJECT_ROOT/scripts/validate-deployment.sh" --namespace "$DEPLOYMENT_NAMESPACE"; then
+            if ! "$PROJECT_ROOT/scripts/validate-deployment.sh" --namespace redhat-ai-gateway-infra; then
                 echo "❌ ERROR: Deployment validation failed after retry"
                 exit 1
             fi

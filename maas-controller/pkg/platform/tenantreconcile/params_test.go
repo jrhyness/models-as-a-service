@@ -88,21 +88,23 @@ func TestApplyPlatformParamsWithRenderedOverlay(t *testing.T) {
 	err := applyPlatformParams(logr.Discard(), resources, params)
 	require.NoError(t, err)
 
-	maasAPIDeployment := requireResource(t, resources, GVKDeployment, MaaSAPIDeploymentName)
+	tenantID := params.TenantIdentifier
+	maasAPIDeployment := requireResource(t, resources, GVKDeployment, MaaSAPIDeploymentName(tenantID))
 	assert.Equal(t, params.MaaSAPIImage, requireContainerImage(t, maasAPIDeployment, "spec", "template", "spec", "containers"))
 	assert.Equal(t, params.GatewayNamespace, requireEnvVarValue(t, maasAPIDeployment, "maas-api", "GATEWAY_NAMESPACE"))
 	assert.Equal(t, params.GatewayName, requireEnvVarValue(t, maasAPIDeployment, "maas-api", "GATEWAY_NAME"))
 	assert.Equal(t, params.APIKeyMaxExpirationDays, requireEnvVarValue(t, maasAPIDeployment, "maas-api", "API_KEY_MAX_EXPIRATION_DAYS"))
+	assert.Equal(t, tenantID, requireEnvVarValue(t, maasAPIDeployment, "maas-api", "TENANT_NAME"))
 
 	payloadDeployment := requireResource(t, resources, GVKDeployment, PayloadProcessingName)
 	assert.Equal(t, params.GatewayNamespace, payloadDeployment.GetNamespace())
 	assert.Equal(t, params.PayloadProcessingImage, requireContainerImage(t, payloadDeployment, "spec", "template", "spec", "containers"))
 
-	if cleanupCronJob := findResource(resources, GVKCronJob, MaaSAPIKeyCleanupCronJobName); cleanupCronJob != nil {
+	if cleanupCronJob := findResource(resources, GVKCronJob, MaaSAPIKeyCleanupCronJobName(tenantID)); cleanupCronJob != nil {
 		assert.Equal(t, params.MaaSAPIKeyCleanupImage, requireContainerImage(t, cleanupCronJob, "spec", "jobTemplate", "spec", "template", "spec", "containers"))
 	}
 
-	httpRoute := requireResource(t, resources, GVKHTTPRoute, MaaSAPIRouteName)
+	httpRoute := requireResource(t, resources, GVKHTTPRoute, MaaSAPIRouteName(tenantID))
 	parentRefs, found, err := unstructured.NestedSlice(httpRoute.Object, "spec", "parentRefs")
 	require.NoError(t, err)
 	require.True(t, found)
@@ -112,7 +114,7 @@ func TestApplyPlatformParamsWithRenderedOverlay(t *testing.T) {
 	assert.Equal(t, params.GatewayNamespace, firstParentRef["namespace"])
 	assert.Equal(t, params.GatewayName, firstParentRef["name"])
 
-	authPolicy := requireResource(t, resources, GVKAuthPolicy, MaaSAPIAuthPolicyName)
+	authPolicy := requireResource(t, resources, GVKAuthPolicy, MaaSAPIAuthPolicyName(tenantID))
 	audiences, found, err := unstructured.NestedSlice(authPolicy.Object,
 		"spec", "rules", "authentication", "openshift-identities", "kubernetesTokenReview", "audiences")
 	require.NoError(t, err)
@@ -125,7 +127,7 @@ func TestApplyPlatformParamsWithRenderedOverlay(t *testing.T) {
 	require.True(t, found)
 	assert.Contains(t, validationURL, "."+params.AppNamespace+".")
 
-	maasAPIDestinationRule := requireResource(t, resources, GVKDestinationRule, GatewayDestinationRuleName)
+	maasAPIDestinationRule := requireResource(t, resources, GVKDestinationRule, GatewayDestinationRuleName(tenantID))
 	assert.Equal(t, params.GatewayNamespace, maasAPIDestinationRule.GetNamespace())
 	maasAPIHost, found, err := unstructured.NestedString(maasAPIDestinationRule.Object, "spec", "host")
 	require.NoError(t, err)

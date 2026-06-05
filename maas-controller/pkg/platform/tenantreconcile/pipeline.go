@@ -83,7 +83,8 @@ func RunPlatform(
 		return nil, fmt.Errorf("apply: %w", err)
 	}
 
-	ready, detail, err := MaasAPIDeploymentReady(ctx, c, appNs)
+	tenantID := TenantIdentifierFor(tenant)
+	ready, detail, err := MaasAPIDeploymentReady(ctx, c, appNs, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("deployment status: %w", err)
 	}
@@ -118,12 +119,13 @@ func Run(ctx context.Context, log logr.Logger, c client.Client, scheme *runtime.
 }
 
 // MaasAPIDeploymentReady mirrors ODH deployments action for maas-api.
-func MaasAPIDeploymentReady(ctx context.Context, c client.Client, appNamespace string) (ready bool, detail string, err error) {
+func MaasAPIDeploymentReady(ctx context.Context, c client.Client, appNamespace, tenantID string) (ready bool, detail string, err error) {
 	dep := &appsv1.Deployment{}
-	key := types.NamespacedName{Namespace: appNamespace, Name: MaaSAPIDeploymentName}
+	deploymentName := MaaSAPIDeploymentName(tenantID)
+	key := types.NamespacedName{Namespace: appNamespace, Name: deploymentName}
 	if err := c.Get(ctx, key, dep); err != nil {
 		if apierrors.IsNotFound(err) {
-			return false, fmt.Sprintf("deployment %s/%s not found", appNamespace, MaaSAPIDeploymentName), nil
+			return false, fmt.Sprintf("deployment %s/%s not found", appNamespace, deploymentName), nil
 		}
 		return false, "", err
 	}

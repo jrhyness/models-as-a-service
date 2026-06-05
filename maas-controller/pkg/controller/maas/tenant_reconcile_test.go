@@ -482,7 +482,8 @@ func TestTenantReconcile_AppNamespaceUsesConfiguredAppNamespaceForAITenantManage
 		},
 	}
 
-	g.Expect(r.appNamespaceForTenant(tenant)).To(Equal("opendatahub"))
+	// All tenants deploy maas-api to infrastructure namespace (S24 multi-tenancy)
+	g.Expect(r.appNamespaceForTenant(tenant)).To(Equal(DefaultAITenantNamespace))
 }
 
 func TestTenantReconcile_AppNamespaceForLegacyTenant(t *testing.T) {
@@ -494,7 +495,8 @@ func TestTenantReconcile_AppNamespaceForLegacyTenant(t *testing.T) {
 		},
 	}
 
-	g.Expect(r.appNamespaceForTenant(tenant)).To(Equal("opendatahub"))
+	// All tenants deploy maas-api to infrastructure namespace (S24 multi-tenancy)
+	g.Expect(r.appNamespaceForTenant(tenant)).To(Equal(DefaultAITenantNamespace))
 }
 
 func TestTenantReconcile_NotFoundIsNoOp(t *testing.T) {
