@@ -343,6 +343,13 @@ func (r *TenantReconciler) cleanupLegacyMaaSAPIDeployment(ctx context.Context, l
 		}
 
 		if err == nil {
+			// Found legacy deployment - verify it's ours before deleting
+			labels := dep.GetLabels()
+			if labels == nil || labels["app.kubernetes.io/part-of"] != "models-as-a-service" {
+				log.Info("Skipping deletion of maas-api deployment - not owned by MaaS", "namespace", ns)
+				continue
+			}
+
 			// Found legacy deployment - clean up all related resources
 			log.Info("Cleaning up legacy maas-api resources", "namespace", ns)
 

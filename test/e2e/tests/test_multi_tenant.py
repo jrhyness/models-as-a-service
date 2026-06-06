@@ -84,9 +84,7 @@ def test_gateway(aitenant_crd_exists):
     """Clone the default gateway for testing (Phase 2 will prevent sharing gateways)."""
     # Get the existing gateway as JSON
     result = _oc_run(
-        ["get", "gateway", "maas-default-gateway", "-n", GATEWAY_NAMESPACE, "-o", "json"],
-        capture_output=True,
-        text=True,
+        ["get", "gateway", "maas-default-gateway", "-n", GATEWAY_NAMESPACE, "-o", "json"]
     )
     if result.returncode != 0:
         pytest.skip("maas-default-gateway not found - cannot run multi-tenant test")

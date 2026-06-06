@@ -85,8 +85,10 @@ if [[ -n "$EXISTING_POSTGRES_NS" ]]; then
 
   EXISTING_URL=$(kubectl get secret maas-db-config -n "$EXISTING_POSTGRES_NS" -o jsonpath='{.data.DB_CONNECTION_URL}' | base64 -d)
 
-  # Replace short hostname with FQDN for cross-namespace access
-  FQDN_URL="${EXISTING_URL/@postgres:/@postgres.${EXISTING_POSTGRES_NS}.svc.cluster.local:}"
+  # Replace short hostname with FQDN for cross-namespace access.
+  # Extract the service name from the connection URL and append the namespace FQDN.
+  # Handles URLs like: postgresql://user:pass@postgres:5432/db or @postgres-primary:5432/db
+  FQDN_URL=$(echo "$EXISTING_URL" | sed -E "s|@([^:/@]+)(:[0-9]+)|@\1.${EXISTING_POSTGRES_NS}.svc.cluster.local\2|")
 
   # Ensure infrastructure namespace exists
   if ! kubectl get namespace "$INFRA_NAMESPACE" >/dev/null 2>&1; then
