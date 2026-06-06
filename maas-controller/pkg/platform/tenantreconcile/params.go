@@ -65,77 +65,63 @@ func resolveAPIKeyMaxExpirationDays(tenant *maasv1alpha1.Tenant) string {
 
 // applyPlatformParams patches all dynamic values into rendered resources.
 func applyPlatformParams(log logr.Logger, resources []unstructured.Unstructured, params PlatformParams) error {
+	for i := range resources {
+		if err := patchResource(log, &resources[i], params); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// patchResource applies tenant-specific patches to a single resource.
+//
+//nolint:gocyclo // High cyclomatic complexity is acceptable for resource type dispatch
+func patchResource(log logr.Logger, r *unstructured.Unstructured, params PlatformParams) error {
+	gvk := r.GroupVersionKind()
+	name := r.GetName()
 	tenantID := params.TenantIdentifier
 
-	for i := range resources {
-		r := &resources[i]
-		gvk := r.GroupVersionKind()
-		name := r.GetName()
-
-		switch {
-		case gvk == GVKDeployment && name == baseMaaSAPIDeploymentName:
-			// Rename and patch maas-api Deployment for this tenant
-			r.SetName(MaaSAPIDeploymentName(tenantID))
-			if err := patchMaaSAPIDeployment(log, r, params); err != nil {
-				return err
-			}
-		case gvk == GVKDeployment && name == PayloadProcessingName:
-			if err := patchPayloadProcessingDeployment(log, r, params); err != nil {
-				return err
-			}
-		case gvk == GVKCronJob && name == baseMaaSAPIKeyCleanupCronJobName:
-			// Rename and patch cleanup CronJob for this tenant
-			r.SetName(MaaSAPIKeyCleanupCronJobName(tenantID))
-			if err := patchCleanupCronJobImage(log, r, params); err != nil {
-				return err
-			}
-		case gvk == GVKHTTPRoute && name == baseMaaSAPIRouteName:
-			// Rename and patch HTTPRoute for this tenant
-			r.SetName(MaaSAPIRouteName(tenantID))
-			if err := patchHTTPRoute(log, r, params); err != nil {
-				return err
-			}
-		case gvk == GVKAuthPolicy && name == baseMaaSAPIAuthPolicyName:
-			// Rename and patch AuthPolicy for this tenant
-			r.SetName(MaaSAPIAuthPolicyName(tenantID))
-			if err := patchMaaSAPIAuthPolicy(log, r, params); err != nil {
-				return err
-			}
-		case gvk == GVKDestinationRule && name == baseGatewayDestinationRuleName:
-			// Rename and patch DestinationRule for this tenant
-			r.SetName(GatewayDestinationRuleName(tenantID))
-			if err := patchMaaSAPIDestinationRule(log, r, params); err != nil {
-				return err
-			}
-		case gvk == GVKDestinationRule && (name == PayloadProcessingName || name == PayloadPreProcessingName):
-			if err := patchPayloadDestinationRule(log, r, params); err != nil {
-				return err
-			}
-		case gvk == GVKEnvoyFilter && name == PayloadProcessingName:
-			if err := patchPayloadProcessingEnvoyFilter(log, r, params); err != nil {
-				return err
-			}
-		case gvk == GVKDeployment && name == PayloadPreProcessingName:
-			if err := patchPreProcessingDeployment(r, params); err != nil {
-				return err
-			}
-		case gvk == GVKService && name == baseMaaSAPIServiceName:
-			// Rename and patch maas-api Service for this tenant
-			r.SetName(MaaSAPIServiceName(tenantID))
-			if err := patchMaaSAPIService(log, r, params); err != nil {
-				return err
-			}
-		case gvk == GVKService && (name == PayloadProcessingName || name == PayloadPreProcessingName):
-			r.SetNamespace(params.GatewayNamespace)
-		case gvk == GVKServiceAccount && name == PayloadProcessingName:
-			r.SetNamespace(params.GatewayNamespace)
-		case gvk == GVKConfigMap && name == PayloadProcessingPluginsConfigMapName:
-			r.SetNamespace(params.GatewayNamespace)
-		case gvk == GVKClusterRoleBinding && name == PayloadProcessingReaderClusterRoleBindingName:
-			if err := patchClusterRoleBindingSubjectNS(r, params.GatewayNamespace); err != nil {
-				return err
-			}
-		}
+	switch {
+	case gvk == GVKDeployment && name == baseMaaSAPIDeploymentName:
+		// Rename and patch maas-api Deployment for this tenant
+		r.SetName(MaaSAPIDeploymentName(tenantID))
+		return patchMaaSAPIDeployment(log, r, params)
+	case gvk == GVKDeployment && name == PayloadProcessingName:
+		return patchPayloadProcessingDeployment(log, r, params)
+	case gvk == GVKCronJob && name == baseMaaSAPIKeyCleanupCronJobName:
+		// Rename and patch cleanup CronJob for this tenant
+		r.SetName(MaaSAPIKeyCleanupCronJobName(tenantID))
+		return patchCleanupCronJobImage(log, r, params)
+	case gvk == GVKHTTPRoute && name == baseMaaSAPIRouteName:
+		// Rename and patch HTTPRoute for this tenant
+		r.SetName(MaaSAPIRouteName(tenantID))
+		return patchHTTPRoute(log, r, params)
+	case gvk == GVKAuthPolicy && name == baseMaaSAPIAuthPolicyName:
+		// Rename and patch AuthPolicy for this tenant
+		r.SetName(MaaSAPIAuthPolicyName(tenantID))
+		return patchMaaSAPIAuthPolicy(log, r, params)
+	case gvk == GVKDestinationRule && name == baseGatewayDestinationRuleName:
+		// Rename and patch DestinationRule for this tenant
+		r.SetName(GatewayDestinationRuleName(tenantID))
+		return patchMaaSAPIDestinationRule(log, r, params)
+	case gvk == GVKDestinationRule && (name == PayloadProcessingName || name == PayloadPreProcessingName):
+		return patchPayloadDestinationRule(log, r, params)
+	case gvk == GVKEnvoyFilter && name == PayloadProcessingName:
+		return patchPayloadProcessingEnvoyFilter(log, r, params)
+	case gvk == GVKDeployment && name == PayloadPreProcessingName:
+		return patchPreProcessingDeployment(r, params)
+	case gvk == GVKService && name == baseMaaSAPIServiceName:
+		// Rename and patch maas-api Service for this tenant
+		r.SetName(MaaSAPIServiceName(tenantID))
+		return patchMaaSAPIService(log, r, params)
+	case gvk == GVKService && (name == PayloadProcessingName || name == PayloadPreProcessingName):
+		r.SetNamespace(params.GatewayNamespace)
+	case gvk == GVKServiceAccount && name == PayloadProcessingName:
+		r.SetNamespace(params.GatewayNamespace)
+	case gvk == GVKConfigMap && name == PayloadProcessingPluginsConfigMapName:
+		r.SetNamespace(params.GatewayNamespace)
+	case gvk == GVKClusterRoleBinding && name == PayloadProcessingReaderClusterRoleBindingName:
+		return patchClusterRoleBindingSubjectNS(r, params.GatewayNamespace)
 	}
 	return nil
 }

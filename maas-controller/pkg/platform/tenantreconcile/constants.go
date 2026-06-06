@@ -59,7 +59,7 @@ const (
 	baseIstioTelemetryName                         = "latency-per-subscription"
 	baseMaaSAPIDeploymentName                      = "maas-api"
 	baseMaaSAPIServiceName                         = "maas-api"
-	baseMaaSAPIKeyCleanupScriptConfigMapName       = "maas-api-key-cleanup-script"
+	baseMaaSAPIKeyCleanupScriptConfigMapName       = "maas-api-key-cleanup-script" //nolint:gosec // Kubernetes resource name, not a credential
 
 	// Non-tenant-specific resource names (shared infrastructure)
 	PayloadProcessingName                         = "payload-processing"

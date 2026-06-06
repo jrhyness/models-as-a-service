@@ -99,7 +99,8 @@ func TestPatchHTTPRouteBackendRefs(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, found)
 			require.Len(t, parentRefs, 1)
-			parentRef := parentRefs[0].(map[string]any)
+			parentRef, ok := parentRefs[0].(map[string]any)
+			require.True(t, ok, "parentRef should be a map")
 			assert.Equal(t, "test-gateway", parentRef["name"])
 			assert.Equal(t, "openshift-ingress", parentRef["namespace"])
 
@@ -110,13 +111,15 @@ func TestPatchHTTPRouteBackendRefs(t *testing.T) {
 			require.Len(t, rules, 2)
 
 			for i, ruleRaw := range rules {
-				rule := ruleRaw.(map[string]any)
+				rule, ok := ruleRaw.(map[string]any)
+				require.True(t, ok, "rule should be a map")
 				backendRefs, found, err := unstructured.NestedSlice(rule, "backendRefs")
 				require.NoError(t, err, "rule %d should have backendRefs", i)
 				require.True(t, found)
 				require.Len(t, backendRefs, 1)
 
-				backendRef := backendRefs[0].(map[string]any)
+				backendRef, ok := backendRefs[0].(map[string]any)
+				require.True(t, ok, "backendRef should be a map")
 				assert.Equal(t, tt.expectedServiceName, backendRef["name"],
 					"rule %d backendRef should point to %s", i, tt.expectedServiceName)
 				assert.Equal(t, int64(8080), backendRef["port"])
@@ -275,15 +278,19 @@ func TestPatchMaaSAPIDeploymentTENANT_NAME(t *testing.T) {
 			require.True(t, found)
 			require.Len(t, containers, 1)
 
-			container := containers[0].(map[string]any)
-			envVars := container["env"].([]any)
+			container, ok := containers[0].(map[string]any)
+			require.True(t, ok, "container should be a map")
+			envVars, ok := container["env"].([]any)
+			require.True(t, ok, "env should be a slice")
 
 			var tenantNameValue string
 			var foundTenantName bool
 			for _, envVar := range envVars {
-				ev := envVar.(map[string]any)
+				ev, ok := envVar.(map[string]any)
+				require.True(t, ok, "env var should be a map")
 				if ev["name"] == "TENANT_NAME" {
-					tenantNameValue = ev["value"].(string)
+					tenantNameValue, ok = ev["value"].(string)
+					require.True(t, ok, "TENANT_NAME value should be a string")
 					foundTenantName = true
 					break
 				}

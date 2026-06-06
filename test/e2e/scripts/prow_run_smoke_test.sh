@@ -655,7 +655,8 @@ run_e2e_tests() {
         # Fail fast if cluster AuthPolicy was not patched with the same issuer as this job (no 180s of 401).
         if [[ -n "${OIDC_ISSUER_URL:-}" ]]; then
             echo "Checking maas-api AuthPolicy OIDC issuer matches OIDC_ISSUER_URL..."
-            if ! verify_maas_api_oidc_authpolicy "$DEPLOYMENT_NAMESPACE"; then
+            # AuthPolicy deploys with maas-api in redhat-ai-gateway-infra, not controller namespace
+            if ! verify_maas_api_oidc_authpolicy "redhat-ai-gateway-infra"; then
                 echo "❌ ERROR: Fix deploy (same OIDC_ISSUER_URL as tests) or see validate-deployment.sh / deployment-helpers.sh verify_maas_api_oidc_authpolicy"
                 exit 1
             fi
