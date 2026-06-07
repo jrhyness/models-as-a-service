@@ -28,6 +28,7 @@ spec:
         args:
           - --leader-elect
           - --health-probe-bind-address=:8081
+          - --controller-namespace=$(CONTROLLER_NAMESPACE)
           - --gateway-name=$(GATEWAY_NAME)
           - --gateway-namespace=$(GATEWAY_NAMESPACE)
           - --maas-api-namespace=$(MAAS_API_NAMESPACE)
@@ -36,6 +37,10 @@ spec:
           - --metadata-cache-ttl=60
           - --authz-cache-ttl=60
         env:
+          - name: CONTROLLER_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
           - name: GATEWAY_NAME
             value: "maas-default-gateway"
           - name: GATEWAY_NAMESPACE
