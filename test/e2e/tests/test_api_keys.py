@@ -903,7 +903,11 @@ class TestEphemeralKeyCleanup:
 
     @pytest.fixture
     def deployment_namespace(self) -> str:
-        """Return the namespace where maas-api is deployed."""
+        """Return the namespace where maas-api is deployed.
+
+        Controlled by E2E_MAAS_API_DEPLOYMENT_NAMESPACE env var,
+        defaults to redhat-ai-gateway-infra.
+        """
         from test_helper import MAAS_API_DEPLOYMENT_NAMESPACE
         return MAAS_API_DEPLOYMENT_NAMESPACE
 
