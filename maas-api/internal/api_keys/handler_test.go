@@ -1091,7 +1091,9 @@ func TestCreateAPIKey_SubscriptionSelectErrors(t *testing.T) {
 			assert.Equal(t, apiKeySubscriptionResolutionErrCode, resp["code"])
 			assert.Equal(t, apiKeySubscriptionResolutionErrMsg, resp["error"])
 
-			res, err := store.Search(context.Background(), user.Username, "", &SearchFilters{}, &SortParams{By: DefaultSortBy, Order: DefaultSortOrder}, &PaginationParams{Limit: 10, Offset: 0})
+			res, err := store.Search(context.Background(), user.Username, "",
+				&SearchFilters{}, &SortParams{By: DefaultSortBy, Order: DefaultSortOrder},
+				&PaginationParams{Limit: 10, Offset: 0})
 			require.NoError(t, err)
 			assert.Empty(t, res.Keys, "no key should be persisted on subscription resolution failure")
 		})
@@ -1534,7 +1536,8 @@ func TestCleanupExpiredEphemeralKeys(t *testing.T) {
 
 	// Create expired ephemeral key within 30-minute grace period (should NOT be deleted)
 	recentExpiry := time.Now().Add(-10 * time.Minute)
-	err = store.AddKey(ctx, "alice", "recently-expired-ephemeral", "hash-5", "Recently Expired Ephemeral", "", []string{"users"}, testSubscriptionName, "test-tenant", &recentExpiry, true)
+	err = store.AddKey(ctx, "alice", "recently-expired-ephemeral", "hash-5", "Recently Expired Ephemeral",
+		"", []string{"users"}, testSubscriptionName, "test-tenant", &recentExpiry, true)
 	require.NoError(t, err)
 
 	t.Run("DeletesExpiredEphemeralKeys", func(t *testing.T) {
@@ -1604,9 +1607,11 @@ func TestSearchExcludesEphemeralByDefault(t *testing.T) {
 
 	// Create ephemeral keys
 	futureExpiry := time.Now().Add(1 * time.Hour)
-	err = store.AddKey(ctx, testUser.Username, "ephemeral-key-1", "hash-3", "Ephemeral Key 1", "", []string{"system:authenticated"}, testSubscriptionName, "test-tenant", &futureExpiry, true)
+	err = store.AddKey(ctx, testUser.Username, "ephemeral-key-1", "hash-3", "Ephemeral Key 1",
+		"", []string{"system:authenticated"}, testSubscriptionName, "test-tenant", &futureExpiry, true)
 	require.NoError(t, err)
-	err = store.AddKey(ctx, testUser.Username, "ephemeral-key-2", "hash-4", "Ephemeral Key 2", "", []string{"system:authenticated"}, testSubscriptionName, "test-tenant", &futureExpiry, true)
+	err = store.AddKey(ctx, testUser.Username, "ephemeral-key-2", "hash-4", "Ephemeral Key 2",
+		"", []string{"system:authenticated"}, testSubscriptionName, "test-tenant", &futureExpiry, true)
 	require.NoError(t, err)
 
 	t.Run("DefaultSearchExcludesEphemeral", func(t *testing.T) {
@@ -1653,16 +1658,19 @@ func TestSearchAPIKeys_ExpiredStatusComputation(t *testing.T) {
 
 	// Create a key that expired yesterday (stored as active, but past expiration)
 	pastExpiry := time.Now().Add(-24 * time.Hour)
-	err := store.AddKey(ctx, testUser.Username, "expired-key", "expired-hash", "Expired Key", "", []string{"system:authenticated"}, testSubscriptionName, "test-tenant", &pastExpiry, false)
+	err := store.AddKey(ctx, testUser.Username, "expired-key", "expired-hash", "Expired Key",
+		"", []string{"system:authenticated"}, testSubscriptionName, "test-tenant", &pastExpiry, false)
 	require.NoError(t, err)
 
 	// Create an active key with future expiration
 	futureExpiry := time.Now().Add(24 * time.Hour)
-	err = store.AddKey(ctx, testUser.Username, "active-key", "active-hash", "Active Key", "", []string{"system:authenticated"}, testSubscriptionName, "test-tenant", &futureExpiry, false)
+	err = store.AddKey(ctx, testUser.Username, "active-key", "active-hash", "Active Key",
+		"", []string{"system:authenticated"}, testSubscriptionName, "test-tenant", &futureExpiry, false)
 	require.NoError(t, err)
 
 	// Create an active key with no expiration
-	err = store.AddKey(ctx, testUser.Username, "permanent-key", "permanent-hash", "Permanent Key", "", []string{"system:authenticated"}, testSubscriptionName, "test-tenant", nil, false)
+	err = store.AddKey(ctx, testUser.Username, "permanent-key", "permanent-hash", "Permanent Key",
+		"", []string{"system:authenticated"}, testSubscriptionName, "test-tenant", nil, false)
 	require.NoError(t, err)
 
 	t.Run("SearchReturnsExpiredStatusForPastExpirationKeys", func(t *testing.T) {
@@ -1715,12 +1723,14 @@ func TestGetAPIKey_ExpiredStatusComputation(t *testing.T) {
 
 	// Create a key that expired yesterday
 	pastExpiry := time.Now().Add(-24 * time.Hour)
-	err := store.AddKey(ctx, testUser.Username, "expired-key", "expired-hash", "Expired Key", "", []string{"system:authenticated"}, testSubscriptionName, "test-tenant", &pastExpiry, false)
+	err := store.AddKey(ctx, testUser.Username, "expired-key", "expired-hash", "Expired Key",
+		"", []string{"system:authenticated"}, testSubscriptionName, "test-tenant", &pastExpiry, false)
 	require.NoError(t, err)
 
 	// Create an active key with future expiration
 	futureExpiry := time.Now().Add(24 * time.Hour)
-	err = store.AddKey(ctx, testUser.Username, "active-key", "active-hash", "Active Key", "", []string{"system:authenticated"}, testSubscriptionName, "test-tenant", &futureExpiry, false)
+	err = store.AddKey(ctx, testUser.Username, "active-key", "active-hash", "Active Key",
+		"", []string{"system:authenticated"}, testSubscriptionName, "test-tenant", &futureExpiry, false)
 	require.NoError(t, err)
 
 	t.Run("GetExpiredKeyReturnsExpiredStatus", func(t *testing.T) {

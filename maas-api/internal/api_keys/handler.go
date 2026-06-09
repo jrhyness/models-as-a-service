@@ -191,7 +191,16 @@ func (h *Handler) CreateAPIKey(c *gin.Context) {
 	}
 
 	// Create key for the authenticated user with their groups and tenant
-	result, err := h.service.CreateAPIKey(c.Request.Context(), user.Username, user.Groups, name, req.Description, expiresIn, req.Ephemeral, strings.TrimSpace(req.Subscription), user.Tenant)
+	result, err := h.service.CreateAPIKey(
+		c.Request.Context(),
+		user.Username,
+		user.Groups,
+		name,
+		req.Description,
+		expiresIn,
+		req.Ephemeral,
+		strings.TrimSpace(req.Subscription),
+		user.Tenant)
 	if err != nil {
 		h.logger.Error("Failed to create API key", "error", err)
 		if errors.Is(err, ErrExpirationNotPositive) || errors.Is(err, ErrExpirationExceedsMax) {
