@@ -63,26 +63,27 @@ func TestTenantIdentifierFor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := TenantIdentifierFor(tt.tenant)
+			got, err := TenantIdentifierFor(tt.tenant)
+			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, got)
 		})
 	}
 
-	// Separate test for panic case: AITenant-managed without tenant name
-	t.Run("tenant with AITenant label but no tenant name panics", func(t *testing.T) {
+	// Separate test for error case: AITenant-managed without tenant name
+	t.Run("tenant with AITenant label but no tenant name returns error", func(t *testing.T) {
 		tenant := &maasv1alpha1.Tenant{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "default-tenant",
 				Namespace: "ai-tenant-broken",
 				Labels: map[string]string{
 					LabelAITenantManaged: "true",
-					// Missing LabelTenantName - should panic
+					// Missing LabelTenantName - should error
 				},
 			},
 		}
-		assert.Panics(t, func() {
-			TenantIdentifierFor(tenant)
-		})
+		_, err := TenantIdentifierFor(tenant)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "tenant ai-tenant-broken/default-tenant has maas.opendatahub.io/managed-by-aitenant=true but maas.opendatahub.io/tenant-name is missing")
 	})
 }
 
@@ -185,7 +186,8 @@ func TestBuildPlatformParamsIncludesTenantIdentifier(t *testing.T) {
 			},
 		}
 
-		params := BuildPlatformParams(tenant, "opendatahub", "https://kubernetes.default.svc")
+		params, err := BuildPlatformParams(tenant, "opendatahub", "https://kubernetes.default.svc")
+		assert.NoError(t, err)
 
 		assert.Equal(t, "", params.TenantIdentifier)
 	})
@@ -208,7 +210,8 @@ func TestBuildPlatformParamsIncludesTenantIdentifier(t *testing.T) {
 			},
 		}
 
-		params := BuildPlatformParams(tenant, "redhat-ai-gateway-infra", "https://kubernetes.default.svc")
+		params, err := BuildPlatformParams(tenant, "redhat-ai-gateway-infra", "https://kubernetes.default.svc")
+		assert.NoError(t, err)
 
 		assert.Equal(t, "redteam", params.TenantIdentifier)
 	})

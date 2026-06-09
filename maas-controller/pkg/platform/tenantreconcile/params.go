@@ -34,18 +34,23 @@ type PlatformParams struct {
 
 // BuildPlatformParams resolves all runtime parameters from the Tenant CR,
 // cluster state, and RELATED_IMAGE_* env vars. No disk I/O.
-func BuildPlatformParams(tenant *maasv1alpha1.Tenant, appNamespace, clusterAudience string) PlatformParams {
+func BuildPlatformParams(tenant *maasv1alpha1.Tenant, appNamespace, clusterAudience string) (PlatformParams, error) {
+	tenantID, err := TenantIdentifierFor(tenant)
+	if err != nil {
+		return PlatformParams{}, fmt.Errorf("resolve tenant identifier: %w", err)
+	}
+
 	return PlatformParams{
 		AppNamespace:            appNamespace,
 		GatewayNamespace:        tenant.Spec.GatewayRef.Namespace,
 		GatewayName:             tenant.Spec.GatewayRef.Name,
 		ClusterAudience:         clusterAudience,
-		TenantIdentifier:        TenantIdentifierFor(tenant),
+		TenantIdentifier:        tenantID,
 		MaaSAPIImage:            firstNonEmpty(os.Getenv("RELATED_IMAGE_ODH_MAAS_API_IMAGE"), DefaultMaaSAPIImage),
 		PayloadProcessingImage:  firstNonEmpty(os.Getenv("RELATED_IMAGE_ODH_AI_GATEWAY_PAYLOAD_PROCESSING_IMAGE"), DefaultPayloadProcessingImage),
 		MaaSAPIKeyCleanupImage:  firstNonEmpty(os.Getenv("RELATED_IMAGE_UBI_MINIMAL_IMAGE"), DefaultMaaSAPIKeyCleanupImage),
 		APIKeyMaxExpirationDays: resolveAPIKeyMaxExpirationDays(tenant),
-	}
+	}, nil
 }
 
 func firstNonEmpty(values ...string) string {

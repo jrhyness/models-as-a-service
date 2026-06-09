@@ -182,16 +182,16 @@ func MaaSAPIServiceName(tenantID string) string {
 // Returns:
 //   - Empty string ("") for default/legacy tenant (not managed by AITenant)
 //   - Tenant name (e.g., "redteam") for AITenant-managed tenants
-//   - Panics if LabelAITenantManaged is true but LabelTenantName is missing (invalid state)
+//   - Error if LabelAITenantManaged is true but LabelTenantName is missing (invalid state)
 //
 // The tenant identifier is used to generate unique per-tenant resource names.
 //
 // TODO: When database migration changes default tenant_id from "" to "models-as-a-service",
 // update this function to return "models-as-a-service" for the default tenant
 // instead of empty string, ensuring consistency between resource names and DB tenant_id.
-func TenantIdentifierFor(tenant *maasv1alpha1.Tenant) string {
+func TenantIdentifierFor(tenant *maasv1alpha1.Tenant) (string, error) {
 	if tenant == nil {
-		return ""
+		return "", nil
 	}
 
 	// Check if this Tenant is managed by AITenant controller
@@ -204,14 +204,16 @@ func TenantIdentifierFor(tenant *maasv1alpha1.Tenant) string {
 			// Fail closed: AITenant-managed Tenant must have LabelTenantName set.
 			// This should never happen if created by AITenant controller, but if someone
 			// manually creates a Tenant with LabelAITenantManaged=true and no LabelTenantName,
-			// we must not fall back to default tenant name.
-			panic(fmt.Sprintf("Tenant %s/%s has %s=true but %s is missing or empty",
-				tenant.Namespace, tenant.Name, LabelAITenantManaged, LabelTenantName))
+			// we must not fall back to default tenant name. Return error instead of panic
+			// to allow graceful degradation - the Tenant reconciler can set a degraded
+			// condition instead of crashing the entire controller.
+			return "", fmt.Errorf("tenant %s/%s has %s=true but %s is missing or empty",
+				tenant.Namespace, tenant.Name, LabelAITenantManaged, LabelTenantName)
 		}
-		return tenantName
+		return tenantName, nil
 	}
 
 	// Legacy/default tenant - return empty string for backward compatibility
 	// TODO: Change to return "models-as-a-service" when DB migration is done
-	return ""
+	return "", nil
 }

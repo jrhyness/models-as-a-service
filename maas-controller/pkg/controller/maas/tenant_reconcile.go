@@ -201,10 +201,13 @@ func (r *TenantReconciler) reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// Clean up legacy maas-api deployment from opendatahub/redhat-ods-applications namespace
-	// after successful deployment to the infrastructure namespace.
-	if err := r.cleanupLegacyMaaSAPIDeployment(ctx, log); err != nil {
-		log.V(1).Info("failed to clean up legacy maas-api deployment (non-fatal)", "error", err)
-	}
+	// after successful deployment to the infrastructure namespace. Use sync.Once to avoid
+	// redundant GET requests on every reconcile after cleanup completes.
+	r.cleanupOnce.Do(func() {
+		if err := r.cleanupLegacyMaaSAPIDeployment(ctx, log); err != nil {
+			log.V(1).Info("failed to clean up legacy maas-api deployment (non-fatal)", "error", err)
+		}
+	})
 
 	tenant.Status.Phase = "Active"
 	if apimeta.IsStatusConditionTrue(tenant.Status.Conditions, tenantreconcile.ConditionTypeDegraded) {

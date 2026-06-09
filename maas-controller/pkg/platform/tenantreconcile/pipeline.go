@@ -67,7 +67,10 @@ func RunPlatform(
 		return nil, fmt.Errorf("gateway lookup: %w", err)
 	}
 
-	params := BuildPlatformParams(tenant, appNs, clusterAudience)
+	params, err := BuildPlatformParams(tenant, appNs, clusterAudience)
+	if err != nil {
+		return nil, fmt.Errorf("build params: %w", err)
+	}
 
 	rendered, err := RenderKustomize(manifestPath, appNs)
 	if err != nil {
@@ -83,7 +86,10 @@ func RunPlatform(
 		return nil, fmt.Errorf("apply: %w", err)
 	}
 
-	tenantID := TenantIdentifierFor(tenant)
+	tenantID, err := TenantIdentifierFor(tenant)
+	if err != nil {
+		return nil, fmt.Errorf("resolve tenant identifier: %w", err)
+	}
 	ready, detail, err := MaasAPIDeploymentReady(ctx, c, appNs, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("deployment status: %w", err)
