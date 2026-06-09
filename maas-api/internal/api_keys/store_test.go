@@ -150,7 +150,7 @@ func TestInvalidateAll(t *testing.T) {
 			require.NoError(t, store.AddKey(ctx, "bob", id, "bhash"+id, "key-"+id, "", nil, "sub-1", "", nil, false))
 		}
 
-		count, err := store.InvalidateAll(ctx, "alice")
+		count, err := store.InvalidateAll(ctx, "alice", "")
 		require.NoError(t, err)
 		assert.Equal(t, 3, count)
 
@@ -173,7 +173,7 @@ func TestInvalidateAll(t *testing.T) {
 
 	// Verify that InvalidateAll for a user with no keys returns count=0 and no error.
 	t.Run("NoKeysForUser", func(t *testing.T) {
-		count, err := store.InvalidateAll(ctx, "nobody")
+		count, err := store.InvalidateAll(ctx, "nobody", "")
 		require.NoError(t, err)
 		assert.Equal(t, 0, count)
 	})
@@ -192,7 +192,7 @@ func TestInvalidateAll(t *testing.T) {
 		require.NoError(t, s.Revoke(ctx, "c3"))
 
 		// InvalidateAll should only revoke the 2 remaining active keys
-		count, err := s.InvalidateAll(ctx, "carol")
+		count, err := s.InvalidateAll(ctx, "carol", "")
 		require.NoError(t, err)
 		assert.Equal(t, 2, count, "should only revoke active keys, not already-revoked ones")
 	})
@@ -205,12 +205,12 @@ func TestInvalidateAll(t *testing.T) {
 
 		require.NoError(t, s.AddKey(ctx, "dan", "d1", "dh1", "k1", "", nil, "sub-1", "", nil, false))
 
-		count, err := s.InvalidateAll(ctx, "dan")
+		count, err := s.InvalidateAll(ctx, "dan", "")
 		require.NoError(t, err)
 		assert.Equal(t, 1, count)
 
 		// Second call should be a no-op
-		count, err = s.InvalidateAll(ctx, "dan")
+		count, err = s.InvalidateAll(ctx, "dan", "")
 		require.NoError(t, err)
 		assert.Equal(t, 0, count, "second call should find no active keys")
 	})
