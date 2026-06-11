@@ -482,30 +482,17 @@ func TestTenantReconcile_ConfigTerminatingSkipsPlatform(t *testing.T) {
 func TestTenantReconcile_AppNamespaceUsesConfiguredAppNamespaceForAITenantManagedTenant(t *testing.T) {
 	g := NewWithT(t)
 	r := &TenantReconciler{AppNamespace: "opendatahub"}
-	tenant := &maasv1alpha1.Tenant{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "tenant-a",
-			Labels: map[string]string{
-				aiGatewayTenantLabel: "tenant-a",
-			},
-		},
-	}
 
-	// All tenants deploy maas-api to infrastructure namespace
-	g.Expect(r.appNamespaceForTenant(tenant)).To(Equal(tenantreconcile.DefaultMaaSAPINamespace))
+	// All tenants deploy maas-api to operator namespace
+	g.Expect(r.appNamespaceForTenant()).To(Equal(tenantreconcile.DefaultMaaSAPINamespace))
 }
 
 func TestTenantReconcile_AppNamespaceForLegacyTenant(t *testing.T) {
 	g := NewWithT(t)
 	r := &TenantReconciler{AppNamespace: "opendatahub"}
-	tenant := &maasv1alpha1.Tenant{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "models-as-a-service",
-		},
-	}
 
-	// All tenants deploy maas-api to infrastructure namespace
-	g.Expect(r.appNamespaceForTenant(tenant)).To(Equal(tenantreconcile.DefaultMaaSAPINamespace))
+	// All tenants deploy maas-api to operator namespace
+	g.Expect(r.appNamespaceForTenant()).To(Equal(tenantreconcile.DefaultMaaSAPINamespace))
 }
 
 func TestTenantReconcile_NotFoundIsNoOp(t *testing.T) {

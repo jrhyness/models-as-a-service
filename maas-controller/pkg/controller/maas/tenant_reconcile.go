@@ -159,7 +159,7 @@ func (r *TenantReconciler) reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 	setDependenciesCondition(&tenant, true, "")
 
-	appNs := r.appNamespaceForTenant(&tenant)
+	appNs := r.appNamespaceForTenant()
 	rep := tenantreconcile.CollectPrerequisiteReport(ctx, r.Client, appNs)
 	setPrerequisiteConditionsFromReport(&tenant, rep)
 	if len(rep.Blocking) > 0 {
@@ -294,10 +294,9 @@ func (r *TenantReconciler) operatorNamespace() string {
 	return os.Getenv("WATCH_NAMESPACE")
 }
 
-func (r *TenantReconciler) appNamespaceForTenant(tenant *maasv1alpha1.Tenant) string {
-	// All maas-api instances deploy to the infrastructure namespace (redhat-ai-gateway-infra)
-	// for consistent architecture and to avoid mixing infrastructure services with tenant
-	// management assets. The shared database secret also lives in this namespace.
+func (r *TenantReconciler) appNamespaceForTenant() string {
+	// All maas-api instances deploy to the operator namespace (opendatahub for ODH,
+	// redhat-ods-applications for RHOAI). The shared database secret also lives in this namespace.
 	return tenantreconcile.DefaultMaaSAPINamespace
 }
 
