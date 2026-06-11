@@ -340,9 +340,10 @@ func (r *TenantReconciler) patchStatus(ctx context.Context, tenant *maasv1alpha1
 }
 
 func (r *TenantReconciler) cleanupLegacyMaaSAPIDeployment(ctx context.Context, log logr.Logger) error {
-	// Clean up maas-api resources from legacy namespaces (opendatahub, redhat-ods-applications)
-	// now that all maas-api instances deploy to the infrastructure namespace.
-	legacyNamespaces := []string{"opendatahub", "redhat-ods-applications"}
+	// Clean up maas-api resources from legacy namespaces.
+	// Currently no legacy namespaces - maas-api deploys to operator namespace
+	// (opendatahub for ODH, redhat-ods-applications for RHOAI).
+	legacyNamespaces := []string{}
 
 	for _, ns := range legacyNamespaces {
 		// Check if legacy Deployment exists
