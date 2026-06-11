@@ -14,7 +14,7 @@ import pytest
 
 _OC_TIMEOUT = int(os.environ.get("E2E_OC_TIMEOUT", "60"))
 AITENANT_NAMESPACE = "ai-tenants"  # Where AITenant CRs live
-MAAS_API_NAMESPACE = "redhat-ai-gateway-infra"  # Where maas-api workloads run
+MAAS_API_NAMESPACE = os.environ.get("E2E_MAAS_API_DEPLOYMENT_NAMESPACE", os.environ.get("DEPLOYMENT_NAMESPACE", "opendatahub"))  # Where maas-api workloads run (operator namespace)
 TEST_TENANT_NAME = "test-e2e"
 GATEWAY_NAMESPACE = "openshift-ingress"
 
