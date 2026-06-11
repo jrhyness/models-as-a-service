@@ -3,7 +3,6 @@ package tenantreconcile
 import (
 	"errors"
 	"fmt"
-	neturl "net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -100,10 +99,6 @@ func patchResource(log logr.Logger, r *unstructured.Unstructured, params Platfor
 		// Rename and patch HTTPRoute for this tenant
 		r.SetName(MaaSAPIRouteName(tenantID))
 		return patchHTTPRoute(log, r, params)
-	case gvk == GVKAuthPolicy && name == baseMaaSAPIAuthPolicyName:
-		// Rename and patch AuthPolicy for this tenant
-		r.SetName(MaaSAPIAuthPolicyName(tenantID))
-		return patchMaaSAPIAuthPolicy(log, r, params)
 	case gvk == GVKDestinationRule && name == baseGatewayDestinationRuleName:
 		// Rename and patch DestinationRule for this tenant
 		r.SetName(GatewayDestinationRuleName(tenantID))
@@ -316,67 +311,6 @@ func patchHTTPRoute(log logr.Logger, r *unstructured.Unstructured, params Platfo
 	}
 
 	log.V(4).Info("Patched HTTPRoute backendRefs", "service", tenantServiceName)
-	return nil
-}
-
-func patchMaaSAPIAuthPolicy(log logr.Logger, r *unstructured.Unstructured, params PlatformParams) error {
-	log.V(4).Info("Patching AuthPolicy cluster-audience", "audience", params.ClusterAudience)
-
-	// Patch targetRef to point to the per-tenant HTTPRoute
-	tenantRouteName := MaaSAPIRouteName(params.TenantIdentifier)
-	if err := unstructured.SetNestedField(r.Object, tenantRouteName, "spec", "targetRef", "name"); err != nil {
-		return fmt.Errorf("write AuthPolicy targetRef name: %w", err)
-	}
-
-	audiences, found, err := unstructured.NestedSlice(r.Object,
-		"spec", "rules", "authentication", "openshift-identities", "kubernetesTokenReview", "audiences")
-	if err != nil {
-		return fmt.Errorf("read AuthPolicy audiences: %w", err)
-	}
-	if !found || len(audiences) == 0 {
-		return errors.New("AuthPolicy audiences not found")
-	}
-	audiences[0] = params.ClusterAudience
-	if err := unstructured.SetNestedSlice(r.Object, audiences,
-		"spec", "rules", "authentication", "openshift-identities", "kubernetesTokenReview", "audiences"); err != nil {
-		return fmt.Errorf("write AuthPolicy audiences: %w", err)
-	}
-
-	// Patch validation URL to use per-tenant Service name
-	url, found, err := unstructured.NestedString(r.Object,
-		"spec", "rules", "metadata", "apiKeyValidation", "http", "url")
-	if err != nil {
-		return fmt.Errorf("read AuthPolicy validation URL: %w", err)
-	}
-	if !found {
-		return errors.New("AuthPolicy validation URL not found")
-	}
-	if url == "" {
-		return errors.New("AuthPolicy validation URL is empty")
-	}
-
-	// Always rewrite the URL to use the correct tenant-specific service name
-	tenantServiceName := MaaSAPIServiceName(params.TenantIdentifier)
-	// Parse the URL to extract just the path and port
-	u, err := neturl.Parse(url)
-	if err != nil {
-		return fmt.Errorf("parse AuthPolicy validation URL: %w", err)
-	}
-
-	// Rebuild URL with correct service name and namespace
-	// Target: https://maas-api-{tenant}.{namespace}.svc.cluster.local:8443/internal/v1/api-keys/validate
-	newHost := fmt.Sprintf("%s.%s.svc.cluster.local", tenantServiceName, params.AppNamespace)
-	u.Host = newHost
-	if u.Port() == "" {
-		u.Host = newHost + ":8443" // Default port if not specified
-	}
-	newURL := u.String()
-
-	log.V(4).Info("Patching AuthPolicy validation URL", "old", url, "new", newURL)
-	if err := unstructured.SetNestedField(r.Object, newURL,
-		"spec", "rules", "metadata", "apiKeyValidation", "http", "url"); err != nil {
-		return fmt.Errorf("write AuthPolicy validation URL: %w", err)
-	}
 	return nil
 }
 

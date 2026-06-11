@@ -31,11 +31,7 @@ func PostRender(ctx context.Context, log logr.Logger, tenant *maasv1alpha1.Tenan
 
 		gvk := resource.GroupVersionKind()
 		switch {
-		case gvk == GVKAuthPolicy && resource.GetName() == GatewayDefaultAuthPolicyName(tenantID):
-			if err := configureAuthPolicy(log, resource, gatewayNamespace, gatewayName); err != nil {
-				return nil, err
-			}
-		case gvk == GVKTokenRateLimitPolicy && resource.GetName() == GatewayTokenRateLimitDefaultDenyPolicyName(tenantID):
+		case gvk == GVKTokenRateLimitPolicy && resource.GetName() == baseGatewayTokenRateLimitDefaultDenyPolicyName:
 			if err := configureTokenRateLimitPolicy(log, resource, gatewayNamespace, gatewayName); err != nil {
 				return nil, err
 			}
@@ -46,9 +42,7 @@ func PostRender(ctx context.Context, log logr.Logger, tenant *maasv1alpha1.Tenan
 		filteredResources = append(filteredResources, *resource)
 	}
 
-	setManagedFalseAnnotation(filteredResources, tenantID)
-
-	if err := configureExternalOIDC(log, tenant, filteredResources, tenantID); err != nil {
+	if err := configureExternalOIDC(log, tenant, filteredResources); err != nil {
 		return nil, err
 	}
 	if err := configureTelemetryPolicyResources(log, tenant, &filteredResources, tenantID); err != nil {
@@ -62,15 +56,6 @@ func PostRender(ctx context.Context, log logr.Logger, tenant *maasv1alpha1.Tenan
 	}
 	_ = ctx
 	return filteredResources, nil
-}
-
-func configureAuthPolicy(log logr.Logger, resource *unstructured.Unstructured, gatewayNamespace, gatewayName string) error {
-	log.V(4).Info("Configuring AuthPolicy", "name", resource.GetName(), "newNamespace", gatewayNamespace, "newTargetGateway", gatewayName)
-	resource.SetNamespace(gatewayNamespace)
-	if err := unstructured.SetNestedField(resource.Object, gatewayName, "spec", "targetRef", "name"); err != nil {
-		return fmt.Errorf("failed to set spec.targetRef.name on AuthPolicy: %w", err)
-	}
-	return nil
 }
 
 func configureTokenRateLimitPolicy(log logr.Logger, resource *unstructured.Unstructured, gatewayNamespace, gatewayName string) error {
@@ -87,37 +72,16 @@ func configureDestinationRule(log logr.Logger, resource *unstructured.Unstructur
 	resource.SetNamespace(gatewayNamespace)
 }
 
-// setManagedFalseAnnotation marks the maas-api AuthPolicy with opendatahub.io/managed=false
-// so the ODH operator does not reconcile it back to its defaults after the Tenant reconciler
-// has applied OIDC, audience, and other customizations.
-func setManagedFalseAnnotation(resources []unstructured.Unstructured, tenantID string) {
-	for i := range resources {
-		r := &resources[i]
-		if r.GroupVersionKind() == GVKAuthPolicy && r.GetName() == MaaSAPIAuthPolicyName(tenantID) {
-			ann := r.GetAnnotations()
-			if ann == nil {
-				ann = make(map[string]string)
-			}
-			ann[AnnotationManaged] = "false"
-			r.SetAnnotations(ann)
-			return
-		}
-	}
-}
-
-func configureExternalOIDC(log logr.Logger, tenant *maasv1alpha1.Tenant, resources []unstructured.Unstructured, tenantID string) error {
+func configureExternalOIDC(log logr.Logger, tenant *maasv1alpha1.Tenant, resources []unstructured.Unstructured) error {
 	if tenant.Spec.ExternalOIDC == nil {
 		return nil
 	}
-	oidc := tenant.Spec.ExternalOIDC
-	authPolicyName := MaaSAPIAuthPolicyName(tenantID)
-	for i := range resources {
-		resource := &resources[i]
-		if resource.GroupVersionKind() == GVKAuthPolicy && resource.GetName() == authPolicyName {
-			return patchAuthPolicyWithOIDC(log, resource, oidc)
-		}
-	}
-	return fmt.Errorf("rendered resources are missing AuthPolicy %q while spec.externalOIDC is configured — refusing to deploy without OIDC rules", authPolicyName)
+	// OIDC is configured in the singleton maas-gateway-auth AuthPolicy managed by
+	// maas-controller (see MaaSAuthPolicyReconciler.buildGatewayAuthPolicySpec).
+	// The route-level maas-api-auth-policy has been removed, so there is nothing
+	// to patch in the kustomize-rendered resources here.
+	log.V(1).Info("external OIDC configured via gateway-level AuthPolicy; no kustomize resources to patch")
+	return nil
 }
 
 func patchAuthPolicyWithOIDC(log logr.Logger, resource *unstructured.Unstructured, oidc *maasv1alpha1.TenantExternalOIDCConfig) error {
