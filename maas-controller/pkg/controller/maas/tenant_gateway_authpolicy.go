@@ -163,25 +163,29 @@ func (r *TenantReconciler) buildGatewayAuthPolicySpec(tenantID, appNamespace, ga
 			"metadata": map[string]any{
 				// API key validation
 				"apiKeyValidation": map[string]any{
+					"when": []any{
+						map[string]any{
+							"selector": "request.headers.authorization",
+							"operator": "matches",
+							"value":    "^Bearer sk-oai-.*",
+						},
+					},
 					"http": map[string]any{
-						"url":    apiKeyValidationURL,
-						"method": "POST",
-						"body": map[string]any{
-							"selector": fmt.Sprintf(`{%q: request.headers.authorization.split(" ")[1]}`, "key"),
-						},
-						"headers": map[string]any{
-							"Accept": map[string]any{
-								"value": "application/json",
-							},
-							"Content-Type": map[string]any{
-								"value": "application/json",
-							},
-						},
+						"url":         apiKeyValidationURL,
 						"contentType": "application/json",
+						"method":      "POST",
+						"body": map[string]any{
+							"expression": `{"key": request.headers.authorization.replace("Bearer ", "")}`,
+						},
 					},
 					"cache": map[string]any{
+						"key": map[string]any{
+							"selector": `request.headers.authorization.replace("Bearer ", "")`,
+						},
 						"ttl": int64(60),
 					},
+					"metrics":  false,
+					"priority": int64(0),
 				},
 			},
 			"response": map[string]any{
