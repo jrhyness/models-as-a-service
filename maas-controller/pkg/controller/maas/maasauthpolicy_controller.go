@@ -802,7 +802,7 @@ allow {
 							},
 						},
 						"plain": map[string]any{
-							"expression": strconv.Quote(r.MaaSAPINamespace),
+							"expression": strconv.Quote("models-as-a-service"),
 						},
 						"key":      "X-MaaS-Tenant",
 						"metrics":  false,
