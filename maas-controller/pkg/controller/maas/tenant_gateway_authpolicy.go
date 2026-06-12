@@ -236,12 +236,8 @@ func (r *TenantReconciler) buildAuthenticationSection(oidc *oidcConfig) map[stri
 // TODO: Consolidate gateway AuthPolicy building logic between TenantReconciler and MaaSAuthPolicyReconciler.
 func (r *TenantReconciler) buildGatewayAuthPolicySpec(tenantID, appNamespace, gatewayNS, gatewayName string, oidc *oidcConfig) map[string]any {
 	// API key validation URL points to the per-tenant maas-api service
-	// Default tenant (models-as-a-service): maas-api
-	// AITenant-managed tenants: maas-api-{tenantID}
-	serviceName := "maas-api"
-	if tenantID != "" && tenantID != "models-as-a-service" {
-		serviceName = fmt.Sprintf("maas-api-%s", tenantID)
-	}
+	// Use the same naming convention as MaaSAPIServiceName from tenantreconcile
+	serviceName := tenantreconcile.MaaSAPIServiceName(tenantID)
 	apiKeyValidationURL := fmt.Sprintf("https://%s.%s.svc.cluster.local:8443/internal/v1/api-keys/validate", serviceName, appNamespace)
 	subscriptionSelectorURL := fmt.Sprintf("https://%s.%s.svc.cluster.local:8443/internal/v1/subscriptions/select", serviceName, appNamespace)
 
