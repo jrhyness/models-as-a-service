@@ -227,13 +227,17 @@ func (r *TenantReconciler) reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	if err := r.reconcileGatewayAuthPolicy(ctx, &tenant, tenantID, appNs); err != nil {
-		log.Error(err, "failed to reconcile gateway AuthPolicy", "tenantID", tenantID)
-		setDeploymentsAvailableCondition(&tenant, false, "AuthPolicyReconcileFailed", err.Error())
-		if err2 := r.patchStatus(ctx, &tenant, "Degraded", metav1.ConditionFalse, "AuthPolicyReconcileFailed", err.Error()); err2 != nil {
-			return ctrl.Result{}, err2
+	// TEMPORARY: Skip gateway AuthPolicy - let MaaSAuthPolicyReconciler handle it to debug rate limiting
+	_ = tenantID // avoid unused var error
+	if false {
+		if err := r.reconcileGatewayAuthPolicy(ctx, &tenant, tenantID, appNs); err != nil {
+			log.Error(err, "failed to reconcile gateway AuthPolicy", "tenantID", tenantID)
+			setDeploymentsAvailableCondition(&tenant, false, "AuthPolicyReconcileFailed", err.Error())
+			if err2 := r.patchStatus(ctx, &tenant, "Degraded", metav1.ConditionFalse, "AuthPolicyReconcileFailed", err.Error()); err2 != nil {
+				return ctrl.Result{}, err2
+			}
+			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 		}
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
 	// Clean up legacy maas-api deployment from opendatahub/redhat-ods-applications namespace

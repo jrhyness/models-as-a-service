@@ -47,6 +47,7 @@ import (
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	maasv1alpha1 "github.com/opendatahub-io/models-as-a-service/maas-controller/api/maas/v1alpha1"
+	"github.com/opendatahub-io/models-as-a-service/maas-controller/pkg/platform/tenantreconcile"
 )
 
 // MaaSAuthPolicyReconciler reconciles a MaaSAuthPolicy object
@@ -111,6 +112,39 @@ func (r *MaaSAuthPolicyReconciler) authzCacheTTL() int64 {
 		return authz
 	}
 	return metadata
+}
+
+// fetchTenantIdentifier fetches the tenant identifier from the Tenant CR in the given namespace.
+// Returns the tenant identifier string, or empty string if Tenant doesn't exist.
+func (r *MaaSAuthPolicyReconciler) fetchTenantIdentifier(ctx context.Context, log logr.Logger, policyNamespace string) string {
+	tenant := &maasv1alpha1.Tenant{}
+	tenantKey := client.ObjectKey{
+		Name:      maasv1alpha1.TenantInstanceName,
+		Namespace: policyNamespace,
+	}
+
+	if err := r.Get(ctx, tenantKey, tenant); err != nil {
+		if apierrors.IsNotFound(err) {
+			log.V(1).Info("Tenant not found, using namespace as tenant identifier",
+				"tenantName", maasv1alpha1.TenantInstanceName,
+				"tenantNamespace", policyNamespace)
+			// Fallback to namespace for backward compatibility
+			return policyNamespace
+		}
+		log.Error(err, "failed to get Tenant resource, using namespace as fallback",
+			"tenantName", maasv1alpha1.TenantInstanceName,
+			"tenantNamespace", policyNamespace)
+		return policyNamespace
+	}
+
+	tenantID, err := tenantreconcile.TenantIdentifierFor(tenant)
+	if err != nil {
+		log.Error(err, "failed to determine tenant identifier, using namespace as fallback")
+		return policyNamespace
+	}
+
+	log.V(1).Info("Tenant identifier resolved", "tenantID", tenantID, "namespace", policyNamespace)
+	return tenantID
 }
 
 // fetchOIDCConfig fetches OIDC configuration from the Tenant CR in the given
@@ -342,11 +376,13 @@ func (r *MaaSAuthPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	oidc := r.fetchOIDCConfig(ctx, log, req.Namespace)
+	tenantID := r.fetchTenantIdentifier(ctx, log, req.Namespace)
 
 	// Reconcile the singleton gateway-level AuthPolicy first, then the per-model group policies.
 	// SKIP when TenantNamespaceDiscoveryEnabled - TenantReconciler owns all gateway AuthPolicies.
-	if !r.TenantNamespaceDiscoveryEnabled {
-		if err := r.reconcileGatewayAuthPolicy(ctx, log, string(modelAllowlistsJSON), oidc); err != nil {
+	// TEMPORARY: Force enable to debug rate limiting - TenantReconciler version is disabled
+	if true {
+		if err := r.reconcileGatewayAuthPolicy(ctx, log, string(modelAllowlistsJSON), oidc, tenantID); err != nil{
 			log.Error(err, "failed to reconcile gateway AuthPolicy")
 			r.updateStatus(ctx, policy, maasv1alpha1.PhaseFailed, fmt.Sprintf("Failed to reconcile gateway AuthPolicy: %v", err), statusSnapshot)
 			return ctrl.Result{}, err
@@ -478,7 +514,7 @@ type modelSubjectAllowlist struct {
 // buildGatewayAuthPolicySpec returns the Authorino AuthPolicy spec for the singleton
 // Gateway-level policy. Model identity is resolved dynamically via CEL on every request
 // rather than being baked in per-model, so this spec is the same for all MaaSAuthPolicy CRs.
-func (r *MaaSAuthPolicyReconciler) buildGatewayAuthPolicySpec(modelAccessJSON string, oidc *oidcConfig) map[string]any {
+func (r *MaaSAuthPolicyReconciler) buildGatewayAuthPolicySpec(modelAccessJSON string, oidc *oidcConfig, tenantID string) map[string]any {
 	apiKeyValidationURL := fmt.Sprintf("https://maas-api.%s.svc.cluster.local:8443/internal/v1/api-keys/validate", r.MaaSAPINamespace)
 	subscriptionSelectorURL := fmt.Sprintf("https://maas-api.%s.svc.cluster.local:8443/internal/v1/subscriptions/select", r.MaaSAPINamespace)
 
@@ -802,7 +838,7 @@ allow {
 							},
 						},
 						"plain": map[string]any{
-							"expression": strconv.Quote(r.MaaSAPINamespace),
+							"expression": strconv.Quote(tenantID),
 						},
 						"key":      "X-MaaS-Tenant",
 						"metrics":  false,
@@ -915,9 +951,9 @@ allow {
 
 // reconcileGatewayAuthPolicy creates or updates the singleton Gateway-level AuthPolicy in
 // the gateway namespace. All MaaSAuthPolicy reconciliations converge on this one resource.
-func (r *MaaSAuthPolicyReconciler) reconcileGatewayAuthPolicy(ctx context.Context, log logr.Logger, modelAccessJSON string, oidc *oidcConfig) error {
+func (r *MaaSAuthPolicyReconciler) reconcileGatewayAuthPolicy(ctx context.Context, log logr.Logger, modelAccessJSON string, oidc *oidcConfig, tenantID string) error {
 	log.Info("reconcileGatewayAuthPolicy entered", "gatewayNamespace", r.GatewayNamespace, "gatewayName", r.GatewayName)
-	spec := r.buildGatewayAuthPolicySpec(modelAccessJSON, oidc)
+	spec := r.buildGatewayAuthPolicySpec(modelAccessJSON, oidc, tenantID)
 
 	gwPolicy := &unstructured.Unstructured{}
 	gwPolicy.SetGroupVersionKind(schema.GroupVersionKind{Group: "kuadrant.io", Version: "v1", Kind: "AuthPolicy"})
