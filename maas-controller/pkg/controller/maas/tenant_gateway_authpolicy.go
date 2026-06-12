@@ -432,7 +432,8 @@ func (r *TenantReconciler) cleanupGatewayAuthPolicy(ctx context.Context, log log
 // the user should use for the requested model.
 func (r *TenantReconciler) buildSubscriptionInfoMetadata(subscriptionSelectorURL, tenantID string) map[string]any {
 	// CEL expressions for extracting model identity from path or header
-	celModelIdentity := `request.path.startsWith("/llm/") ? request.path.split("/")[2] : request.headers["x-gateway-model-name"]`
+	// For /llm/facebook-opt-125m-simulated, this returns "llm/facebook-opt-125m-simulated"
+	celModelIdentity := `(request.path.startsWith("/llm/") ? request.path.split("/").filter(x, x != "")[0] + "/" + request.path.split("/").filter(x, x != "")[1] : ("x-gateway-model-name" in request.headers ? request.headers["x-gateway-model-name"] : ""))`
 
 	// Username extraction
 	celUsername := `has(auth.metadata.apiKeyValidation.username) ? auth.metadata.apiKeyValidation.username : (has(auth.identity.preferred_username) ? auth.identity.preferred_username : (has(auth.identity.sub) ? auth.identity.sub : auth.identity.user.username))`
@@ -556,8 +557,9 @@ func (r *TenantReconciler) buildIdentityFilters(tenantID string) map[string]any 
 	// Groups extraction
 	celGroups := `has(auth.metadata.apiKeyValidation.groups) ? auth.metadata.apiKeyValidation.groups : (has(auth.identity.groups) ? auth.identity.groups : auth.identity.user.groups)`
 
-	// Model identity from path or header
-	celModelIdentity := `request.path.startsWith("/llm/") ? request.path.split("/")[2] : request.headers["x-gateway-model-name"]`
+	// Model identity from path or header - includes namespace/model-name for /llm/ paths
+	// For /llm/facebook-opt-125m-simulated, this returns "llm/facebook-opt-125m-simulated"
+	celModelIdentity := `(request.path.startsWith("/llm/") ? request.path.split("/").filter(x, x != "")[0] + "/" + request.path.split("/").filter(x, x != "")[1] : ("x-gateway-model-name" in request.headers ? request.headers["x-gateway-model-name"] : ""))`
 
 	return map[string]any{
 		"json": map[string]any{
