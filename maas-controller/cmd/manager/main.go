@@ -656,6 +656,7 @@ func main() {
 		GatewayNamespace:                gatewayNamespace,
 		ClusterAudience:                 clusterAudience,
 		TenantNamespaceDiscoveryEnabled: enableTenantNamespaceDiscovery,
+		MetadataCacheTTL:                metadataCacheTTL,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Tenant")
 		os.Exit(1)

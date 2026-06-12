@@ -243,6 +243,7 @@ func (r *TenantReconciler) buildGatewayAuthPolicySpec(tenantID, appNamespace, ga
 		serviceName = fmt.Sprintf("maas-api-%s", tenantID)
 	}
 	apiKeyValidationURL := fmt.Sprintf("https://%s.%s.svc.cluster.local:8443/internal/v1/api-keys/validate", serviceName, appNamespace)
+	subscriptionSelectorURL := fmt.Sprintf("https://%s.%s.svc.cluster.local:8443/internal/v1/subscriptions/select", serviceName, appNamespace)
 
 	return map[string]any{
 		"targetRef": map[string]any{
@@ -274,12 +275,15 @@ func (r *TenantReconciler) buildGatewayAuthPolicySpec(tenantID, appNamespace, ga
 						"key": map[string]any{
 							"selector": `request.headers.authorization.replace("Bearer ", "")`,
 						},
-						"ttl": int64(60),
+						"ttl": r.MetadataCacheTTL,
 					},
 					"metrics":  false,
 					"priority": int64(0),
 				},
+				// Subscription selection for rate limiting
+				"subscription-info": r.buildSubscriptionInfoMetadata(subscriptionSelectorURL, tenantID),
 			},
+			"authorization": r.buildAuthorizationSection(tenantID),
 			"response": map[string]any{
 				"success": map[string]any{
 					"headers": map[string]any{
@@ -417,4 +421,175 @@ func (r *TenantReconciler) cleanupGatewayAuthPolicy(ctx context.Context, log log
 
 	log.Info("Gateway AuthPolicy cleanup complete")
 	return nil
+}
+
+// buildSubscriptionInfoMetadata builds the subscription-info metadata evaluator for rate limiting.
+// This makes an HTTP call to the maas-api subscription selector to determine which subscription
+// the user should use for the requested model.
+func (r *TenantReconciler) buildSubscriptionInfoMetadata(subscriptionSelectorURL, tenantID string) map[string]any {
+	// CEL expressions for extracting model identity from path or header
+	celModelIdentity := `request.path.startsWith("/llm/") ? request.path.split("/")[2] : request.headers["x-gateway-model-name"]`
+
+	// Username extraction
+	celUsername := `has(auth.metadata.apiKeyValidation.username) ? auth.metadata.apiKeyValidation.username : (has(auth.identity.preferred_username) ? auth.identity.preferred_username : (has(auth.identity.sub) ? auth.identity.sub : auth.identity.user.username))`
+
+	// Groups extraction
+	celGroups := `has(auth.metadata.apiKeyValidation.groups) ? auth.metadata.apiKeyValidation.groups : (has(auth.identity.groups) ? auth.identity.groups : auth.identity.user.groups)`
+
+	// Subscription field from API key validation or header
+	celSubscription := `has(auth.metadata.apiKeyValidation.subscription) && auth.metadata.apiKeyValidation.subscription != "" ? auth.metadata.apiKeyValidation.subscription : (has(request.headers["x-maas-subscription"]) ? request.headers["x-maas-subscription"] : "")`
+
+	// Tenant identifier for this gateway
+	celTenantID := strconv.Quote(tenantID)
+
+	// Request body for subscription selector
+	subscriptionInfoBody := fmt.Sprintf(
+		`{"userId": %s, "groups": %s, "subscription": %s, "requestedModel": %s, "tenant": %s}`,
+		celUsername, celGroups, celSubscription, celModelIdentity, celTenantID)
+
+	// Cache key for subscription selector (user + groups + subscription + model)
+	cacheKeySelector := fmt.Sprintf(`%s + "|" + (%s).join(",") + "|" + %s + "|" + %s`,
+		celUsername, celGroups, celSubscription, celModelIdentity)
+
+	return map[string]any{
+		"when": []any{
+			map[string]any{
+				"predicate": `request.path.startsWith("/llm/") || "x-gateway-model-name" in request.headers`,
+			},
+		},
+		"http": map[string]any{
+			"url":         subscriptionSelectorURL,
+			"contentType": "application/json",
+			"method":      "POST",
+			"body": map[string]any{
+				"expression": subscriptionInfoBody,
+			},
+		},
+		"cache": map[string]any{
+			"key": map[string]any{
+				"selector": cacheKeySelector,
+			},
+			"ttl": r.MetadataCacheTTL,
+		},
+		"metrics":  false,
+		"priority": int64(1),
+	}
+}
+
+// buildAuthorizationSection builds the authorization rules for the gateway AuthPolicy.
+// Includes validation for API keys, subscriptions, and group-based model access control.
+func (r *TenantReconciler) buildAuthorizationSection(tenantID string) map[string]any {
+	// Auth-valid cache key
+	authValidCacheKey := `has(auth.metadata.apiKeyValidation.username) ? auth.metadata.apiKeyValidation.username : (has(auth.identity.preferred_username) ? auth.identity.preferred_username : (has(auth.identity.sub) ? auth.identity.sub : auth.identity.user.username))`
+
+	// Model identity CEL for cache key
+	celModelIdentity := `request.path.startsWith("/llm/") ? request.path.split("/")[2] : request.headers["x-gateway-model-name"]`
+
+	// Username extraction
+	celUsername := `has(auth.metadata.apiKeyValidation.username) ? auth.metadata.apiKeyValidation.username : (has(auth.identity.preferred_username) ? auth.identity.preferred_username : (has(auth.identity.sub) ? auth.identity.sub : auth.identity.user.username))`
+
+	// Groups extraction
+	celGroups := `has(auth.metadata.apiKeyValidation.groups) ? auth.metadata.apiKeyValidation.groups : (has(auth.identity.groups) ? auth.identity.groups : auth.identity.user.groups)`
+
+	// Subscription cache key (user + groups + subscription + model)
+	celSubscription := `has(auth.metadata.apiKeyValidation.subscription) && auth.metadata.apiKeyValidation.subscription != "" ? auth.metadata.apiKeyValidation.subscription : (has(request.headers["x-maas-subscription"]) ? request.headers["x-maas-subscription"] : "")`
+	subscriptionCacheKey := fmt.Sprintf(`%s + "|" + (%s).join(",") + "|" + %s + "|" + %s`,
+		celUsername, celGroups, celSubscription, celModelIdentity)
+
+	return map[string]any{
+		"auth-valid": map[string]any{
+			"metrics":  false,
+			"priority": int64(0),
+			"opa": map[string]any{
+				"rego": `allow {
+  object.get(input.auth.metadata, "apiKeyValidation", {})
+  input.auth.metadata.apiKeyValidation.valid == true
+}
+allow {
+  not input.auth.metadata.apiKeyValidation
+}`,
+			},
+			"cache": map[string]any{
+				"key": map[string]any{
+					"selector": authValidCacheKey,
+				},
+				"ttl": r.MetadataCacheTTL,
+			},
+		},
+		"subscription-valid": map[string]any{
+			"when": []any{
+				map[string]any{
+					"predicate": `request.path.startsWith("/llm/") || "x-gateway-model-name" in request.headers`,
+				},
+			},
+			"metrics":  false,
+			"priority": int64(0),
+			"opa": map[string]any{
+				"rego": `allow {
+  object.get(input.auth.metadata["subscription-info"], "name", "") != ""
+  object.get(input.auth.metadata["subscription-info"], "error", "") == ""
+  phase := object.get(input.auth.metadata["subscription-info"], "phase", "")
+  any([phase == "Active", phase == "Degraded"])
+  object.get(input.auth.metadata["subscription-info"], "deletionTimestamp", "") == ""
+}`,
+			},
+			"cache": map[string]any{
+				"key": map[string]any{
+					"selector": subscriptionCacheKey,
+				},
+				"ttl": r.MetadataCacheTTL,
+			},
+		},
+	}
+}
+
+// buildIdentityFilters builds the identity filters for rate limiting.
+// These filters extract user identity, groups, and subscription information from auth metadata.
+func (r *TenantReconciler) buildIdentityFilters(tenantID string) map[string]any {
+	// Username extraction
+	celUsername := `has(auth.metadata.apiKeyValidation.username) ? auth.metadata.apiKeyValidation.username : (has(auth.identity.preferred_username) ? auth.identity.preferred_username : (has(auth.identity.sub) ? auth.identity.sub : auth.identity.user.username))`
+
+	// Groups extraction
+	celGroups := `has(auth.metadata.apiKeyValidation.groups) ? auth.metadata.apiKeyValidation.groups : (has(auth.identity.groups) ? auth.identity.groups : auth.identity.user.groups)`
+
+	// Model identity from path or header
+	celModelIdentity := `request.path.startsWith("/llm/") ? request.path.split("/")[2] : request.headers["x-gateway-model-name"]`
+
+	return map[string]any{
+		"json": map[string]any{
+			"properties": map[string]any{
+				"groups": map[string]any{
+					"expression": celGroups,
+				},
+				"groups_str": map[string]any{
+					"expression": fmt.Sprintf(`(%s).join(",")`, celGroups),
+				},
+				"userid": map[string]any{
+					"expression": celUsername,
+				},
+				"keyId": map[string]any{
+					"expression": `has(auth.metadata.apiKeyValidation) ? auth.metadata.apiKeyValidation.keyId : ""`,
+				},
+				"selected_subscription": map[string]any{
+					"expression": `has(auth.metadata["subscription-info"].name) ? auth.metadata["subscription-info"].name : ""`,
+				},
+				// Model-scoped subscription key: namespace/name@modelIdentity
+				// This is what TokenRateLimitPolicy uses for rate limiting
+				"selected_subscription_key": map[string]any{
+					"expression": fmt.Sprintf(
+						`has(auth.metadata["subscription-info"].namespace) && `+
+							`has(auth.metadata["subscription-info"].name) `+
+							`? auth.metadata["subscription-info"].namespace + "/" `+
+							`+ auth.metadata["subscription-info"].name + "@" + %s : ""`,
+						celModelIdentity),
+				},
+				"selected_subscription_obj": map[string]any{
+					"expression": `has(auth.metadata["subscription-info"].name) ? auth.metadata["subscription-info"] : {}`,
+				},
+				"subscription_error": map[string]any{
+					"expression": `has(auth.metadata["subscription-info"].error) ? auth.metadata["subscription-info"].error : ""`,
+				},
+			},
+		},
+	}
 }
