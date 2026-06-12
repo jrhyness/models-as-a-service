@@ -4,5 +4,5 @@
 DROP INDEX IF EXISTS idx_api_keys_key_hash_tenant;
 
 -- Restore the original global unique index on key_hash
-CREATE UNIQUE INDEX IF EXISTS idx_api_keys_key_hash
+CREATE UNIQUE INDEX IF NOT EXISTS idx_api_keys_key_hash
     ON api_keys(key_hash);
