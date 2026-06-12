@@ -45,8 +45,12 @@ func (r *TenantReconciler) reconcileGatewayAuthPolicy(ctx context.Context, tenan
 	gatewayNS := tenant.Spec.GatewayRef.Namespace
 	gatewayName := tenant.Spec.GatewayRef.Name
 
-	// Derive AuthPolicy name from gateway name to avoid collisions
-	authPolicyName := fmt.Sprintf("%s-maas-auth", gatewayName)
+	// Use a well-known name for the default tenant's AuthPolicy for easier testing/debugging
+	// Other tenants derive the name from their gateway name to avoid collisions
+	authPolicyName := "maas-gateway-auth"
+	if tenantID != "models-as-a-service" {
+		authPolicyName = fmt.Sprintf("%s-maas-auth", gatewayName)
+	}
 
 	log.Info("Reconciling gateway AuthPolicy",
 		"gatewayNamespace", gatewayNS,
