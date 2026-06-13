@@ -114,8 +114,10 @@ func (r *MaaSAuthPolicyReconciler) authzCacheTTL() int64 {
 	return metadata
 }
 
-// fetchTenantIdentifier fetches the tenant identifier from the Tenant CR in the given namespace.
-// Returns the tenant identifier string, or empty string if Tenant doesn't exist.
+// fetchTenantIdentifier fetches the tenant name from the Tenant CR in the given namespace.
+// This returns the tenant name used for database queries and AuthPolicy headers
+// (e.g., "models-as-a-service" for default tenant, "redteam" for AITenant-managed tenants).
+// Returns the tenant name string, or "models-as-a-service" as fallback.
 func (r *MaaSAuthPolicyReconciler) fetchTenantIdentifier(ctx context.Context, log logr.Logger, policyNamespace string) string {
 	tenant := &maasv1alpha1.Tenant{}
 	tenantKey := client.ObjectKey{
@@ -125,26 +127,28 @@ func (r *MaaSAuthPolicyReconciler) fetchTenantIdentifier(ctx context.Context, lo
 
 	if err := r.Get(ctx, tenantKey, tenant); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.V(1).Info("Tenant not found, using namespace as tenant identifier",
+			log.V(1).Info("Tenant not found, using default tenant name",
 				"tenantName", maasv1alpha1.TenantInstanceName,
 				"tenantNamespace", policyNamespace)
-			// Fallback to namespace for backward compatibility
-			return policyNamespace
+			// Fallback to default tenant name
+			return "models-as-a-service"
 		}
-		log.Error(err, "failed to get Tenant resource, using namespace as fallback",
+		log.Error(err, "failed to get Tenant resource, using default tenant name as fallback",
 			"tenantName", maasv1alpha1.TenantInstanceName,
 			"tenantNamespace", policyNamespace)
-		return policyNamespace
+		return "models-as-a-service"
 	}
 
-	tenantID, err := tenantreconcile.TenantIdentifierFor(tenant)
+	// Use TenantNameFor instead of TenantIdentifierFor - we need the DB/header name,
+	// not the resource naming identifier
+	tenantName, err := tenantreconcile.TenantNameFor(tenant)
 	if err != nil {
-		log.Error(err, "failed to determine tenant identifier, using namespace as fallback")
-		return policyNamespace
+		log.Error(err, "failed to determine tenant name, using default as fallback")
+		return "models-as-a-service"
 	}
 
-	log.V(1).Info("Tenant identifier resolved", "tenantID", tenantID, "namespace", policyNamespace)
-	return tenantID
+	log.V(1).Info("Tenant name resolved", "tenantName", tenantName, "namespace", policyNamespace)
+	return tenantName
 }
 
 // fetchOIDCConfig fetches OIDC configuration from the Tenant CR in the given
