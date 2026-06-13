@@ -797,6 +797,9 @@ allow {
 							},
 						},
 						"plain": map[string]any{
+							// NOTE: Manual JSON construction without escaping (CEL lacks JSON escape functions).
+							// Group names are validated on API key creation to reject quotes/backslashes.
+							// Kubernetes group names follow DNS rules (no special chars).
 							"expression": `size(auth.metadata.apiKeyValidation.groups) > 0 ? '["' + auth.metadata.apiKeyValidation.groups.join('","') + '"]' : '[]'`,
 						},
 						"metrics":  false,
