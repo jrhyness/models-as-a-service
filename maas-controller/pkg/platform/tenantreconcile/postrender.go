@@ -42,6 +42,11 @@ func PostRender(ctx context.Context, log logr.Logger, tenant *maasv1alpha1.Tenan
 			if err := configureMaaSAPIService(log, resource, tenantID); err != nil {
 				return nil, err
 			}
+		case gvk.Group == "apps" && gvk.Kind == "Deployment" && resource.GetName() == "maas-api":
+			// Update Deployment to mount tenant-specific TLS secret
+			if err := configureMaaSAPIDeployment(log, resource, tenantID); err != nil {
+				return nil, err
+			}
 		}
 
 		filteredResources = append(filteredResources, *resource)
@@ -101,6 +106,46 @@ func configureMaaSAPIService(log logr.Logger, resource *unstructured.Unstructure
 	resource.SetAnnotations(annotations)
 
 	log.V(4).Info("Configured maas-api Service TLS secret", "tenantID", tenantID, "secretName", secretName)
+	return nil
+}
+
+func configureMaaSAPIDeployment(log logr.Logger, resource *unstructured.Unstructured, tenantID string) error {
+	// Update the Deployment to mount the correct tenant-specific TLS secret
+	secretName := "maas-api-serving-cert"
+	if tenantID != "" {
+		secretName = fmt.Sprintf("maas-api-%s-serving-cert", tenantID)
+	}
+
+	// Navigate to spec.template.spec.volumes and find the tls-cert volume
+	volumes, found, err := unstructured.NestedSlice(resource.Object, "spec", "template", "spec", "volumes")
+	if err != nil {
+		return fmt.Errorf("failed to get volumes: %w", err)
+	}
+	if !found {
+		return fmt.Errorf("no volumes found in deployment")
+	}
+
+	// Find and update the tls-cert volume's secret name
+	for i, vol := range volumes {
+		volMap, ok := vol.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _, _ := unstructured.NestedString(volMap, "name")
+		if name == "tls-cert" {
+			if err := unstructured.SetNestedField(volMap, secretName, "secret", "secretName"); err != nil {
+				return fmt.Errorf("failed to set tls-cert secret name: %w", err)
+			}
+			volumes[i] = volMap
+			break
+		}
+	}
+
+	if err := unstructured.SetNestedSlice(resource.Object, volumes, "spec", "template", "spec", "volumes"); err != nil {
+		return fmt.Errorf("failed to set volumes: %w", err)
+	}
+
+	log.V(4).Info("Configured maas-api Deployment TLS secret volume", "tenantID", tenantID, "secretName", secretName)
 	return nil
 }
 
