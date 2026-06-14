@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	maasv1alpha1 "github.com/opendatahub-io/models-as-a-service/maas-controller/api/maas/v1alpha1"
@@ -47,6 +48,8 @@ const (
 	managementStateManaged    = "Managed"
 	managementStateRemoved    = "Removed"
 	managementStateUnmanaged  = "Unmanaged"
+
+	tenantFinalizer = "maas.opendatahub.io/tenant-cleanup"
 )
 
 func managementState(ann map[string]string) string {
@@ -85,18 +88,36 @@ func (r *TenantReconciler) reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// Handle delete before Unmanaged idle. Config anchor lifecycle is owned by the operator /
 	// ModelsAsService GC and the lifecycle reconciler; the Tenant reconciler does not delete Config.
 	if !tenant.DeletionTimestamp.IsZero() {
-		// Clean up gateway AuthPolicy before allowing deletion
-		if err := r.cleanupGatewayAuthPolicy(ctx, log, &tenant); err != nil {
-			log.Error(err, "failed to cleanup gateway AuthPolicy")
-			return ctrl.Result{}, err
-		}
+		if controllerutil.ContainsFinalizer(&tenant, tenantFinalizer) {
+			// Clean up MaaSAuthPolicy CRs in this tenant namespace.
+			// MaaSAuthPolicyReconciler's handleDeletion will clean up the gateway AuthPolicy
+			// when the last MaaSAuthPolicy is deleted.
+			if err := r.cleanupMaaSAuthPolicies(ctx, log, &tenant); err != nil {
+				log.Error(err, "failed to cleanup MaaSAuthPolicies")
+				return ctrl.Result{}, err
+			}
 
-		// Clean up per-tenant maas-api resources
-		if err := r.cleanupTenantResources(ctx, log, &tenant); err != nil {
-			log.Error(err, "failed to cleanup tenant resources")
-			return ctrl.Result{}, err
+			// Clean up per-tenant maas-api resources
+			if err := r.cleanupTenantResources(ctx, log, &tenant); err != nil {
+				log.Error(err, "failed to cleanup tenant resources")
+				return ctrl.Result{}, err
+			}
+
+			// Remove finalizer to allow deletion
+			controllerutil.RemoveFinalizer(&tenant, tenantFinalizer)
+			if err := r.Update(ctx, &tenant); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 		return ctrl.Result{}, nil
+	}
+
+	// Add finalizer if not present
+	if !controllerutil.ContainsFinalizer(&tenant, tenantFinalizer) {
+		controllerutil.AddFinalizer(&tenant, tenantFinalizer)
+		if err := r.Update(ctx, &tenant); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	ms := managementState(tenant.Annotations)
@@ -224,29 +245,8 @@ func (r *TenantReconciler) reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{RequeueAfter: 20 * time.Second}, nil
 	}
 
-	// Reconcile gateway AuthPolicy after successful platform deployment
-	// Extract tenant identifier for correct tenant isolation
-	tenantID, err := tenantreconcile.TenantIdentifierFor(&tenant)
-	if err != nil {
-		log.Error(err, "failed to determine tenant identifier")
-		if err2 := r.patchStatus(ctx, &tenant, "Failed", metav1.ConditionFalse, "TenantIDResolutionFailed", err.Error()); err2 != nil {
-			return ctrl.Result{}, err2
-		}
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-
-	// TEMPORARY: Skip gateway AuthPolicy - let MaaSAuthPolicyReconciler handle it to debug rate limiting
-	_ = tenantID // avoid unused var error
-	if false {
-		if err := r.reconcileGatewayAuthPolicy(ctx, &tenant, tenantID, appNs); err != nil {
-			log.Error(err, "failed to reconcile gateway AuthPolicy", "tenantID", tenantID)
-			setDeploymentsAvailableCondition(&tenant, false, "AuthPolicyReconcileFailed", err.Error())
-			if err2 := r.patchStatus(ctx, &tenant, "Degraded", metav1.ConditionFalse, "AuthPolicyReconcileFailed", err.Error()); err2 != nil {
-				return ctrl.Result{}, err2
-			}
-			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-		}
-	}
+	// Gateway AuthPolicy is managed by MaaSAuthPolicyReconciler for all tenants.
+	// It watches MaaSAuthPolicy CRs and creates/updates gateway AuthPolicy for each tenant's gateway.
 
 	// Clean up legacy maas-api deployment from opendatahub/redhat-ods-applications namespace
 	// after successful deployment to the infrastructure namespace. Use sync.Once + boolean flag
@@ -503,5 +503,40 @@ func (r *TenantReconciler) cleanupTenantResources(ctx context.Context, log logr.
 		log.Info("Deleted tenant resource", "gvk", res.gvk.Kind, "name", res.name)
 	}
 
+	return nil
+}
+
+// cleanupMaaSAuthPolicies deletes all MaaSAuthPolicy CRs in the tenant namespace.
+// MaaSAuthPolicyReconciler's handleDeletion will clean up the gateway AuthPolicy
+// when the last MaaSAuthPolicy is deleted.
+func (r *TenantReconciler) cleanupMaaSAuthPolicies(ctx context.Context, log logr.Logger, tenant *maasv1alpha1.Tenant) error {
+	tenantID, err := tenantreconcile.TenantIdentifierFor(tenant)
+	if err != nil {
+		return err
+	}
+
+	// Skip cleanup for default tenant - Config lifecycle handles it
+	if tenantID == "" {
+		return nil
+	}
+
+	log.Info("Cleaning up MaaSAuthPolicy CRs", "namespace", tenant.Namespace)
+
+	// List all MaaSAuthPolicy CRs in this namespace
+	policyList := &maasv1alpha1.MaaSAuthPolicyList{}
+	if err := r.List(ctx, policyList, client.InNamespace(tenant.Namespace)); err != nil {
+		return fmt.Errorf("failed to list MaaSAuthPolicies: %w", err)
+	}
+
+	// Delete each MaaSAuthPolicy
+	for i := range policyList.Items {
+		policy := &policyList.Items[i]
+		log.Info("Deleting MaaSAuthPolicy", "name", policy.Name, "namespace", policy.Namespace)
+		if err := r.Delete(ctx, policy); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete MaaSAuthPolicy %s/%s: %w", policy.Namespace, policy.Name, err)
+		}
+	}
+
+	log.Info("Cleaned up MaaSAuthPolicy CRs", "count", len(policyList.Items))
 	return nil
 }

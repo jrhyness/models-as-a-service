@@ -32,7 +32,7 @@ func PostRender(ctx context.Context, log logr.Logger, tenant *maasv1alpha1.Tenan
 		gvk := resource.GroupVersionKind()
 		switch {
 		case gvk == GVKTokenRateLimitPolicy && resource.GetName() == baseGatewayTokenRateLimitDefaultDenyPolicyName:
-			if err := configureTokenRateLimitPolicy(log, resource, gatewayNamespace, gatewayName); err != nil {
+			if err := configureTokenRateLimitPolicy(log, resource, gatewayNamespace, gatewayName, tenantID); err != nil {
 				return nil, err
 			}
 		case gvk == GVKDestinationRule && resource.GetName() == baseGatewayDestinationRuleName:
@@ -58,8 +58,16 @@ func PostRender(ctx context.Context, log logr.Logger, tenant *maasv1alpha1.Tenan
 	return filteredResources, nil
 }
 
-func configureTokenRateLimitPolicy(log logr.Logger, resource *unstructured.Unstructured, gatewayNamespace, gatewayName string) error {
-	log.V(4).Info("Configuring TokenRateLimitPolicy", "name", resource.GetName(), "newNamespace", gatewayNamespace, "newTargetGateway", gatewayName)
+func configureTokenRateLimitPolicy(log logr.Logger, resource *unstructured.Unstructured, gatewayNamespace, gatewayName, tenantID string) error {
+	// Generate unique per-tenant name to avoid conflicts when multiple tenants share the same gateway namespace
+	newName := GatewayTokenRateLimitDefaultDenyPolicyName(tenantID)
+	log.V(4).Info("Configuring TokenRateLimitPolicy",
+		"oldName", resource.GetName(),
+		"newName", newName,
+		"namespace", gatewayNamespace,
+		"targetGateway", gatewayName)
+
+	resource.SetName(newName)
 	resource.SetNamespace(gatewayNamespace)
 	if err := unstructured.SetNestedField(resource.Object, gatewayName, "spec", "targetRef", "name"); err != nil {
 		return fmt.Errorf("failed to set spec.targetRef.name on TokenRateLimitPolicy: %w", err)

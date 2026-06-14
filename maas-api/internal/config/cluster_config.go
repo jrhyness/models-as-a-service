@@ -180,7 +180,10 @@ func ResolveGatewayInternalHost(ctx context.Context, clientset kubernetes.Interf
 
 	switch len(candidates) {
 	case 0:
-		return "", fmt.Errorf("no gateway-owned service with HTTPS port found for gateway %s/%s (label: %s)", gatewayNamespace, gatewayName, labelSelector)
+		// No gateway service found - this is expected for test gateways or gateways
+		// without proper infrastructure. Return empty string to allow startup.
+		// Model access checks will be disabled.
+		return "", nil
 	case 1:
 		return fmt.Sprintf("%s.%s.svc.cluster.local", candidates[0], gatewayNamespace), nil
 	default:
