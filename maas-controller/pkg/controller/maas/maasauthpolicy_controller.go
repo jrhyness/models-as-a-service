@@ -561,8 +561,15 @@ type modelSubjectAllowlist struct {
 // Gateway-level policy. Model identity is resolved dynamically via CEL on every request
 // rather than being baked in per-model, so this spec is the same for all MaaSAuthPolicy CRs.
 func (r *MaaSAuthPolicyReconciler) buildGatewayAuthPolicySpec(modelAccessJSON string, oidc *oidcConfig, tenantID, gatewayNamespace, gatewayName string) map[string]any {
-	apiKeyValidationURL := fmt.Sprintf("https://maas-api.%s.svc.cluster.local:8443/internal/v1/api-keys/validate", r.MaaSAPINamespace)
-	subscriptionSelectorURL := fmt.Sprintf("https://maas-api.%s.svc.cluster.local:8443/internal/v1/subscriptions/select", r.MaaSAPINamespace)
+	// Construct tenant-specific maas-api service name
+	// Default tenant (tenantID="") uses "maas-api", others use "maas-api-{tenantID}"
+	maasAPIServiceName := "maas-api"
+	if tenantID != "" {
+		maasAPIServiceName = fmt.Sprintf("maas-api-%s", tenantID)
+	}
+
+	apiKeyValidationURL := fmt.Sprintf("https://%s.%s.svc.cluster.local:8443/internal/v1/api-keys/validate", maasAPIServiceName, r.MaaSAPINamespace)
+	subscriptionSelectorURL := fmt.Sprintf("https://%s.%s.svc.cluster.local:8443/internal/v1/subscriptions/select", maasAPIServiceName, r.MaaSAPINamespace)
 
 	// subscription-info body: same fields as per-model, but requestedModel uses dynamic CEL
 	subscriptionInfoBody := fmt.Sprintf(`{
