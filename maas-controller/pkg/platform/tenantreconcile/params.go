@@ -15,10 +15,11 @@ import (
 
 // PlatformParams holds resolved runtime values for PostRender patching.
 type PlatformParams struct {
-	AppNamespace     string
-	GatewayNamespace string
-	GatewayName      string
-	ClusterAudience  string
+	AppNamespace          string
+	GatewayNamespace      string
+	GatewayName           string
+	ClusterAudience       string
+	SubscriptionNamespace string
 
 	// TenantIdentifier is the tenant name used for per-tenant resource naming.
 	// Empty string ("") for default/legacy tenant, non-empty (e.g., "redteam") for AITenant-managed tenants.
@@ -44,6 +45,7 @@ func BuildPlatformParams(tenant *maasv1alpha1.Tenant, appNamespace, clusterAudie
 		GatewayNamespace:        tenant.Spec.GatewayRef.Namespace,
 		GatewayName:             tenant.Spec.GatewayRef.Name,
 		ClusterAudience:         clusterAudience,
+		SubscriptionNamespace:   tenant.Namespace,
 		TenantIdentifier:        tenantID,
 		MaaSAPIImage:            firstNonEmpty(os.Getenv("RELATED_IMAGE_ODH_MAAS_API_IMAGE"), DefaultMaaSAPIImage),
 		PayloadProcessingImage:  firstNonEmpty(os.Getenv("RELATED_IMAGE_ODH_AI_GATEWAY_PAYLOAD_PROCESSING_IMAGE"), DefaultPayloadProcessingImage),
@@ -135,6 +137,9 @@ func patchMaaSAPIDeployment(log logr.Logger, r *unstructured.Unstructured, param
 	}
 	if err := setOrAddEnvVar(r, "maas-api", "GATEWAY_NAME", params.GatewayName); err != nil {
 		return fmt.Errorf("patch GATEWAY_NAME: %w", err)
+	}
+	if err := setOrAddEnvVar(r, "maas-api", "MAAS_SUBSCRIPTION_NAMESPACE", params.SubscriptionNamespace); err != nil {
+		return fmt.Errorf("patch MAAS_SUBSCRIPTION_NAMESPACE: %w", err)
 	}
 	if err := setOrAddEnvVar(r, "maas-api", "API_KEY_MAX_EXPIRATION_DAYS", params.APIKeyMaxExpirationDays); err != nil {
 		return fmt.Errorf("patch API_KEY_MAX_EXPIRATION_DAYS: %w", err)
