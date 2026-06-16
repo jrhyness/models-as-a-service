@@ -63,7 +63,9 @@ def _get_tenant_gateway_url(gateway_name: str) -> str:
         )
     route = json.loads(result.stdout)
     host = route["spec"]["host"]
-    return f"https://{host}"
+    # Respect INSECURE_HTTP flag for test mode consistency
+    scheme = "http" if env_bool("INSECURE_HTTP") else "https"
+    return f"{scheme}://{host}"
 
 
 @pytest.fixture(scope="module")
@@ -261,9 +263,9 @@ class TestTenantModelInference:
                 f"Response: {redact_sensitive(response.text[:500])}"
             )
         else:
-            # If we can't even create an API key, that's also acceptable (different isolation)
-            # This shouldn't happen in practice but validates graceful handling
-            assert api_key_response.status_code in (401, 403, 404), (
+            # If we can't even create an API key, expect proper auth/permission failure
+            # 404 would indicate infrastructure failure, not isolation
+            assert api_key_response.status_code in (401, 403), (
                 f"Unexpected API key creation failure: {api_key_response.status_code} "
                 f"{redact_sensitive(api_key_response.text)}"
             )

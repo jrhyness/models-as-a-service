@@ -154,14 +154,14 @@ class TestTenantSubscriptionIsolation:
         key_a = _create_key_for_subscription(tenant_a, shared)
         key_b = _create_key_for_subscription(tenant_b, shared)
 
-        requested_model = f"{MODEL_NAMESPACE}/{MODEL_REF}"
+        requested_model_a = f"{tenant_a['model_namespace']}/{tenant_a['model_name']}"
         response_a = select_subscription_at(
             tenant_a["base_url"],
             key_a,
             "e2e-sub-user",
             ["system:authenticated"],
             requested_subscription=shared,
-            requested_model=requested_model,
+            requested_model=requested_model_a,
         )
         assert response_a.status_code == 200
         data_a = response_a.json()
@@ -169,13 +169,14 @@ class TestTenantSubscriptionIsolation:
         assert data_a.get("name") == shared
         assert data_a.get("namespace") == tenant_a["namespace"]
 
+        requested_model_b = f"{tenant_b['model_namespace']}/{tenant_b['model_name']}"
         response_b = select_subscription_at(
             tenant_b["base_url"],
             key_b,
             "e2e-sub-user",
             ["system:authenticated"],
             requested_subscription=shared,
-            requested_model=requested_model,
+            requested_model=requested_model_b,
         )
         assert response_b.status_code == 200
         data_b = response_b.json()

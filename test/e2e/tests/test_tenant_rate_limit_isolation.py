@@ -61,6 +61,7 @@ def tenant_env(shared_test_tenants):
         "base_url": case_a["base_url"],
         "model_name": case_a["model_name"],
         "model_namespace": case_a["model_namespace"],
+        "model_path": f"/{case_a['tenant_ns']}/{case_a['model_name']}",
     }
     tenant_b = {
         "name": case_b["tenant_label_name"],
@@ -68,6 +69,7 @@ def tenant_env(shared_test_tenants):
         "base_url": case_b["base_url"],
         "model_name": case_b["model_name"],
         "model_namespace": case_b["model_namespace"],
+        "model_path": f"/{case_b['tenant_ns']}/{case_b['model_name']}",
     }
 
     yield tenant_a, tenant_b
@@ -147,22 +149,22 @@ def _gateway_base_from_api_url(api_base_url: str) -> str:
     return stripped
 
 
-def _inference_at(api_base_url: str, api_key: str) -> requests.Response:
-    url = f"{_gateway_base_from_api_url(api_base_url)}{MODEL_PATH}/v1/completions"
+def _inference_at(api_base_url: str, api_key: str, model_path: str, model_name: str) -> requests.Response:
+    url = f"{_gateway_base_from_api_url(api_base_url)}{model_path}/v1/completions"
     return requests.post(
         url,
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        json={"model": MODEL_NAME, "prompt": "Hello", "max_tokens": 1},
+        json={"model": model_name, "prompt": "Hello", "max_tokens": 1},
         timeout=TIMEOUT,
         verify=TLS_VERIFY,
     )
 
 
-def _exhaust_until_429(api_base_url: str, api_key: str, *, attempts: int = 8) -> tuple[int, requests.Response]:
+def _exhaust_until_429(api_base_url: str, api_key: str, model_path: str, model_name: str, *, attempts: int = 8) -> tuple[int, requests.Response]:
     successes = 0
     last = None
     for _ in range(attempts):
-        last = _inference_at(api_base_url, api_key)
+        last = _inference_at(api_base_url, api_key, model_path, model_name)
         if last.status_code == 200:
             successes += 1
         elif last.status_code == 429:
@@ -180,7 +182,12 @@ class TestTenantRateLimitIsolation:
     def test_rate_limit_enforced_per_tenant(self, tenant_rate_limit_setup):
         """5.1: Tenant A's low quota is enforced on Tenant A traffic."""
         tenant_a = tenant_rate_limit_setup["tenant_a"]
-        successes, response = _exhaust_until_429(tenant_a["base_url"], tenant_rate_limit_setup["key_a"])
+        successes, response = _exhaust_until_429(
+            tenant_a["base_url"],
+            tenant_rate_limit_setup["key_a"],
+            tenant_a["model_path"],
+            tenant_a["model_name"]
+        )
         assert successes > 0, f"Tenant A hit 429 before any successful inference: {response_summary(response)}"
         assert response.status_code == 429, (
             f"expected Tenant A to hit rate limit after {successes} successes: {response_summary(response)}"
@@ -190,10 +197,20 @@ class TestTenantRateLimitIsolation:
         """5.2: Exhausting Tenant A does not consume Tenant B's quota."""
         tenant_a = tenant_rate_limit_setup["tenant_a"]
         tenant_b = tenant_rate_limit_setup["tenant_b"]
-        successes, response = _exhaust_until_429(tenant_a["base_url"], tenant_rate_limit_setup["key_a"])
+        successes, response = _exhaust_until_429(
+            tenant_a["base_url"],
+            tenant_rate_limit_setup["key_a"],
+            tenant_a["model_path"],
+            tenant_a["model_name"]
+        )
         assert response.status_code == 429, f"Tenant A did not hit rate limit after {successes} successes"
 
-        tenant_b_response = _inference_at(tenant_b["base_url"], tenant_rate_limit_setup["key_b"])
+        tenant_b_response = _inference_at(
+            tenant_b["base_url"],
+            tenant_rate_limit_setup["key_b"],
+            tenant_b["model_path"],
+            tenant_b["model_name"]
+        )
         assert tenant_b_response.status_code == 200, (
             f"Tenant B should still have independent quota: {response_summary(tenant_b_response)}"
         )

@@ -209,15 +209,16 @@ class TestTenantAuthIsolation:
 
     def test_api_key_subscription_selection_uses_tenant_namespace(self, tenant_auth_setup, tenant_api_keys):
         """3.x/4.x: Internal subscription selection reports the tenant-local subscription namespace."""
+        tenant_a = tenant_auth_setup["tenant_a"]
         response = select_subscription_at(
-            tenant_auth_setup["tenant_a"]["base_url"],
+            tenant_a["base_url"],
             tenant_api_keys["a"]["key"],
             "e2e-auth-user",
             ["system:authenticated"],
             requested_subscription=tenant_auth_setup["subscription"],
-            requested_model=f"{MODEL_NAMESPACE}/{MODEL_REF}",
+            requested_model=f"{tenant_a['model_namespace']}/{tenant_a['model_name']}",
         )
         assert response.status_code == 200
         data = response.json()
         assert data.get("error") is None, redact_sensitive(data)
-        assert data.get("namespace") == tenant_auth_setup["tenant_a"]["namespace"]
+        assert data.get("namespace") == tenant_a["namespace"]
