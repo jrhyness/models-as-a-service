@@ -42,6 +42,7 @@ from test_helper import (
     _create_maas_model_ref,
     _delete_cr,
     _get_cluster_token,
+    _wait_reconcile,
     chat,
 )
 
@@ -81,6 +82,8 @@ def tenant_inference_cases():
         # Create models in each tenant namespace
         for case in (case_a, case_b):
             model_name = f"test-model-{case['suffix']}"
+            # Track model name early for cleanup
+            case["model_name"] = model_name
 
             # Create LLMIS pointing to tenant gateway
             _create_llmis(
@@ -124,8 +127,7 @@ def tenant_inference_cases():
                 timeout=180,
             )
 
-            # Store model info in case
-            case["model_name"] = model_name
+            # Store model path
             case["model_path"] = f"/{case['tenant_ns']}/{model_name}"
 
         yield case_a, case_b
@@ -192,6 +194,9 @@ class TestTenantModelInference:
 
         api_key = api_key_response.json().get("key")
         assert api_key, f"API key missing in response: {redact_sensitive(api_key_response.json())}"
+
+        # Allow API key to propagate before sending inference request
+        _wait_reconcile()
 
         # Send inference request through tenant gateway
         model_url = f"{gateway_url}{case_a['model_path']}"

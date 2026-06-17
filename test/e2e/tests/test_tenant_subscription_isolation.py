@@ -30,44 +30,28 @@ from multitenancy_helpers import GATEWAY_NAMESPACE
 def tenant_env(shared_test_tenants):
     """Adapter fixture with tenant-specific models."""
     # Shallow copy to avoid mutating session-scoped shared_test_tenants
-    case_a, case_b = dict(shared_test_tenants[0]), dict(shared_test_tenants[1])
+    tenant_a, tenant_b = dict(shared_test_tenants[0]), dict(shared_test_tenants[1])
 
     # Create models in each tenant namespace
-    for case in (case_a, case_b):
-        model_name = f"sub-test-model-{case['suffix']}"
+    for tenant in (tenant_a, tenant_b):
+        model_name = f"sub-test-model-{tenant['suffix']}"
 
         # Create LLMIS pointing to tenant gateway
-        _create_llmis(model_name, case["tenant_ns"], case["gateway_name"], GATEWAY_NAMESPACE)
+        _create_llmis(model_name, tenant["namespace"], tenant["gateway_name"], GATEWAY_NAMESPACE)
 
         # Create MaaSModelRef
-        _create_maas_model_ref(model_name, case["tenant_ns"], model_name)
+        _create_maas_model_ref(model_name, tenant["namespace"], model_name)
 
         # Store model info
-        case["model_name"] = model_name
-        case["model_namespace"] = case["tenant_ns"]
-
-    # Rename keys to match existing test expectations
-    tenant_a = {
-        "name": case_a["tenant_label_name"],
-        "namespace": case_a["tenant_ns"],
-        "base_url": case_a["base_url"],
-        "model_name": case_a["model_name"],
-        "model_namespace": case_a["model_namespace"],
-    }
-    tenant_b = {
-        "name": case_b["tenant_label_name"],
-        "namespace": case_b["tenant_ns"],
-        "base_url": case_b["base_url"],
-        "model_name": case_b["model_name"],
-        "model_namespace": case_b["model_namespace"],
-    }
+        tenant["model_name"] = model_name
+        tenant["model_namespace"] = tenant["namespace"]
 
     yield tenant_a, tenant_b
 
     # Cleanup models
-    for case in (case_a, case_b):
-        _delete_cr("maasmodelref", case["model_name"], case["tenant_ns"])
-        _delete_cr("llminferenceservice", case["model_name"], case["tenant_ns"])
+    for tenant in (tenant_a, tenant_b):
+        _delete_cr("maasmodelref", tenant["model_name"], tenant["namespace"])
+        _delete_cr("llminferenceservice", tenant["model_name"], tenant["namespace"])
 
 
 @pytest.fixture
@@ -77,7 +61,6 @@ def tenant_subscriptions(tenant_env):
     shared_name = f"e2e-shared-sub-{suffix}"
     tenant_a_only = f"e2e-a-only-{suffix}"
     tenant_b_only = f"e2e-b-only-{suffix}"
-    tenant_a, tenant_b = tenant_env
     try:
         # Create subscriptions using tenant's own models
         apply_maas_subscription(shared_name, tenant_a["namespace"],

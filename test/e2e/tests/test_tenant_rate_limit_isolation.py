@@ -39,46 +39,29 @@ from multitenancy_helpers import GATEWAY_NAMESPACE
 def tenant_env(shared_test_tenants):
     """Adapter fixture with tenant-specific models."""
     # Shallow copy to avoid mutating session-scoped shared_test_tenants
-    case_a, case_b = dict(shared_test_tenants[0]), dict(shared_test_tenants[1])
+    tenant_a, tenant_b = dict(shared_test_tenants[0]), dict(shared_test_tenants[1])
 
     # Create models in each tenant namespace
-    for case in (case_a, case_b):
-        model_name = f"rate-test-model-{case['suffix']}"
+    for tenant in (tenant_a, tenant_b):
+        model_name = f"rate-test-model-{tenant['suffix']}"
 
         # Create LLMIS pointing to tenant gateway
-        _create_llmis(model_name, case["tenant_ns"], case["gateway_name"], GATEWAY_NAMESPACE)
+        _create_llmis(model_name, tenant["namespace"], tenant["gateway_name"], GATEWAY_NAMESPACE)
 
         # Create MaaSModelRef
-        _create_maas_model_ref(model_name, case["tenant_ns"], model_name)
+        _create_maas_model_ref(model_name, tenant["namespace"], model_name)
 
         # Store model info
-        case["model_name"] = model_name
-        case["model_namespace"] = case["tenant_ns"]
-
-    # Rename keys to match existing test expectations
-    tenant_a = {
-        "name": case_a["tenant_label_name"],
-        "namespace": case_a["tenant_ns"],
-        "base_url": case_a["base_url"],
-        "model_name": case_a["model_name"],
-        "model_namespace": case_a["model_namespace"],
-        "model_path": f"/{case_a['tenant_ns']}/{case_a['model_name']}",
-    }
-    tenant_b = {
-        "name": case_b["tenant_label_name"],
-        "namespace": case_b["tenant_ns"],
-        "base_url": case_b["base_url"],
-        "model_name": case_b["model_name"],
-        "model_namespace": case_b["model_namespace"],
-        "model_path": f"/{case_b['tenant_ns']}/{case_b['model_name']}",
-    }
+        tenant["model_name"] = model_name
+        tenant["model_namespace"] = tenant["namespace"]
+        tenant["model_path"] = f"/{tenant['namespace']}/{model_name}"
 
     yield tenant_a, tenant_b
 
     # Cleanup models
-    for case in (case_a, case_b):
-        _delete_cr("maasmodelref", case["model_name"], case["tenant_ns"])
-        _delete_cr("llminferenceservice", case["model_name"], case["tenant_ns"])
+    for tenant in (tenant_a, tenant_b):
+        _delete_cr("maasmodelref", tenant["model_name"], tenant["namespace"])
+        _delete_cr("llminferenceservice", tenant["model_name"], tenant["namespace"])
 
 
 
@@ -110,6 +93,7 @@ def tenant_rate_limit_setup(tenant_env):
         wait_for_status_phase("maassubscription", sub_a, tenant_a["namespace"], expected_phase=("Active", "Degraded"))
         wait_for_status_phase("maassubscription", sub_b, tenant_b["namespace"], expected_phase=("Active", "Degraded"))
         _wait_for_token_rate_limit_policy(tenant_a["model_name"], model_namespace=tenant_a["model_namespace"], timeout=120)
+        _wait_for_token_rate_limit_policy(tenant_b["model_name"], model_namespace=tenant_b["model_namespace"], timeout=120)
 
         oc_token = _get_cluster_token()
         key_a_response = create_api_key_at(

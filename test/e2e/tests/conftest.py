@@ -251,8 +251,14 @@ def shared_test_tenants(gateway_host: str, is_https: bool):
     Each tenant gets its own Gateway with a unique route hostname.
 
     Returns:
-        tuple: (tenant_a_dict, tenant_b_dict) with keys from new_named_tenant_case plus:
+        tuple: (tenant_a_dict, tenant_b_dict) with keys:
+            - name: tenant label name (e.g., "e2e-shared-a-abc123")
+            - namespace: tenant namespace (e.g., "ai-tenant-e2e-shared-a-abc123")
             - base_url: maas-api URL for this tenant (derived from tenant's gateway route)
+            - gateway_name: name of the Gateway CR for this tenant
+            - suffix: 6-character hex suffix for unique resource names
+            - policy_name: default auth policy name for this tenant
+            - subscription_name: default subscription name for this tenant
 
     Requires:
         - AITenant CRD installed
@@ -299,10 +305,18 @@ def shared_test_tenants(gateway_host: str, is_https: bool):
                 ) from e
             case["base_url"] = f"{scheme}://{host}/maas-api"
 
+        # Normalize keys to match test expectations (rename tenant_ns -> namespace, tenant_label_name -> name)
+        for case in (case_a, case_b):
+            case["name"] = case.pop("tenant_label_name")
+            case["namespace"] = case.pop("tenant_ns")
+
         yield case_a, case_b
 
     finally:
-        # Cleanup after all tests complete
+        # Cleanup after all tests complete (restore key names for cleanup helpers)
+        for case in (case_a, case_b):
+            case["tenant_ns"] = case["namespace"]
+            case["tenant_label_name"] = case["name"]
         cleanup_discovery_case(case_a)
         cleanup_discovery_case(case_b)
 
