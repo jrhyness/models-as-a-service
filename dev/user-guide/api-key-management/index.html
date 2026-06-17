@@ -2274,6 +2274,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Key Expiration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#expiration-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Expiration Format
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples:
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3176,6 +3204,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Key Expiration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#expiration-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Expiration Format
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples:
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3345,7 +3401,7 @@
 <tr>
 <td><code>expiresIn</code></td>
 <td>No</td>
-<td>TTL string (e.g., <code>90d</code>, <code>30d</code>, <code>1h</code>). Omit to use configured maximum.</td>
+<td>Key expiration duration. See <a href="#expiration-format">Expiration Format</a> below. Omit to use configured maximum (typically 90 days).</td>
 </tr>
 <tr>
 <td><code>subscription</code></td>
@@ -3463,30 +3519,111 @@
 </code></pre></div>
 <hr />
 <h2 id="key-expiration">Key Expiration</h2>
-<p>Set <code>expiresIn</code> to a duration string (<code>"90d"</code>, <code>"30d"</code>, <code>"1h"</code>), or omit it to use the platform maximum. Expired keys return <code>valid: false</code> on validation—create a new key to continue access.</p>
-<p><strong>Best practices:</strong> Long TTL (90d) for stable integrations, short TTL (30d or less) for security-conscious environments, ephemeral keys (≤1h) for temporary access.</p>
+<p>When a key expires, validation requests return <code>valid: false</code> and the key's status changes to <code>"expired"</code>. You must create a new key to continue access.</p>
+<p><strong>Best practices:</strong></p>
+<ul>
+<li><strong>Stable integrations</strong>: Long TTL (90d or platform maximum)</li>
+<li><strong>Security-conscious environments</strong>: Short TTL (30d or less) with regular rotation</li>
+<li><strong>Temporary access</strong>: Ephemeral keys (≤1h) for demos, testing, or playground sessions</li>
+</ul>
+<h3 id="expiration-format">Expiration Format</h3>
+<p>The <code>expiresIn</code> field accepts duration strings in multiple formats:</p>
+<p><strong>String format with units:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Unit</th>
+<th>Examples</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>d</code></td>
+<td><code>"1d"</code>, <code>"30d"</code>, <code>"90d"</code>, <code>"1.5d"</code></td>
+<td>Days (24 hours each)</td>
+</tr>
+<tr>
+<td><code>h</code></td>
+<td><code>"1h"</code>, <code>"6h"</code>, <code>"24h"</code>, <code>"2.5h"</code></td>
+<td>Hours</td>
+</tr>
+<tr>
+<td><code>m</code></td>
+<td><code>"30m"</code>, <code>"90m"</code>, <code>"120m"</code></td>
+<td>Minutes</td>
+</tr>
+<tr>
+<td><code>s</code></td>
+<td><code>"60s"</code>, <code>"3600s"</code></td>
+<td>Seconds</td>
+</tr>
+<tr>
+<td>Combined</td>
+<td><code>"2h30m"</code>, <code>"1h45m30s"</code></td>
+<td>Multiple units (no spaces)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Numeric format (seconds):</strong></p>
+<p>When passed as a JSON number (not a string), the value is interpreted as <strong>seconds</strong>. E.g. the following <code>expiresIn: 86400</code> is one day (24 * 60 * 60):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">&quot;expiresIn&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">86400</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Validation rules:</strong></p>
+<ul>
+<li><strong>Minimum</strong>: Any positive duration (e.g., <code>"1s"</code> is valid, though not practical)</li>
+<li><strong>Maximum for regular keys</strong>: Configured platform maximum</li>
+<li><strong>Maximum for ephemeral keys</strong>: 1 hour</li>
+<li><strong>Omitted</strong> (i.e. <code>expiresIn</code> not sent): Keys still expire; there is no indefinite default.</li>
+<li><strong>Ephemeral keys</strong>: <strong>1 hour</strong>.</li>
+<li><strong>Regular keys</strong>: Omitting <code>expiresIn</code> will default to the maximum expiration days value. The maximum expiration value is set by either:<ul>
+<li>Setting the value in <a href="../../install/maas-setup/#tenant-cr"><code>Tenant.spec.apiKeys.maxExpirationDays</code></a>, or </li>
+<li>When deploying a standalone maas-api instance you can also set this maximum allowed lifetime via the <code>API_KEY_MAX_EXPIRATION_DAYS</code> environment variable.</li>
+</ul>
+</li>
+</ul>
+<h3 id="examples">Examples:</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># 6 hours</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>curl<span class="w"> </span>...<span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;name&quot;: &quot;key-6h&quot;, &quot;expiresIn&quot;: &quot;6h&quot;}&#39;</span><span class="w"> </span>...
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># 90 minutes</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>curl<span class="w"> </span>...<span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;name&quot;: &quot;key-90m&quot;, &quot;expiresIn&quot;: &quot;90m&quot;}&#39;</span><span class="w"> </span>...
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># 1.5 days (36 hours)</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>curl<span class="w"> </span>...<span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;name&quot;: &quot;key-1.5d&quot;, &quot;expiresIn&quot;: &quot;1.5d&quot;}&#39;</span><span class="w"> </span>...
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="c1"># Use platform maximum (omit expiresIn)</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>curl<span class="w"> </span>...<span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;name&quot;: &quot;key-max&quot;}&#39;</span><span class="w"> </span>...
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="c1"># Numeric format: 7 days as seconds</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>curl<span class="w"> </span>...<span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;name&quot;: &quot;key-7d&quot;, &quot;expiresIn&quot;: 604800}&#39;</span><span class="w"> </span>...
+</code></pre></div>
+<p>!!! warning: "There are no permanent keys."<br />
+    All API keys must have an expiration. There is no option to create a permanent, never-expiring key. Use the maximum allowed duration for long-lived integrations.</p>
 <hr />
 <h2 id="revoking-keys">Revoking Keys</h2>
 <h3 id="revoke-a-single-key">Revoke a Single Key</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">KEY_ID</span><span class="o">=</span><span class="s2">&quot;550e8400-e29b-41d4-a716-446655440000&quot;</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>curl<span class="w"> </span>-sS<span class="w"> </span>-X<span class="w"> </span>DELETE<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">MAAS_API_URL</span><span class="si">}</span><span class="s2">/maas-api/v1/api-keys/</span><span class="si">${</span><span class="nv">KEY_ID</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="k">$(</span>oc<span class="w"> </span>whoami<span class="w"> </span>-t<span class="k">)</span><span class="s2">&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nv">KEY_ID</span><span class="o">=</span><span class="s2">&quot;550e8400-e29b-41d4-a716-446655440000&quot;</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>curl<span class="w"> </span>-sS<span class="w"> </span>-X<span class="w"> </span>DELETE<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">MAAS_API_URL</span><span class="si">}</span><span class="s2">/maas-api/v1/api-keys/</span><span class="si">${</span><span class="nv">KEY_ID</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="k">$(</span>oc<span class="w"> </span>whoami<span class="w"> </span>-t<span class="k">)</span><span class="s2">&quot;</span>
 </code></pre></div>
 <p>Revocation takes effect immediately (Authorino may cache briefly).</p>
 <h3 id="revoke-all-your-keys">Revoke All Your Keys</h3>
 <p>Revoke all active keys for your user:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>curl<span class="w"> </span>-sS<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">MAAS_API_URL</span><span class="si">}</span><span class="s2">/maas-api/v1/api-keys/bulk-revoke&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="k">$(</span>oc<span class="w"> </span>whoami<span class="w"> </span>-t<span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="s1">    &quot;username&quot;: &quot;&#39;</span><span class="s2">&quot;</span><span class="k">$(</span>oc<span class="w"> </span>whoami<span class="k">)</span><span class="s2">&quot;</span><span class="s1">&#39;&quot;</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="s1">  }&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>curl<span class="w"> </span>-sS<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">MAAS_API_URL</span><span class="si">}</span><span class="s2">/maas-api/v1/api-keys/bulk-revoke&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="k">$(</span>oc<span class="w"> </span>whoami<span class="w"> </span>-t<span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="s1">    &quot;username&quot;: &quot;&#39;</span><span class="s2">&quot;</span><span class="k">$(</span>oc<span class="w"> </span>whoami<span class="k">)</span><span class="s2">&quot;</span><span class="s1">&#39;&quot;</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="s1">  }&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.
 </code></pre></div>
 <p><strong>Response:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">&quot;revokedCount&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Successfully revoked 5 active API key(s) for user alice&quot;</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">&quot;revokedCount&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Successfully revoked 5 active API key(s) for user alice&quot;</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="p">}</span>
 </code></pre></div>
 <p><strong>When to revoke all keys:</strong>
 - Security incident (compromised credentials)
@@ -3537,10 +3674,10 @@
 </tbody>
 </table>
 <p><strong>Create an ephemeral key:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>curl<span class="w"> </span>-sS<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">MAAS_API_URL</span><span class="si">}</span><span class="s2">/maas-api/v1/api-keys&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="k">$(</span>oc<span class="w"> </span>whoami<span class="w"> </span>-t<span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;ephemeral&quot;: true, &quot;expiresIn&quot;: &quot;30m&quot;}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>curl<span class="w"> </span>-sS<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">MAAS_API_URL</span><span class="si">}</span><span class="s2">/maas-api/v1/api-keys&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="k">$(</span>oc<span class="w"> </span>whoami<span class="w"> </span>-t<span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;ephemeral&quot;: true, &quot;expiresIn&quot;: &quot;30m&quot;}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.
 </code></pre></div>
 <p>Expired ephemeral keys are automatically cleaned up by a CronJob. See <a href="../../configuration-and-management/api-key-administration/#ephemeral-key-cleanup">API Key Administration</a> for details.</p>
 <hr />
@@ -3606,7 +3743,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="May 20, 2026 11:43:10 UTC">May 20, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="June 17, 2026 04:07:41 UTC">June 17, 2026</span>
   </span>
 
     
