@@ -127,8 +127,8 @@ def tenant_inference_cases():
                 timeout=180,
             )
 
-            # Store model path
-            case["model_path"] = f"/{case['tenant_ns']}/{model_name}"
+            # Store model path (with /v1 for OpenAI API compatibility)
+            case["model_path"] = f"/{case['tenant_ns']}/{model_name}/v1"
 
         yield case_a, case_b
 
