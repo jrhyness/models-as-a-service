@@ -86,6 +86,7 @@ type AITenantReconciler struct {
 // +kubebuilder:rbac:groups=maas.opendatahub.io,resources=tenants,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile drives AITenant bootstrap lifecycle.
@@ -122,6 +123,14 @@ func (r *AITenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	aitenant.Status.GatewayRef = gatewayRef
 	if err != nil {
 		setAITenantPhase(&aitenant, "Failed", "GatewayCheckFailed", err.Error())
+		if err2 := r.updateAITenantStatus(ctx, &aitenant, statusSnapshot); err2 != nil {
+			return ctrl.Result{}, err2
+		}
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
+	if err := r.ensureGatewayClaim(ctx, &aitenant, gatewayRef); err != nil {
+		setAITenantPhase(&aitenant, "Failed", "GatewayClaimFailed", err.Error())
 		if err2 := r.updateAITenantStatus(ctx, &aitenant, statusSnapshot); err2 != nil {
 			return ctrl.Result{}, err2
 		}
@@ -490,6 +499,9 @@ func (r *AITenantReconciler) reconcileAITenantDelete(ctx context.Context, aitena
 
 func (r *AITenantReconciler) deleteAITenantChildren(ctx context.Context, aitenant *maasv1alpha1.AITenant) error {
 	tenantNamespace := r.tenantNamespaceName(aitenant)
+	if err := r.deleteGatewayClaim(ctx, aitenant); err != nil {
+		return err
+	}
 	if err := r.deleteOwned(ctx, aitenant, &maasv1alpha1.Tenant{}, client.ObjectKey{Namespace: tenantNamespace, Name: maasv1alpha1.TenantInstanceName}); err != nil {
 		return err
 	}
@@ -604,6 +616,76 @@ func (r *AITenantReconciler) upsertWithCreate(ctx context.Context, obj client.Ob
 		return fmt.Errorf("patch %s %s/%s: %w", objectKind(obj), key.Namespace, key.Name, err)
 	}
 	return nil
+}
+
+// gatewayClaimName returns a deterministic ConfigMap name for a gateway claim.
+// The name is derived from the gateway namespace and name to ensure uniqueness.
+func gatewayClaimName(gatewayRef maasv1alpha1.TenantGatewayRef) string {
+	raw := gatewayRef.Namespace + "/" + gatewayRef.Name
+	sum := sha256.Sum256([]byte(raw))
+	hash := hex.EncodeToString(sum[:])[:12]
+	return "gateway-claim-" + hash
+}
+
+// ensureGatewayClaim atomically claims a gateway for an AITenant by creating a
+// ConfigMap with create-once semantics. If the ConfigMap already exists and belongs
+// to a different AITenant, the claim fails. This prevents the race condition where
+// two concurrent admission requests could both pass the webhook list-then-compare
+// check before either AITenant is persisted.
+func (r *AITenantReconciler) ensureGatewayClaim(ctx context.Context, aitenant *maasv1alpha1.AITenant, gatewayRef maasv1alpha1.TenantGatewayRef) error {
+	claimName := gatewayClaimName(gatewayRef)
+	claimNamespace := r.aitenantNamespace()
+
+	claim := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      claimName,
+			Namespace: claimNamespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by":     "maas-controller",
+				"maas.opendatahub.io/gateway-claim": "true",
+			},
+			Annotations: map[string]string{
+				aitenantNameAnnotation:      aitenant.Name,
+				aitenantNamespaceAnnotation: aitenant.Namespace,
+			},
+		},
+		Data: map[string]string{
+			"gatewayNamespace": gatewayRef.Namespace,
+			"gatewayName":      gatewayRef.Name,
+		},
+	}
+
+	if err := r.Create(ctx, claim); err != nil {
+		if !isAlreadyExistsError(err) {
+			return fmt.Errorf("create gateway claim %s/%s: %w", claimNamespace, claimName, err)
+		}
+		// ConfigMap already exists -- check if it belongs to this AITenant.
+		var existing corev1.ConfigMap
+		if err := r.get(ctx, client.ObjectKey{Namespace: claimNamespace, Name: claimName}, &existing); err != nil {
+			return fmt.Errorf("get existing gateway claim %s/%s: %w", claimNamespace, claimName, err)
+		}
+		if ownedByAITenant(&existing, aitenant) {
+			return nil // Already claimed by this AITenant.
+		}
+		ownerName := existing.Annotations[aitenantNameAnnotation]
+		ownerNamespace := existing.Annotations[aitenantNamespaceAnnotation]
+		return fmt.Errorf(
+			"gateway %s/%s is already claimed by AITenant %s/%s; "+
+				"each AITenant requires a dedicated Gateway for isolation",
+			gatewayRef.Namespace, gatewayRef.Name,
+			ownerNamespace, ownerName,
+		)
+	}
+
+	return nil
+}
+
+// deleteGatewayClaim removes the gateway claim ConfigMap owned by the given AITenant.
+func (r *AITenantReconciler) deleteGatewayClaim(ctx context.Context, aitenant *maasv1alpha1.AITenant) error {
+	gatewayRef := r.gatewayRefFor(aitenant)
+	claimName := gatewayClaimName(gatewayRef)
+	claimNamespace := r.aitenantNamespace()
+	return r.deleteOwned(ctx, aitenant, &corev1.ConfigMap{}, client.ObjectKey{Namespace: claimNamespace, Name: claimName})
 }
 
 func setAITenantPhase(aitenant *maasv1alpha1.AITenant, phase, reason, message string) {

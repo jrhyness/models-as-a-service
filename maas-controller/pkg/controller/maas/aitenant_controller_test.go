@@ -1006,3 +1006,230 @@ func TestAITenantChildName_Truncation(t *testing.T) {
 	g.Expect(got).To(HavePrefix("aitenant-tenant-"))
 	g.Expect(got).To(ContainSubstring("-tenant-admin-"))
 }
+
+func TestGatewayClaimName_Deterministic(t *testing.T) {
+	g := NewWithT(t)
+
+	ref := maasv1alpha1.TenantGatewayRef{Namespace: "openshift-ingress", Name: "team-a"}
+	name1 := gatewayClaimName(ref)
+	name2 := gatewayClaimName(ref)
+	g.Expect(name1).To(Equal(name2))
+	g.Expect(name1).To(HavePrefix("gateway-claim-"))
+	g.Expect(len(name1)).To(BeNumerically("<=", 63))
+}
+
+func TestGatewayClaimName_UniquenessAcrossRefs(t *testing.T) {
+	g := NewWithT(t)
+
+	refA := maasv1alpha1.TenantGatewayRef{Namespace: "openshift-ingress", Name: "gw-a"}
+	refB := maasv1alpha1.TenantGatewayRef{Namespace: "openshift-ingress", Name: "gw-b"}
+	g.Expect(gatewayClaimName(refA)).NotTo(Equal(gatewayClaimName(refB)))
+}
+
+func TestAITenantReconcile_GatewayClaimCreated(t *testing.T) {
+	g := NewWithT(t)
+	s := aitenantTestScheme(t)
+
+	aitenant := &maasv1alpha1.AITenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "team-claim",
+			Namespace: tenantreconcile.DefaultAITenantNamespace,
+		},
+		Spec: maasv1alpha1.AITenantSpec{
+			Gateway: &maasv1alpha1.AITenantGatewayRef{Name: "team-claim-gw"},
+		},
+	}
+	cl := fake.NewClientBuilder().
+		WithScheme(s).
+		WithStatusSubresource(&maasv1alpha1.AITenant{}).
+		WithObjects(aitenant, existingAITenantGateway("team-claim-gw")).
+		Build()
+	r := &AITenantReconciler{
+		Client:           cl,
+		Scheme:           s,
+		APIReader:        cl,
+		AppNamespace:     "opendatahub",
+		TenantNamespace:  "models-as-a-service",
+		GatewayNamespace: "openshift-ingress",
+	}
+
+	key := types.NamespacedName{Name: aitenant.Name, Namespace: aitenant.Namespace}
+	reconcileAITenantTwice(t, r, key)
+
+	var updated maasv1alpha1.AITenant
+	g.Expect(cl.Get(context.Background(), key, &updated)).To(Succeed())
+	g.Expect(updated.Status.Phase).To(Equal("Active"))
+
+	// Verify the gateway claim ConfigMap was created.
+	gatewayRef := maasv1alpha1.TenantGatewayRef{Namespace: "openshift-ingress", Name: "team-claim-gw"}
+	claimName := gatewayClaimName(gatewayRef)
+	var claim corev1.ConfigMap
+	g.Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: tenantreconcile.DefaultAITenantNamespace, Name: claimName}, &claim)).To(Succeed())
+	g.Expect(claim.Annotations).To(HaveKeyWithValue(aitenantNameAnnotation, "team-claim"))
+	g.Expect(claim.Data).To(HaveKeyWithValue("gatewayNamespace", "openshift-ingress"))
+	g.Expect(claim.Data).To(HaveKeyWithValue("gatewayName", "team-claim-gw"))
+}
+
+func TestAITenantReconcile_GatewayClaimBlocksDuplicateGateway(t *testing.T) {
+	g := NewWithT(t)
+	s := aitenantTestScheme(t)
+
+	// Create the first AITenant and reconcile it to establish its claim.
+	aitenant1 := &maasv1alpha1.AITenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "team-first",
+			Namespace: tenantreconcile.DefaultAITenantNamespace,
+		},
+		Spec: maasv1alpha1.AITenantSpec{
+			Gateway: &maasv1alpha1.AITenantGatewayRef{Name: "shared-gw"},
+		},
+	}
+	cl := fake.NewClientBuilder().
+		WithScheme(s).
+		WithStatusSubresource(&maasv1alpha1.AITenant{}).
+		WithObjects(aitenant1, existingAITenantGateway("shared-gw")).
+		Build()
+	r := &AITenantReconciler{
+		Client:           cl,
+		Scheme:           s,
+		APIReader:        cl,
+		AppNamespace:     "opendatahub",
+		TenantNamespace:  "models-as-a-service",
+		GatewayNamespace: "openshift-ingress",
+	}
+
+	key1 := types.NamespacedName{Name: aitenant1.Name, Namespace: aitenant1.Namespace}
+	reconcileAITenantTwice(t, r, key1)
+
+	var updated1 maasv1alpha1.AITenant
+	g.Expect(cl.Get(context.Background(), key1, &updated1)).To(Succeed())
+	g.Expect(updated1.Status.Phase).To(Equal("Active"))
+
+	// Now create a second AITenant referencing the same gateway.
+	aitenant2 := &maasv1alpha1.AITenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "team-second",
+			Namespace: tenantreconcile.DefaultAITenantNamespace,
+		},
+		Spec: maasv1alpha1.AITenantSpec{
+			Gateway: &maasv1alpha1.AITenantGatewayRef{Name: "shared-gw"},
+		},
+	}
+	g.Expect(cl.Create(context.Background(), aitenant2)).To(Succeed())
+
+	key2 := types.NamespacedName{Name: aitenant2.Name, Namespace: aitenant2.Namespace}
+
+	// First reconcile adds the finalizer.
+	res, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key2})
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(res.Requeue).To(BeTrue())
+
+	// Second reconcile should fail due to gateway claim conflict.
+	res, err = r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key2})
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(res.RequeueAfter).To(Equal(30 * time.Second))
+
+	var updated2 maasv1alpha1.AITenant
+	g.Expect(cl.Get(context.Background(), key2, &updated2)).To(Succeed())
+	g.Expect(updated2.Status.Phase).To(Equal("Failed"))
+	ready := apimeta.FindStatusCondition(updated2.Status.Conditions, maasv1alpha1.AITenantConditionReady)
+	g.Expect(ready).NotTo(BeNil())
+	g.Expect(ready.Reason).To(Equal("GatewayClaimFailed"))
+	g.Expect(ready.Message).To(ContainSubstring("already claimed"))
+	g.Expect(ready.Message).To(ContainSubstring("team-first"))
+}
+
+func TestAITenantReconcile_GatewayClaimCleanedOnDeletion(t *testing.T) {
+	g := NewWithT(t)
+	s := aitenantTestScheme(t)
+	ctx := context.Background()
+
+	aitenant := &maasv1alpha1.AITenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "team-cleanup",
+			Namespace: tenantreconcile.DefaultAITenantNamespace,
+		},
+		Spec: maasv1alpha1.AITenantSpec{
+			Gateway: &maasv1alpha1.AITenantGatewayRef{Name: "cleanup-gw"},
+		},
+	}
+	cl := fake.NewClientBuilder().
+		WithScheme(s).
+		WithStatusSubresource(&maasv1alpha1.AITenant{}).
+		WithObjects(aitenant, existingAITenantGateway("cleanup-gw")).
+		Build()
+	r := &AITenantReconciler{
+		Client:           cl,
+		Scheme:           s,
+		APIReader:        cl,
+		AppNamespace:     "opendatahub",
+		TenantNamespace:  "models-as-a-service",
+		GatewayNamespace: "openshift-ingress",
+	}
+
+	key := types.NamespacedName{Name: aitenant.Name, Namespace: aitenant.Namespace}
+	reconcileAITenantTwice(t, r, key)
+
+	// Verify claim exists.
+	gatewayRef := maasv1alpha1.TenantGatewayRef{Namespace: "openshift-ingress", Name: "cleanup-gw"}
+	claimName := gatewayClaimName(gatewayRef)
+	var claim corev1.ConfigMap
+	g.Expect(cl.Get(ctx, client.ObjectKey{Namespace: tenantreconcile.DefaultAITenantNamespace, Name: claimName}, &claim)).To(Succeed())
+
+	// Delete the AITenant and reconcile.
+	var toDelete maasv1alpha1.AITenant
+	g.Expect(cl.Get(ctx, key, &toDelete)).To(Succeed())
+	g.Expect(cl.Delete(ctx, &toDelete)).To(Succeed())
+
+	res, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: key})
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(res).To(Equal(ctrl.Result{}))
+
+	// Verify claim is deleted.
+	err = cl.Get(ctx, client.ObjectKey{Namespace: tenantreconcile.DefaultAITenantNamespace, Name: claimName}, &corev1.ConfigMap{})
+	g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+}
+
+func TestAITenantReconcile_GatewayClaimIdempotent(t *testing.T) {
+	g := NewWithT(t)
+	s := aitenantTestScheme(t)
+
+	aitenant := &maasv1alpha1.AITenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "team-idem-claim",
+			Namespace: tenantreconcile.DefaultAITenantNamespace,
+		},
+		Spec: maasv1alpha1.AITenantSpec{
+			Gateway: &maasv1alpha1.AITenantGatewayRef{Name: "idem-gw"},
+		},
+	}
+	cl := fake.NewClientBuilder().
+		WithScheme(s).
+		WithStatusSubresource(&maasv1alpha1.AITenant{}).
+		WithObjects(aitenant, existingAITenantGateway("idem-gw")).
+		Build()
+	r := &AITenantReconciler{
+		Client:           cl,
+		Scheme:           s,
+		APIReader:        cl,
+		AppNamespace:     "opendatahub",
+		TenantNamespace:  "models-as-a-service",
+		GatewayNamespace: "openshift-ingress",
+	}
+
+	key := types.NamespacedName{Name: aitenant.Name, Namespace: aitenant.Namespace}
+	reconcileAITenantTwice(t, r, key)
+
+	var afterFirst maasv1alpha1.AITenant
+	g.Expect(cl.Get(context.Background(), key, &afterFirst)).To(Succeed())
+	g.Expect(afterFirst.Status.Phase).To(Equal("Active"))
+
+	// Third reconcile should be idempotent -- claim already exists and owned by this AITenant.
+	res, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: key})
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(res).To(Equal(ctrl.Result{}))
+
+	var afterRepeat maasv1alpha1.AITenant
+	g.Expect(cl.Get(context.Background(), key, &afterRepeat)).To(Succeed())
+	g.Expect(afterRepeat.Status.Phase).To(Equal("Active"))
+}
