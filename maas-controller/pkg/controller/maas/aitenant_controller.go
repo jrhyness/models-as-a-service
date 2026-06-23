@@ -641,8 +641,9 @@ func (r *AITenantReconciler) ensureGatewayClaim(ctx context.Context, aitenant *m
 			Name:      claimName,
 			Namespace: claimNamespace,
 			Labels: map[string]string{
-				"app.kubernetes.io/managed-by":     "maas-controller",
-				"maas.opendatahub.io/gateway-claim": "true",
+				"app.kubernetes.io/managed-by":       "maas-controller",
+				"maas.opendatahub.io/gateway-claim":  "true",
+				aitenantManagedLabel:                  "true",
 			},
 			Annotations: map[string]string{
 				aitenantNameAnnotation:      aitenant.Name,
@@ -655,6 +656,13 @@ func (r *AITenantReconciler) ensureGatewayClaim(ctx context.Context, aitenant *m
 		},
 	}
 
+	// Set controller owner reference so K8s garbage collection removes the
+	// claim if the finalizer is skipped. This works because the AITenant and
+	// the claim ConfigMap live in the same namespace (AITenantNamespace).
+	if err := controllerutil.SetControllerReference(aitenant, claim, r.Scheme); err != nil {
+		return fmt.Errorf("set owner reference on gateway claim %s/%s: %w", claimNamespace, claimName, err)
+	}
+
 	if err := r.Create(ctx, claim); err != nil {
 		if !isAlreadyExistsError(err) {
 			return fmt.Errorf("create gateway claim %s/%s: %w", claimNamespace, claimName, err)
@@ -665,7 +673,9 @@ func (r *AITenantReconciler) ensureGatewayClaim(ctx context.Context, aitenant *m
 			return fmt.Errorf("get existing gateway claim %s/%s: %w", claimNamespace, claimName, err)
 		}
 		if ownedByAITenant(&existing, aitenant) {
-			return nil // Already claimed by this AITenant.
+			// Already claimed by this AITenant -- still clean up stale claims
+			// from any prior gateway reference.
+			return r.cleanupStaleClaims(ctx, aitenant, gatewayRef)
 		}
 		ownerName := existing.Annotations[aitenantNameAnnotation]
 		ownerNamespace := existing.Annotations[aitenantNamespaceAnnotation]
@@ -677,15 +687,59 @@ func (r *AITenantReconciler) ensureGatewayClaim(ctx context.Context, aitenant *m
 		)
 	}
 
+	// Clean up stale claims from a previous gateway reference.
+	return r.cleanupStaleClaims(ctx, aitenant, gatewayRef)
+}
+
+// deleteGatewayClaim removes all gateway claim ConfigMaps owned by the given AITenant.
+// It deletes both the current claim and any stale claims left from prior gateway references.
+func (r *AITenantReconciler) deleteGatewayClaim(ctx context.Context, aitenant *maasv1alpha1.AITenant) error {
+	claimNamespace := r.aitenantNamespace()
+	var claimList corev1.ConfigMapList
+	if err := r.List(ctx, &claimList,
+		client.InNamespace(claimNamespace),
+		client.MatchingLabels{"maas.opendatahub.io/gateway-claim": "true"},
+	); err != nil {
+		return fmt.Errorf("list gateway claims in %s: %w", claimNamespace, err)
+	}
+	for i := range claimList.Items {
+		cm := &claimList.Items[i]
+		if !ownedByAITenant(cm, aitenant) {
+			continue
+		}
+		if err := r.Delete(ctx, cm); client.IgnoreNotFound(err) != nil {
+			return fmt.Errorf("delete gateway claim %s/%s: %w", claimNamespace, cm.Name, err)
+		}
+	}
 	return nil
 }
 
-// deleteGatewayClaim removes the gateway claim ConfigMap owned by the given AITenant.
-func (r *AITenantReconciler) deleteGatewayClaim(ctx context.Context, aitenant *maasv1alpha1.AITenant) error {
-	gatewayRef := r.gatewayRefFor(aitenant)
-	claimName := gatewayClaimName(gatewayRef)
+// cleanupStaleClaims removes gateway claim ConfigMaps left over from a previous
+// gateway reference. When an AITenant retargets to a different gateway, the old
+// claim must be removed so the gateway becomes available for other tenants.
+func (r *AITenantReconciler) cleanupStaleClaims(ctx context.Context, aitenant *maasv1alpha1.AITenant, currentRef maasv1alpha1.TenantGatewayRef) error {
 	claimNamespace := r.aitenantNamespace()
-	return r.deleteOwned(ctx, aitenant, &corev1.ConfigMap{}, client.ObjectKey{Namespace: claimNamespace, Name: claimName})
+	var claimList corev1.ConfigMapList
+	if err := r.List(ctx, &claimList,
+		client.InNamespace(claimNamespace),
+		client.MatchingLabels{"maas.opendatahub.io/gateway-claim": "true"},
+	); err != nil {
+		return fmt.Errorf("list gateway claims in %s: %w", claimNamespace, err)
+	}
+	currentClaimName := gatewayClaimName(currentRef)
+	for i := range claimList.Items {
+		cm := &claimList.Items[i]
+		if cm.Name == currentClaimName {
+			continue // Skip the current (valid) claim.
+		}
+		if !ownedByAITenant(cm, aitenant) {
+			continue // Belongs to a different AITenant.
+		}
+		if err := r.Delete(ctx, cm); client.IgnoreNotFound(err) != nil {
+			return fmt.Errorf("delete stale gateway claim %s/%s: %w", claimNamespace, cm.Name, err)
+		}
+	}
+	return nil
 }
 
 func setAITenantPhase(aitenant *maasv1alpha1.AITenant, phase, reason, message string) {
