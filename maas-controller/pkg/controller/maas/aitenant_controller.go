@@ -627,6 +627,27 @@ func gatewayClaimName(gatewayRef maasv1alpha1.TenantGatewayRef) string {
 	return "gateway-claim-" + hash
 }
 
+// isClaimOwnedByAITenant verifies gateway claim ConfigMap ownership using
+// OwnerReferences when present (UID-based, tamper-resistant) with a fallback to
+// annotation-based checks for legacy claims created before OwnerReferences were
+// added. This mitigates the TOCTOU window between the Create-AlreadyExists
+// check and the subsequent Get: if a controller OwnerReference exists but points
+// to a different owner, the claim is rejected even if annotations were spoofed.
+func isClaimOwnedByAITenant(claim *corev1.ConfigMap, aitenant *maasv1alpha1.AITenant) bool {
+	for _, ref := range claim.GetOwnerReferences() {
+		if ref.Controller != nil && *ref.Controller {
+			if ref.Kind != "AITenant" || ref.Name != aitenant.Name {
+				return false
+			}
+			if aitenant.UID != "" && ref.UID != "" {
+				return ref.UID == aitenant.UID
+			}
+			return true
+		}
+	}
+	return ownedByAITenant(claim, aitenant)
+}
+
 // ensureGatewayClaim atomically claims a gateway for an AITenant by creating a
 // ConfigMap with create-once semantics. If the ConfigMap already exists and belongs
 // to a different AITenant, the claim fails. This prevents the race condition where
@@ -672,7 +693,7 @@ func (r *AITenantReconciler) ensureGatewayClaim(ctx context.Context, aitenant *m
 		if err := r.get(ctx, client.ObjectKey{Namespace: claimNamespace, Name: claimName}, &existing); err != nil {
 			return fmt.Errorf("get existing gateway claim %s/%s: %w", claimNamespace, claimName, err)
 		}
-		if ownedByAITenant(&existing, aitenant) {
+		if isClaimOwnedByAITenant(&existing, aitenant) {
 			prevOwnerCount := len(existing.OwnerReferences)
 			if err := controllerutil.SetControllerReference(aitenant, &existing, r.Scheme); err != nil {
 				return fmt.Errorf("set owner reference on existing gateway claim %s/%s: %w", claimNamespace, claimName, err)

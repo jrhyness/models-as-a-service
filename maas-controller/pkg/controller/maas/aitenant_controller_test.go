@@ -1502,3 +1502,79 @@ func TestAITenantReconcile_DeletionCleansAllClaimsIncludingStale(t *testing.T) {
 	err = cl.Get(ctx, client.ObjectKey{Namespace: tenantreconcile.DefaultAITenantNamespace, Name: gatewayClaimName(currentRef)}, &corev1.ConfigMap{})
 	g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 }
+
+func TestIsClaimOwnedByAITenant_OwnerRefTakesPrecedenceOverAnnotations(t *testing.T) {
+	g := NewWithT(t)
+
+	aitenant := &maasv1alpha1.AITenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "team-legit",
+			Namespace: tenantreconcile.DefaultAITenantNamespace,
+			UID:       "uid-legit",
+		},
+	}
+	isController := true
+
+	// Case 1: Matching OwnerReference and annotations → owned.
+	claimOwned := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				aitenantNameAnnotation:      "team-legit",
+				aitenantNamespaceAnnotation: tenantreconcile.DefaultAITenantNamespace,
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				Kind:       "AITenant",
+				Name:       "team-legit",
+				UID:        "uid-legit",
+				Controller: &isController,
+			}},
+		},
+	}
+	g.Expect(isClaimOwnedByAITenant(claimOwned, aitenant)).To(BeTrue())
+
+	// Case 2: Annotations match but OwnerReference points to a different AITenant
+	// (e.g. spoofed annotations or TOCTOU swap) → rejected.
+	claimSpoofed := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				aitenantNameAnnotation:      "team-legit",
+				aitenantNamespaceAnnotation: tenantreconcile.DefaultAITenantNamespace,
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				Kind:       "AITenant",
+				Name:       "team-other",
+				UID:        "uid-other",
+				Controller: &isController,
+			}},
+		},
+	}
+	g.Expect(isClaimOwnedByAITenant(claimSpoofed, aitenant)).To(BeFalse())
+
+	// Case 3: No OwnerReference (legacy claim) with matching annotations → owned.
+	claimLegacy := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				aitenantNameAnnotation:      "team-legit",
+				aitenantNamespaceAnnotation: tenantreconcile.DefaultAITenantNamespace,
+			},
+		},
+	}
+	g.Expect(isClaimOwnedByAITenant(claimLegacy, aitenant)).To(BeTrue())
+
+	// Case 4: OwnerReference with matching name but mismatched UID → rejected.
+	claimWrongUID := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				aitenantNameAnnotation:      "team-legit",
+				aitenantNamespaceAnnotation: tenantreconcile.DefaultAITenantNamespace,
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				Kind:       "AITenant",
+				Name:       "team-legit",
+				UID:        "uid-different",
+				Controller: &isController,
+			}},
+		},
+	}
+	g.Expect(isClaimOwnedByAITenant(claimWrongUID, aitenant)).To(BeFalse())
+}
