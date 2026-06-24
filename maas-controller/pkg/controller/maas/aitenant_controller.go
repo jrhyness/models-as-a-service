@@ -662,9 +662,9 @@ func (r *AITenantReconciler) ensureGatewayClaim(ctx context.Context, aitenant *m
 			Name:      claimName,
 			Namespace: claimNamespace,
 			Labels: map[string]string{
-				"app.kubernetes.io/managed-by":       "maas-controller",
-				"maas.opendatahub.io/gateway-claim":  "true",
-				aitenantManagedLabel:                  "true",
+				"app.kubernetes.io/managed-by":      "maas-controller",
+				"maas.opendatahub.io/gateway-claim": "true",
+				aitenantManagedLabel:                "true",
 			},
 			Annotations: map[string]string{
 				aitenantNameAnnotation:      aitenant.Name,

@@ -1307,7 +1307,7 @@ func TestAITenantReconcile_GatewayClaimRetroactiveOwnerReference(t *testing.T) {
 			Labels: map[string]string{
 				"app.kubernetes.io/managed-by":      "maas-controller",
 				"maas.opendatahub.io/gateway-claim": "true",
-				aitenantManagedLabel:                 "true",
+				aitenantManagedLabel:                "true",
 			},
 			Annotations: map[string]string{
 				aitenantNameAnnotation:      "team-retroactive",
