@@ -264,12 +264,23 @@ func (h *ModelsHandler) aggregateModelsFromSubscriptions(
 	}
 
 	resultChan := make(chan probeResult, len(subscriptionsToUse))
+	const maxConcurrentProbes = 10
+	probeSem := make(chan struct{}, maxConcurrentProbes)
 
 	// Capture context before spawning goroutines (gin.Context is not safe for concurrent use)
 	ctx := c.Request.Context()
 
 	for _, sub := range subscriptionsToUse {
 		go func(sub *subscription.SelectResponse) {
+			// Limit concurrent probes to prevent resource exhaustion
+			select {
+			case probeSem <- struct{}{}:
+				defer func() { <-probeSem }()
+			case <-ctx.Done():
+				resultChan <- probeResult{subscription: sub, models: nil}
+				return
+			}
+
 			// Pre-filter by modelRefs if available (optimization to reduce HTTP calls)
 			modelsToCheck := list
 			if len(sub.ModelRefs) > 0 {
@@ -295,7 +306,7 @@ func (h *ModelsHandler) aggregateModelsFromSubscriptions(
 
 	// Collect results from all subscription probes
 	modelsByKey := make(map[modelKey]*models.Model)
-	for range len(subscriptionsToUse) {
+	for range subscriptionsToUse {
 		result := <-resultChan
 
 		subInfo := models.SubscriptionInfo{
