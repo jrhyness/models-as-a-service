@@ -167,7 +167,7 @@ func TestMaaSAuthPolicyReconciler_DuplicateReconciliation(t *testing.T) {
 	r := &MaaSAuthPolicyReconciler{
 		Client:           c,
 		Scheme:           scheme,
-		InfraNamespace: "maas-system",
+		InfraNamespace:   "maas-system",
 		GatewayNamespace: gatewayNS,
 		GatewayName:      "maas-default-gateway",
 	}
@@ -318,7 +318,7 @@ func TestMaaSAuthPolicyReconciler_RemoveModelRef(t *testing.T) {
 	r := &MaaSAuthPolicyReconciler{
 		Client:           c,
 		Scheme:           scheme,
-		InfraNamespace: "maas-system",
+		InfraNamespace:   "maas-system",
 		GatewayNamespace: gatewayNS,
 		GatewayName:      "maas-default-gateway",
 	}
@@ -417,7 +417,7 @@ func TestMaaSAuthPolicyReconciler_RemoveModelRef_Aggregation(t *testing.T) {
 	r := &MaaSAuthPolicyReconciler{
 		Client:           c,
 		Scheme:           scheme,
-		InfraNamespace: "maas-system",
+		InfraNamespace:   "maas-system",
 		GatewayNamespace: gatewayNS,
 		GatewayName:      "maas-default-gateway",
 	}
@@ -559,7 +559,7 @@ func TestMaaSAuthPolicyReconciler_MultiplePoliciesDeletion(t *testing.T) {
 	r := &MaaSAuthPolicyReconciler{
 		Client:           c,
 		Scheme:           scheme,
-		InfraNamespace: "maas-system",
+		InfraNamespace:   "maas-system",
 		GatewayNamespace: gatewayNS,
 		GatewayName:      "maas-default-gateway",
 	}
@@ -705,7 +705,7 @@ func TestMaaSAuthPolicyReconciler_CachingConfiguration(t *testing.T) {
 			r := &MaaSAuthPolicyReconciler{
 				Client:           c,
 				Scheme:           scheme,
-				InfraNamespace: "maas-system",
+				InfraNamespace:   "maas-system",
 				GatewayName:      "maas-default-gateway",
 				GatewayNamespace: gatewayNS,
 				MetadataCacheTTL: tc.metadataTTL,
@@ -894,7 +894,7 @@ func TestMaaSAuthPolicyReconciler_CacheKeyIsolation(t *testing.T) {
 	r := &MaaSAuthPolicyReconciler{
 		Client:           c,
 		Scheme:           scheme,
-		InfraNamespace: "maas-system",
+		InfraNamespace:   "maas-system",
 		GatewayName:      "maas-default-gateway",
 		GatewayNamespace: gatewayNS,
 		MetadataCacheTTL: 60,
@@ -1015,7 +1015,7 @@ func TestMaaSAuthPolicyReconciler_CacheKeyModelIsolation(t *testing.T) {
 	r := &MaaSAuthPolicyReconciler{
 		Client:           c,
 		Scheme:           scheme,
-		InfraNamespace: "maas-system",
+		InfraNamespace:   "maas-system",
 		GatewayName:      "maas-default-gateway",
 		GatewayNamespace: gatewayNS,
 		MetadataCacheTTL: 60,
@@ -1108,7 +1108,7 @@ func TestMaaSAuthPolicyReconciler_IdentityHeadersUpstream(t *testing.T) {
 	r := &MaaSAuthPolicyReconciler{
 		Client:           c,
 		Scheme:           scheme,
-		InfraNamespace: "maas-system",
+		InfraNamespace:   "maas-system",
 		GatewayName:      "maas-default-gateway",
 		GatewayNamespace: gatewayNS,
 		MetadataCacheTTL: 60,
@@ -1215,7 +1215,7 @@ func TestMaaSAuthPolicyReconciler_IdentityHeadersUpstream(t *testing.T) {
 
 func TestBuildGatewayAuthPolicySpec_K8sAndOIDCAuth(t *testing.T) {
 	r := &MaaSAuthPolicyReconciler{
-		InfraNamespace: "maas-system",
+		InfraNamespace:   "maas-system",
 		GatewayName:      "maas-default-gateway",
 		GatewayNamespace: "gateway-ns",
 		ClusterAudience:  "https://kubernetes.default.svc",
