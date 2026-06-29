@@ -2,6 +2,7 @@ package tenant
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -65,7 +66,7 @@ type ListenerMetadata struct {
 }
 
 // GetTenantInfo returns tenant name and gateway connection metadata.
-// GET /v1/tenant
+// GET /v1/tenant.
 func (h *Handler) GetTenantInfo(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
@@ -114,24 +115,24 @@ func (h *Handler) GetTenantInfo(c *gin.Context) {
 // extractGatewayMetadata extracts connection metadata from Gateway status.
 // It attempts to find the external hostname from OpenShift Routes first,
 // falling back to Gateway status if no Route is found.
-func (h *Handler) extractGatewayMetadata(ctx context.Context, gateway map[string]interface{}) (*GatewayMetadata, error) {
+func (h *Handler) extractGatewayMetadata(ctx context.Context, gateway map[string]any) (*GatewayMetadata, error) {
 	// Extract status
-	status, ok := gateway["status"].(map[string]interface{})
+	status, ok := gateway["status"].(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("gateway status not found")
+		return nil, errors.New("gateway status not found")
 	}
 
 	// Extract listeners from status
-	listenersRaw, ok := status["listeners"].([]interface{})
+	listenersRaw, ok := status["listeners"].([]any)
 	if !ok || len(listenersRaw) == 0 {
-		return nil, fmt.Errorf("gateway has no listeners in status")
+		return nil, errors.New("gateway has no listeners in status")
 	}
 
-	var listeners []ListenerMetadata
+	listeners := make([]ListenerMetadata, 0, len(listenersRaw))
 	var primaryListener *ListenerMetadata
 
 	for _, l := range listenersRaw {
-		listener, ok := l.(map[string]interface{})
+		listener, ok := l.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -184,7 +185,7 @@ func (h *Handler) extractGatewayMetadata(ctx context.Context, gateway map[string
 	}
 
 	if primaryListener == nil {
-		return nil, fmt.Errorf("gateway has no ready listeners")
+		return nil, errors.New("gateway has no ready listeners")
 	}
 
 	// Try to find external hostname from OpenShift Route (preferred for external access)
@@ -197,8 +198,8 @@ func (h *Handler) extractGatewayMetadata(ctx context.Context, gateway map[string
 
 	// Fallback: try status.addresses
 	if externalHost == "" {
-		if addresses, ok := status["addresses"].([]interface{}); ok && len(addresses) > 0 {
-			if addr, ok := addresses[0].(map[string]interface{}); ok {
+		if addresses, ok := status["addresses"].([]any); ok && len(addresses) > 0 {
+			if addr, ok := addresses[0].(map[string]any); ok {
 				if value, ok := addr["value"].(string); ok {
 					externalHost = value
 				}
@@ -207,7 +208,7 @@ func (h *Handler) extractGatewayMetadata(ctx context.Context, gateway map[string
 	}
 
 	if externalHost == "" {
-		return nil, fmt.Errorf("could not determine external hostname from gateway")
+		return nil, errors.New("could not determine external hostname from gateway")
 	}
 
 	// Build external URL
@@ -260,12 +261,12 @@ func (h *Handler) findRouteHostname(ctx context.Context) string {
 	gatewayServiceName := fmt.Sprintf("%s-openshift-default", h.gatewayName)
 
 	for _, item := range routes.Items {
-		spec, ok := item.Object["spec"].(map[string]interface{})
+		spec, ok := item.Object["spec"].(map[string]any)
 		if !ok {
 			continue
 		}
 
-		to, ok := spec["to"].(map[string]interface{})
+		to, ok := spec["to"].(map[string]any)
 		if !ok {
 			continue
 		}
