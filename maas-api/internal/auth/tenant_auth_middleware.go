@@ -1,13 +1,12 @@
 package auth
 
 import (
-	"context"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	authv1 "k8s.io/api/authentication/v1"
-	authzv1 "k8s.io/api/authorization/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	authv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -16,12 +15,10 @@ import (
 
 // TenantAuthMiddleware validates bearer tokens via TokenReview and checks tenant access via SubjectAccessReview.
 // It verifies that the caller is a member of the system:authenticated group, which includes all authenticated users.
-func TenantAuthMiddleware(ctx context.Context, log *logger.Logger, kubeClient kubernetes.Interface) gin.HandlerFunc {
+func TenantAuthMiddleware(log *logger.Logger, kubeClient kubernetes.Interface) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Use the provided context for all operations
-		if ctx == nil {
-			ctx = c.Request.Context()
-		}
+		ctx := c.Request.Context()
+
 		// Step 1: Extract and validate bearer token
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
@@ -37,11 +34,11 @@ func TenantAuthMiddleware(ctx context.Context, log *logger.Logger, kubeClient ku
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 
 		// Step 2: Validate token via TokenReview and extract user identity
-		tr := &authv1.TokenReview{
-			Spec: authv1.TokenReviewSpec{Token: token},
+		tr := &authenticationv1.TokenReview{
+			Spec: authenticationv1.TokenReviewSpec{Token: token},
 		}
 		result, err := kubeClient.AuthenticationV1().TokenReviews().Create(
-			c.Request.Context(), tr, metav1.CreateOptions{},
+			ctx, tr, metav1.CreateOptions{},
 		)
 
 		if err != nil {
@@ -74,11 +71,11 @@ func TenantAuthMiddleware(ctx context.Context, log *logger.Logger, kubeClient ku
 		// This ensures the user has basic authenticated access to the cluster.
 		// We check this via SAR by verifying the user can perform a minimal operation
 		// that system:authenticated users can do (selfsubjectaccessreviews).
-		sar := &authzv1.SubjectAccessReview{
-			Spec: authzv1.SubjectAccessReviewSpec{
+		sar := &authv1.SubjectAccessReview{
+			Spec: authv1.SubjectAccessReviewSpec{
 				User:   username,
 				Groups: groups,
-				ResourceAttributes: &authzv1.ResourceAttributes{
+				ResourceAttributes: &authv1.ResourceAttributes{
 					Group:    "authorization.k8s.io",
 					Resource: "selfsubjectaccessreviews",
 					Verb:     "create",
@@ -87,7 +84,7 @@ func TenantAuthMiddleware(ctx context.Context, log *logger.Logger, kubeClient ku
 		}
 
 		sarResult, err := kubeClient.AuthorizationV1().SubjectAccessReviews().Create(
-			c.Request.Context(), sar, metav1.CreateOptions{},
+			ctx, sar, metav1.CreateOptions{},
 		)
 
 		if err != nil {

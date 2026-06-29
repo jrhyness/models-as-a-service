@@ -1,4 +1,4 @@
-package tenant
+package tenant // testpackage: tests access unexported extractGatewayMetadata method
 
 import (
 	"context"
