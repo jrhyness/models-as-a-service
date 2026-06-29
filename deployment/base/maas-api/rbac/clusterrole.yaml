@@ -42,6 +42,17 @@ rules:
   resources: ["httproutes"]
   verbs: ["get", "list", "watch"]
 
+# Gateways for /v1/tenant endpoint (gateway discovery)
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: ["gateways"]
+  verbs: ["get", "list"]
+
+# OpenShift Routes for /v1/tenant endpoint (external hostname discovery)
+# Routes are optional - endpoint will fall back to Gateway status if Routes don't exist
+- apiGroups: ["route.openshift.io"]
+  resources: ["routes"]
+  verbs: ["get", "list"]
+
 # Metrics and monitoring
 - apiGroups: [""]
   resources: ["pods", "services", "endpoints"]
