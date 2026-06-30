@@ -120,9 +120,8 @@ func (h *Handler) extractGatewayMetadata(ctx context.Context, gateway map[string
 	if !ok || len(listenersRaw) == 0 {
 		return nil, errors.New("gateway has no listeners in status")
 	}
-
 	// Find first ready listener (has attached routes)
-	var port int64 = 443 // default
+	var port int64 = 443   // default
 	var protocol = "HTTPS" // default
 	var hostname string
 
