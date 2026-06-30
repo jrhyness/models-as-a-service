@@ -243,6 +243,13 @@ func (h *llmisvcHandler) getEndpointFromLLMISvc(llmisvc *kservev1alpha1.LLMInfer
 			fallbackURL = addr.URL.String()
 		}
 	}
+	// Check Status.URL before falling back to base URL from Addresses
+	// Status.URL might have the full path even when Addresses[] only has base URLs
+	if llmisvc.Status.URL != nil {
+		if len(llmisvc.Status.URL.Path) > 1 && llmisvc.Status.URL.Path != "/" {
+			return llmisvc.Status.URL.String()
+		}
+	}
 	if fallbackURL != "" {
 		return fallbackURL
 	}
