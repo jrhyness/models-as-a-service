@@ -35,6 +35,7 @@ spec:
           - --infra-namespace=$(INFRA_NAMESPACE)
           - --maas-subscription-namespace=$(MAAS_SUBSCRIPTION_NAMESPACE)
           - --aitenant-namespace=$(AITENANT_NAMESPACE)
+          - --monitoring-namespace=$(MONITORING_NAMESPACE)
           - --enable-tenant-namespace-discovery
           - --metadata-cache-ttl=60
           - --authz-cache-ttl=60
@@ -71,6 +72,12 @@ spec:
             valueFrom:
               configMapKeyRef:
                 key: maas-api-key-cleanup-image
+                name: maas-parameters
+                optional: true
+          - name: MONITORING_NAMESPACE
+            valueFrom:
+              configMapKeyRef:
+                key: monitoring-namespace
                 name: maas-parameters
                 optional: true
         image: maas-controller
