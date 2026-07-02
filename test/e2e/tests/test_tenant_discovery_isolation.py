@@ -16,7 +16,7 @@ import json
 import os
 
 from conftest import TLS_VERIFY
-from test_helper import _get_cluster_token
+from test_helper import _get_cluster_token, MAAS_API_DEPLOYMENT_NAMESPACE
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +50,10 @@ def _kubectl_curl(url: str, headers: dict = None, namespace: str = "opendatahub"
             else:
                 log.error(f"Could not parse HTTP code from: {code_line}")
                 return 0, body.strip()
+        # No HTTP_CODE in output - kubectl run likely failed
+        log.error(f"kubectl run failed (returncode={result.returncode})")
+        log.error(f"stdout: {output[:500]}")
+        log.error(f"stderr: {result.stderr[:500]}")
         return 0, output
     except Exception as e:
         log.error(f"kubectl curl failed: {e}")
@@ -128,7 +132,7 @@ def test_tenant_discovery_same_tenant_access(tenant_service_urls, tenant_tokens)
 
         log.info(f"[isolation] Testing {tenant['name']} can access own endpoint")
 
-        status_code, body = _kubectl_curl(url, headers=headers, namespace=tenant['namespace'])
+        status_code, body = _kubectl_curl(url, headers=headers, namespace=MAAS_API_DEPLOYMENT_NAMESPACE)
 
         # Should succeed (200) with system:authenticated authorization
         assert status_code == 200, \
@@ -165,7 +169,7 @@ def test_tenant_discovery_cross_tenant_isolation(tenant_service_urls, tenant_tok
     url_a = f"{tenant_a['service_url']}/v1/tenants"
     headers = {"Authorization": f"Bearer {cluster_token}"}
 
-    status_a, body_a = _kubectl_curl(url_a, headers=headers, namespace=tenant_a['namespace'])
+    status_a, body_a = _kubectl_curl(url_a, headers=headers, namespace=MAAS_API_DEPLOYMENT_NAMESPACE)
 
     assert status_a == 200, f"Tenant A endpoint should return 200 (system:authenticated), got {status_a}"
     data_a = json.loads(body_a)
@@ -174,7 +178,7 @@ def test_tenant_discovery_cross_tenant_isolation(tenant_service_urls, tenant_tok
     # Test: Call tenant B's endpoint (same token - should also work)
     url_b = f"{tenant_b['service_url']}/v1/tenants"
 
-    status_b, body_b = _kubectl_curl(url_b, headers=headers, namespace=tenant_b['namespace'])
+    status_b, body_b = _kubectl_curl(url_b, headers=headers, namespace=MAAS_API_DEPLOYMENT_NAMESPACE)
 
     assert status_b == 200, f"Tenant B endpoint should return 200 (system:authenticated), got {status_b}"
     data_b = json.loads(body_b)
@@ -214,13 +218,13 @@ def test_tenant_discovery_unauthorized_access(tenant_service_urls):
         url = f"{tenant['service_url']}/v1/tenants"
 
         # Test 1: No auth header
-        status_code, _ = _kubectl_curl(url, namespace=tenant['namespace'])
+        status_code, _ = _kubectl_curl(url, namespace=MAAS_API_DEPLOYMENT_NAMESPACE)
         assert status_code == 401, \
             f"{tenant['name']} should reject no-auth request with 401, got {status_code}"
 
         # Test 2: Invalid token
         headers = {"Authorization": "Bearer invalid-token-12345"}
-        status_code, _ = _kubectl_curl(url, headers=headers, namespace=tenant['namespace'])
+        status_code, _ = _kubectl_curl(url, headers=headers, namespace=MAAS_API_DEPLOYMENT_NAMESPACE)
         assert status_code == 401, \
             f"{tenant['name']} should reject invalid token with 401, got {status_code}"
 
@@ -241,7 +245,7 @@ def test_tenant_discovery_each_tenant_returns_own_gateway(tenant_service_urls, t
         url = f"{tenant['service_url']}/v1/tenants"
         headers = {"Authorization": f"Bearer {cluster_token}"}
 
-        status_code, body = _kubectl_curl(url, headers=headers, namespace=tenant['namespace'])
+        status_code, body = _kubectl_curl(url, headers=headers, namespace=MAAS_API_DEPLOYMENT_NAMESPACE)
 
         # With system:authenticated authorization, 403 indicates auth/RBAC regression
         assert status_code == 200, \
