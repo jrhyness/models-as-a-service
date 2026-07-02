@@ -241,13 +241,13 @@ def test_tenant_discovery_each_tenant_returns_own_gateway(tenant_service_urls, t
         url = f"{tenant['service_url']}/v1/tenants"
         headers = {"Authorization": f"Bearer {cluster_token}"}
 
-        r = requests.get(url, headers=headers, timeout=10, verify=TLS_VERIFY)
+        status_code, body = _kubectl_curl(url, headers=headers, namespace=tenant['namespace'])
 
         # With system:authenticated authorization, 403 indicates auth/RBAC regression
-        assert r.status_code == 200, \
-            f"Expected 200 (system:authenticated), got {r.status_code}: {r.text[:400]}"
+        assert status_code == 200, \
+            f"Expected 200 (system:authenticated), got {status_code}: {body[:400]}"
 
-        data = r.json()
+        data = json.loads(body)
         tenant_data = data["tenants"][0]
 
         # The gateway name should match this tenant's gateway
