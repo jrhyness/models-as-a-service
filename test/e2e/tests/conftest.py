@@ -296,6 +296,7 @@ def shared_test_tenants(gateway_host: str, is_https: bool):
         bootstrap_aitenant_tenant,
         cleanup_discovery_case,
         wait_for_route_admitted,
+        wait_for_deployment_available,
     )
 
     require_aitenant_crd()
@@ -320,6 +321,10 @@ def shared_test_tenants(gateway_host: str, is_https: bool):
                     f"Route structure: {route}"
                 ) from e
             case["base_url"] = f"{scheme}://{host}/maas-api"
+
+            # Wait for maas-api deployment to be ready before tests run
+            deployment_name = f"maas-api-{case['tenant_label_name']}"
+            wait_for_deployment_available(deployment_name, namespace=case['tenant_ns'], timeout=180)
 
         # Add aliases to match test expectations while keeping cleanup helper keys intact.
         for case in (case_a, case_b):
