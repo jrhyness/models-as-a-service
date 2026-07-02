@@ -65,19 +65,20 @@ def tenant_service_urls(shared_test_tenants):
     """
     Get internal service URLs for each tenant's maas-api.
 
-    Each tenant has its own maas-api deployment in its own namespace.
+    Each tenant has its own maas-api deployment and service in MAAS_API_DEPLOYMENT_NAMESPACE.
     The /v1/tenants endpoint must be called via the Service (not Gateway).
     """
     tenant_a, tenant_b = shared_test_tenants
 
     # Construct internal service URLs
     # Format: https://{service-name}.{namespace}.svc.cluster.local:{port}
+    # AITenant maas-api services are deployed in MAAS_API_DEPLOYMENT_NAMESPACE (opendatahub),
+    # NOT in the tenant-specific namespace (ai-tenant-xxx)
     def service_url(tenant):
-        namespace = tenant["namespace"]
         # Service name follows pattern: maas-api-{tenant-name}
         service_name = f"maas-api-{tenant['name']}"
         port = "8443"  # HTTPS port - bearer tokens must not be sent over cleartext
-        return f"https://{service_name}.{namespace}.svc.cluster.local:{port}"
+        return f"https://{service_name}.{MAAS_API_DEPLOYMENT_NAMESPACE}.svc.cluster.local:{port}"
 
     return {
         "tenant_a": {
