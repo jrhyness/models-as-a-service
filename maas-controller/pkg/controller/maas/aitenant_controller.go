@@ -960,6 +960,29 @@ func objectKind(obj client.Object) string {
 	return strings.TrimPrefix(t, "*")
 }
 
+// isServiceNotFoundError returns true if the error indicates the maas-api service
+// is not reachable (DNS lookup failure or connection refused). This typically happens
+// when the service has been deleted before the finalizer runs.
+func isServiceNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	// DNS lookup failures
+	if strings.Contains(errStr, "no such host") {
+		return true
+	}
+	// Connection refused (service down)
+	if strings.Contains(errStr, "connection refused") {
+		return true
+	}
+	// Service unavailable
+	if strings.Contains(errStr, "service unavailable") {
+		return true
+	}
+	return false
+}
+
 func (r *AITenantReconciler) revokeAPIKeysForTenant(ctx context.Context, aitenant *maasv1alpha1.AITenant) error {
 	// Skip if HTTP client not configured (e.g., in tests)
 	if r.MaaSAPIClient == nil {
@@ -999,6 +1022,18 @@ func (r *AITenantReconciler) revokeAPIKeysForTenant(ctx context.Context, aitenan
 	})
 
 	if err != nil {
+		// If maas-api service is not found (DNS lookup failure or connection refused),
+		// the service has already been deleted as part of tenant cleanup. In this case,
+		// the keys are already inaccessible, so we can safely proceed with deletion.
+		// This prevents finalizers from blocking when cleanup happens in a different order.
+		log := ctrl.LoggerFrom(ctx)
+		if isServiceNotFoundError(err) {
+			log.Info("maas-api service not found during tenant deletion - keys already inaccessible",
+				"tenant", tenantID,
+				"maasAPIService", maasAPIServiceName,
+			)
+			return nil
+		}
 		return fmt.Errorf("failed to revoke API keys for tenant %s after retries: %w", tenantID, err)
 	}
 

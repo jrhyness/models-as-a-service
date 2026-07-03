@@ -1344,6 +1344,18 @@ func (r *MaaSSubscriptionReconciler) revokeAPIKeysForSubscription(ctx context.Co
 	})
 
 	if err != nil {
+		// If maas-api service is not found (DNS lookup failure or connection refused),
+		// the service has already been deleted. In this case, the keys are already
+		// inaccessible, so we can safely proceed with deletion.
+		log := ctrl.LoggerFrom(ctx)
+		if isServiceNotFoundError(err) {
+			log.Info("maas-api service not found during subscription deletion - keys already inaccessible",
+				"subscription", subscription.Name,
+				"tenant", tenant,
+				"maasAPIService", maasAPIServiceName,
+			)
+			return nil
+		}
 		return fmt.Errorf("failed to revoke API keys for subscription %s after retries: %w", subscription.Name, err)
 	}
 
