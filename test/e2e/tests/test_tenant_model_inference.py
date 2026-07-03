@@ -328,6 +328,11 @@ class TestTenantModelInference:
             assert r.status_code in (200, 201), f"Failed to create key: {r.status_code}"
             orphaned_key = r.json()["key"]
 
+            # Verify key works BEFORE deletion
+            validate_url = f"{gateway_url}/maas-api/v1/api-keys/validate"
+            r = requests.post(validate_url, headers={"X-API-Key": orphaned_key}, timeout=45, verify=TLS_VERIFY)
+            assert r.status_code == 200, f"Key should work before deletion, but got {r.status_code}"
+
             # Step 3: Delete AITenant (this should revoke the key)
             cleanup_discovery_case(case)
             wait_for_not_found(AITENANT_KIND, case["tenant_label_name"], AITENANT_NAMESPACE, timeout=300)

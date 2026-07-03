@@ -41,7 +41,10 @@ class TestSubscriptionDeletionRevokesKeys:
                     "apiVersion": "maas.opendatahub.io/v1alpha1",
                     "kind": "MaaSSubscription",
                     "metadata": {"name": sub_name, "namespace": MODEL_NAMESPACE},
-                    "spec": {"allowedUsers": ["*"], "priority": 5},
+                    "spec": {
+                        "owner": {"groups": [{"name": "system:authenticated"}]},
+                        "modelRefs": [],  # No model refs needed - just testing key revocation
+                    },
                 })
             log.info(f"Created subscriptions {sub_a_name}, {sub_b_name}")
             _wait_reconcile()
@@ -117,7 +120,10 @@ class TestSubscriptionDeletionRevokesKeys:
                 "apiVersion": "maas.opendatahub.io/v1alpha1",
                 "kind": "MaaSSubscription",
                 "metadata": {"name": sub_name, "namespace": MODEL_NAMESPACE},
-                "spec": {"allowedUsers": ["*"], "priority": 5},
+                "spec": {
+                    "owner": {"groups": [{"name": "system:authenticated"}]},
+                    "modelRefs": [],  # No model refs needed - just testing deletion
+                },
             })
             _wait_reconcile()
 
@@ -129,6 +135,6 @@ class TestSubscriptionDeletionRevokesKeys:
             log.error(f"Deletion failed: {e}")
             try:
                 _delete_cr("maassubscription", sub_name, namespace=MODEL_NAMESPACE)
-            except:
-                pass
+            except Exception as cleanup_err:
+                log.error(f"Cleanup failed for subscription {sub_name}: {cleanup_err}")
             raise
