@@ -40,6 +40,13 @@ type Service struct {
 	// Prevents Postgres row-lock storms when many requests share one key.
 	lastUsedDebounce    sync.Map
 	lastUsedDebounceTTL time.Duration
+
+	// deletingTenants tracks tenants being deleted to prevent new API key creation.
+	// Maps tenant name (string) → struct{} for membership check.
+	// Set at the start of RevokeAllForTenant to block CreateAPIKey during deletion.
+	// Note: We only track tenant deletions, not subscription deletions. The subscription
+	// deletion race window is very small and low-impact (orphaned key for a deleted subscription).
+	deletingTenants sync.Map
 }
 
 func (s *Service) GetMaxExpirationDays() int {
@@ -98,6 +105,12 @@ func (s *Service) CreateAPIKey(
 	ctx context.Context, username string, userGroups []string, name, description string,
 	expiresIn *time.Duration, ephemeral bool, requestedSubscription string, tenant string,
 ) (*CreateAPIKeyResponse, error) {
+	// Check if tenant is being deleted - block new key creation
+	// Tenant deletion is permanent (maas-api deployment will be deleted), so we never clear this.
+	if _, deleting := s.deletingTenants.Load(tenant); deleting {
+		return nil, fmt.Errorf("cannot create API keys - tenant %q is being deleted", tenant)
+	}
+
 	// Validate group names against allowlist pattern (CWE-116/CWE-74 mitigation).
 	// AuthPolicy uses CEL to build JSON arrays from groups, and CEL lacks JSON escaping
 	// functions, so we reject any characters outside the safe allowlist on write.
@@ -337,6 +350,41 @@ func (s *Service) BulkRevokeAPIKeys(ctx context.Context, username string, tenant
 		return 0, errors.New("username is required")
 	}
 	return s.store.InvalidateAll(ctx, username, tenant)
+}
+
+// RevokeAllForTenant revokes all active API keys for a tenant.
+// Marks the tenant as deleting FIRST to prevent new key creation during revocation.
+// Returns count of revoked keys.
+func (s *Service) RevokeAllForTenant(ctx context.Context, tenant string) (int, error) {
+	// Mark tenant as deleting to block new key creation
+	s.deletingTenants.Store(tenant, struct{}{})
+
+	// Revoke all keys
+	count, err := s.store.RevokeAllForTenant(ctx, tenant)
+
+	// Note: We intentionally do NOT remove from deletingTenants on success.
+	// The tenant is being deleted, so the maas-api deployment will be torn down shortly.
+	// Leaving it marked prevents any last-second key creation attempts.
+	// On error, we also leave it marked - the controller will retry, and we don't want
+	// keys created between failed attempts.
+
+	return count, err
+}
+
+// RevokeAllForSubscription revokes all active API keys for a subscription.
+// Marks the subscription as deleting FIRST to prevent new key creation during revocation.
+// Returns count of revoked keys.
+func (s *Service) RevokeAllForSubscription(ctx context.Context, subscription string, tenant string) (int, error) {
+	if subscription == "" {
+		return 0, errors.New("subscription name is required")
+	}
+
+	// Revoke all keys for this subscription (soft delete)
+	// Note: We don't block new key creation during subscription deletion because:
+	// 1. The race window is very small (seconds between revocation and CR deletion)
+	// 2. subscription.Select() will fail once the CR is deleted, preventing orphaned keys
+	// 3. Avoiding in-memory tracking complexity (no cleanup needed)
+	return s.store.RevokeAllForSubscription(ctx, subscription, tenant)
 }
 
 // StartDebounceCleanup starts a background goroutine that periodically evicts

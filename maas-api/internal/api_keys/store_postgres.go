@@ -522,6 +522,64 @@ func (s *PostgresStore) DeleteExpiredEphemeral(ctx context.Context) (int64, erro
 	return rows, nil
 }
 
+// RevokeAllForTenant revokes all active keys for a tenant.
+// This is a soft delete (status='revoked') per ADR-MS-0003, matching existing Revoke() behavior.
+// Returns the count of keys that were revoked.
+func (s *PostgresStore) RevokeAllForTenant(ctx context.Context, tenant string) (int, error) {
+	// Enforce tenant isolation - only revoke keys for store's scoped tenant
+	if tenant != s.tenantName {
+		return 0, fmt.Errorf("tenant mismatch: attempted to revoke keys for %q but store is scoped to %q", tenant, s.tenantName)
+	}
+
+	query := `UPDATE api_keys SET status = 'revoked' WHERE tenant = $1 AND status = 'active'`
+	result, err := s.db.ExecContext(ctx, query, s.tenantName)
+	if err != nil {
+		return 0, fmt.Errorf("failed to revoke keys for tenant: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get affected rows: %w", err)
+	}
+
+	count := int(rows)
+	if count > 0 {
+		s.logger.Info("Revoked all API keys for tenant", "count", count, "tenant", tenant)
+	}
+	return count, nil
+}
+
+// RevokeAllForSubscription revokes all active keys for a subscription within a tenant.
+// This is a soft delete (status='revoked') per ADR-MS-0003, matching existing Revoke() behavior.
+// Returns the count of keys that were revoked.
+func (s *PostgresStore) RevokeAllForSubscription(ctx context.Context, subscription string, tenant string) (int, error) {
+	// Enforce tenant isolation
+	if tenant != s.tenantName {
+		return 0, fmt.Errorf("tenant mismatch: attempted to revoke keys for tenant %q but store is scoped to %q", tenant, s.tenantName)
+	}
+
+	query := `UPDATE api_keys SET status = 'revoked'
+              WHERE subscription = $1 AND tenant = $2 AND status = 'active'`
+	result, err := s.db.ExecContext(ctx, query, subscription, s.tenantName)
+	if err != nil {
+		return 0, fmt.Errorf("failed to revoke keys for subscription: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get affected rows: %w", err)
+	}
+
+	count := int(rows)
+	if count > 0 {
+		s.logger.Info("Revoked all API keys for subscription",
+			"count", count,
+			"subscription", subscription,
+			"tenant", tenant)
+	}
+	return count, nil
+}
+
 // Close closes the database connection.
 // This should be called during graceful shutdown to prevent connection leaks.
 func (s *PostgresStore) Close() error {

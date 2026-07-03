@@ -2212,3 +2212,200 @@ func TestCreateAPIKey_NameValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestRevokeForTenantHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := NewMockStore()
+	cfg := &config.Config{}
+	service := NewServiceWithLogger(store, cfg, fixedSubSelector{}, logger.Development())
+	handler := NewHandler(logger.Development(), service, newMockAdminChecker())
+
+	ctx := context.Background()
+
+	// Add keys for tenant-a
+	err := store.AddKey(ctx, "alice", "key-tenant-a-1", "hash-a1", "Alice Key", "", []string{"users"}, testSubscriptionName, "tenant-a", nil, false)
+	require.NoError(t, err)
+	err = store.AddKey(ctx, "bob", "key-tenant-a-2", "hash-a2", "Bob Key", "", []string{"users"}, testSubscriptionName, "tenant-a", nil, false)
+	require.NoError(t, err)
+
+	// Add key for tenant-b (should not be affected)
+	err = store.AddKey(ctx, "charlie", "key-tenant-b-1", "hash-b1", "Charlie Key", "", []string{"users"}, testSubscriptionName, "tenant-b", nil, false)
+	require.NoError(t, err)
+
+	t.Run("RevokeForTenant_Success", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		requestBody := `{"tenant": "tenant-a"}`
+		c.Request = httptest.NewRequest(http.MethodPost, "/internal/v1/api-keys/revoke-for-tenant", strings.NewReader(requestBody))
+		c.Request.Header.Set("Content-Type", "application/json")
+
+		handler.RevokeForTenantHandler(c)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var response RevokeResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Equal(t, 2, response.RevokedCount, "should revoke 2 keys for tenant-a")
+		assert.Contains(t, response.Message, "tenant-a")
+
+		// Verify tenant-a keys are revoked
+		_, err = store.GetByHash(ctx, "hash-a1")
+		require.ErrorIs(t, err, ErrInvalidKey)
+		_, err = store.GetByHash(ctx, "hash-a2")
+		require.ErrorIs(t, err, ErrInvalidKey)
+
+		// Verify tenant-b key is still active
+		key, err := store.GetByHash(ctx, "hash-b1")
+		require.NoError(t, err)
+		assert.Equal(t, "Charlie Key", key.Name)
+	})
+
+	t.Run("RevokeForTenant_NoKeys", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		requestBody := `{"tenant": "tenant-c"}`
+		c.Request = httptest.NewRequest(http.MethodPost, "/internal/v1/api-keys/revoke-for-tenant", strings.NewReader(requestBody))
+		c.Request.Header.Set("Content-Type", "application/json")
+
+		handler.RevokeForTenantHandler(c)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var response RevokeResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Equal(t, 0, response.RevokedCount, "should return 0 for tenant with no keys")
+	})
+
+	t.Run("RevokeForTenant_MissingTenant", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		requestBody := `{}`
+		c.Request = httptest.NewRequest(http.MethodPost, "/internal/v1/api-keys/revoke-for-tenant", strings.NewReader(requestBody))
+		c.Request.Header.Set("Content-Type", "application/json")
+
+		handler.RevokeForTenantHandler(c)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("RevokeForTenant_InvalidJSON", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		requestBody := `{"tenant": }`
+		c.Request = httptest.NewRequest(http.MethodPost, "/internal/v1/api-keys/revoke-for-tenant", strings.NewReader(requestBody))
+		c.Request.Header.Set("Content-Type", "application/json")
+
+		handler.RevokeForTenantHandler(c)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+}
+
+func TestRevokeForSubscriptionHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := NewMockStore()
+	cfg := &config.Config{}
+	service := NewServiceWithLogger(store, cfg, fixedSubSelector{}, logger.Development())
+	handler := NewHandler(logger.Development(), service, newMockAdminChecker())
+
+	ctx := context.Background()
+
+	// Add keys for sub-1 in tenant-a
+	err := store.AddKey(ctx, "alice", "key-sub1-1", "hash-s1-1", "Alice Sub1 Key", "", []string{"users"}, "sub-1", "tenant-a", nil, false)
+	require.NoError(t, err)
+	err = store.AddKey(ctx, "bob", "key-sub1-2", "hash-s1-2", "Bob Sub1 Key", "", []string{"users"}, "sub-1", "tenant-a", nil, false)
+	require.NoError(t, err)
+
+	// Add key for sub-2 in tenant-a (should not be affected)
+	err = store.AddKey(ctx, "alice", "key-sub2-1", "hash-s2-1", "Alice Sub2 Key", "", []string{"users"}, "sub-2", "tenant-a", nil, false)
+	require.NoError(t, err)
+
+	// Add key for sub-1 in tenant-b (should not be affected)
+	err = store.AddKey(ctx, "charlie", "key-sub1-b", "hash-s1-b", "Charlie Sub1 Key", "", []string{"users"}, "sub-1", "tenant-b", nil, false)
+	require.NoError(t, err)
+
+	t.Run("RevokeForSubscription_Success", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		requestBody := `{"subscription": "sub-1", "tenant": "tenant-a"}`
+		c.Request = httptest.NewRequest(http.MethodPost, "/internal/v1/api-keys/revoke-for-subscription", strings.NewReader(requestBody))
+		c.Request.Header.Set("Content-Type", "application/json")
+
+		handler.RevokeForSubscriptionHandler(c)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var response RevokeResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Equal(t, 2, response.RevokedCount, "should revoke 2 keys for sub-1 in tenant-a")
+		assert.Contains(t, response.Message, "sub-1")
+
+		// Verify sub-1 keys in tenant-a are revoked
+		_, err = store.GetByHash(ctx, "hash-s1-1")
+		require.ErrorIs(t, err, ErrInvalidKey)
+		_, err = store.GetByHash(ctx, "hash-s1-2")
+		require.ErrorIs(t, err, ErrInvalidKey)
+
+		// Verify sub-2 key in tenant-a is still active
+		key, err := store.GetByHash(ctx, "hash-s2-1")
+		require.NoError(t, err)
+		assert.Equal(t, "Alice Sub2 Key", key.Name)
+
+		// Verify sub-1 key in tenant-b is still active
+		key, err = store.GetByHash(ctx, "hash-s1-b")
+		require.NoError(t, err)
+		assert.Equal(t, "Charlie Sub1 Key", key.Name)
+	})
+
+	t.Run("RevokeForSubscription_NoKeys", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		requestBody := `{"subscription": "sub-99", "tenant": "tenant-a"}`
+		c.Request = httptest.NewRequest(http.MethodPost, "/internal/v1/api-keys/revoke-for-subscription", strings.NewReader(requestBody))
+		c.Request.Header.Set("Content-Type", "application/json")
+
+		handler.RevokeForSubscriptionHandler(c)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var response RevokeResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Equal(t, 0, response.RevokedCount, "should return 0 for subscription with no keys")
+	})
+
+	t.Run("RevokeForSubscription_MissingFields", func(t *testing.T) {
+		testCases := []struct {
+			name string
+			body string
+		}{
+			{"missing subscription", `{"tenant": "tenant-a"}`},
+			{"missing tenant", `{"subscription": "sub-1"}`},
+			{"empty body", `{}`},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				w := httptest.NewRecorder()
+				c, _ := gin.CreateTestContext(w)
+				c.Request = httptest.NewRequest(http.MethodPost, "/internal/v1/api-keys/revoke-for-subscription", strings.NewReader(tc.body))
+				c.Request.Header.Set("Content-Type", "application/json")
+
+				handler.RevokeForSubscriptionHandler(c)
+
+				assert.Equal(t, http.StatusBadRequest, w.Code)
+			})
+		}
+	})
+
+	t.Run("RevokeForSubscription_InvalidJSON", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		requestBody := `{"subscription": "sub-1", "tenant": }`
+		c.Request = httptest.NewRequest(http.MethodPost, "/internal/v1/api-keys/revoke-for-subscription", strings.NewReader(requestBody))
+		c.Request.Header.Set("Content-Type", "application/json")
+
+		handler.RevokeForSubscriptionHandler(c)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+}

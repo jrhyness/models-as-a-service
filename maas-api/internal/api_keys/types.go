@@ -166,3 +166,24 @@ type CleanupResponse struct {
 	DeletedCount int64  `json:"deletedCount"`
 	Message      string `json:"message"`
 }
+
+// ============================================================
+// INTERNAL REVOCATION TYPES
+// ============================================================
+
+// RevokeForTenantRequest for POST /internal/v1/api-keys/revoke-for-tenant.
+type RevokeForTenantRequest struct {
+	Tenant string `json:"tenant" binding:"required"`
+}
+
+// RevokeForSubscriptionRequest for POST /internal/v1/api-keys/revoke-for-subscription.
+type RevokeForSubscriptionRequest struct {
+	Subscription string `json:"subscription" binding:"required"`
+	Tenant       string `json:"tenant" binding:"required"`
+}
+
+// RevokeResponse is the HTTP response for internal revocation endpoints.
+type RevokeResponse struct {
+	RevokedCount int    `json:"revokedCount"`
+	Message      string `json:"message"`
+}

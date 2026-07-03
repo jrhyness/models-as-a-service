@@ -41,6 +41,7 @@ import (
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	maasv1alpha1 "github.com/opendatahub-io/models-as-a-service/maas-controller/api/maas/v1alpha1"
+	"github.com/opendatahub-io/models-as-a-service/maas-controller/pkg/httpclient"
 	"github.com/opendatahub-io/models-as-a-service/maas-controller/pkg/platform/tenantreconcile"
 )
 
@@ -75,6 +76,8 @@ type AITenantReconciler struct {
 	AITenantNamespace string
 	// GatewayNamespace is where tenant Gateway resources are expected to exist.
 	GatewayNamespace string
+	// MaaSAPIClient is used to call maas-api internal endpoints for API key revocation.
+	MaaSAPIClient *httpclient.Client
 }
 
 // +kubebuilder:rbac:groups=maas.opendatahub.io,resources=aitenants,verbs=get;list;watch;create;update;patch;delete
@@ -474,6 +477,13 @@ func (r *AITenantReconciler) reconcileAITenantDelete(ctx context.Context, aitena
 
 func (r *AITenantReconciler) deleteAITenantChildren(ctx context.Context, aitenant *maasv1alpha1.AITenant) error {
 	tenantNamespace := r.tenantNamespaceName(aitenant)
+
+	// Step 1: Revoke API keys FIRST (soft delete per ADR-MS-0003)
+	if err := r.revokeAPIKeysForTenant(ctx, aitenant); err != nil {
+		return fmt.Errorf("failed to revoke API keys for tenant: %w", err)
+	}
+
+	// Step 2: Existing cleanup (gateway claim, Tenant CR, RBAC, etc.)
 	if err := r.deleteGatewayClaim(ctx, aitenant); err != nil {
 		return err
 	}
@@ -948,4 +958,56 @@ func objectKind(obj client.Object) string {
 		return strings.TrimPrefix(t[i+1:], "*")
 	}
 	return strings.TrimPrefix(t, "*")
+}
+
+func (r *AITenantReconciler) revokeAPIKeysForTenant(ctx context.Context, aitenant *maasv1alpha1.AITenant) error {
+	// Skip if HTTP client not configured (e.g., in tests)
+	if r.MaaSAPIClient == nil {
+		log := ctrl.LoggerFrom(ctx)
+		log.V(1).Info("Skipping API key revocation - MaaSAPIClient not configured", "tenant", aitenant.Name)
+		return nil
+	}
+
+	tenantID := aitenant.Name
+
+	// Determine the correct maas-api service name (per-tenant or default)
+	var maasAPIServiceName string
+	if tenantID == "models-as-a-service" {
+		maasAPIServiceName = "maas-api"
+	} else {
+		maasAPIServiceName = fmt.Sprintf("maas-api-%s", tenantID)
+	}
+
+	// Call internal endpoint (network-restricted, no auth required)
+	maasAPIURL := fmt.Sprintf("https://%s.%s.svc.cluster.local:8443/internal/v1/api-keys/revoke-for-tenant",
+		maasAPIServiceName, r.TenantNamespace)
+
+	reqBody := map[string]string{
+		"tenant": tenantID,
+	}
+
+	var respBody struct {
+		RevokedCount int    `json:"revokedCount"`
+		Message      string `json:"message"`
+	}
+
+	// Call maas-api with retry (3 attempts, exponential backoff)
+	err := httpclient.WithRetry(ctx, httpclient.DefaultRetryConfig(), func() error {
+		return r.MaaSAPIClient.PostAndReadJSON(ctx, maasAPIURL, reqBody, &respBody)
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to revoke API keys for tenant %s after retries: %w", tenantID, err)
+	}
+
+	// Audit logging
+	log := ctrl.LoggerFrom(ctx)
+	log.Info("Revoked API keys for tenant deletion",
+		"tenant", tenantID,
+		"maasAPIService", maasAPIServiceName,
+		"revokedCount", respBody.RevokedCount,
+		"initiator", "AITenant controller finalizer",
+	)
+
+	return nil
 }

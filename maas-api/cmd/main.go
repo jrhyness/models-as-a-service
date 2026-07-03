@@ -230,10 +230,12 @@ func registerHandlers(ctx context.Context, log *logger.Logger, router *gin.Engin
 	apiKeyRoutes.GET("/:id", apiKeyHandler.GetAPIKey)                  // Get specific key
 	apiKeyRoutes.DELETE("/:id", apiKeyHandler.RevokeAPIKey)            // Revoke specific key
 
-	// Internal routes (no auth required - called by Authorino / CronJob)
+	// Internal routes (no auth required - called by Authorino / CronJob / Controllers)
 	internalRoutes := router.Group("/internal/v1")
 	internalRoutes.POST("/api-keys/validate", apiKeyHandler.ValidateAPIKeyHandler)
 	internalRoutes.POST("/api-keys/cleanup", apiKeyHandler.CleanupExpiredEphemeralKeys)
+	internalRoutes.POST("/api-keys/revoke-for-tenant", apiKeyHandler.RevokeForTenantHandler)
+	internalRoutes.POST("/api-keys/revoke-for-subscription", apiKeyHandler.RevokeForSubscriptionHandler)
 	internalRoutes.POST("/subscriptions/select", subscriptionHandler.SelectSubscription)
 
 	return nil

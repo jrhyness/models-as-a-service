@@ -525,6 +525,68 @@ func (h *Handler) CleanupExpiredEphemeralKeys(c *gin.Context) {
 	})
 }
 
+// RevokeForTenantHandler handles POST /internal/v1/api-keys/revoke-for-tenant
+// Revokes all API keys for a tenant (called by AITenant controller finalizer).
+// Access is restricted at the network level via NetworkPolicy.
+func (h *Handler) RevokeForTenantHandler(c *gin.Context) {
+	var req RevokeForTenantRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	count, err := h.service.RevokeAllForTenant(c.Request.Context(), req.Tenant)
+	if err != nil {
+		h.logger.Error("Failed to revoke API keys for tenant", "error", err, "tenant", req.Tenant)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	h.logger.Info("Revoked API keys for tenant deletion",
+		"tenant", req.Tenant,
+		"revokedCount", count,
+		"initiator", "controller",
+	)
+
+	c.JSON(http.StatusOK, RevokeResponse{
+		RevokedCount: count,
+		Message:      fmt.Sprintf("Revoked %d API keys for tenant %s", count, req.Tenant),
+	})
+}
+
+// RevokeForSubscriptionHandler handles POST /internal/v1/api-keys/revoke-for-subscription
+// Revokes all API keys for a subscription (called by MaaSSubscription controller finalizer).
+// Access is restricted at the network level via NetworkPolicy.
+func (h *Handler) RevokeForSubscriptionHandler(c *gin.Context) {
+	var req RevokeForSubscriptionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	count, err := h.service.RevokeAllForSubscription(c.Request.Context(), req.Subscription, req.Tenant)
+	if err != nil {
+		h.logger.Error("Failed to revoke API keys for subscription",
+			"error", err,
+			"subscription", req.Subscription,
+			"tenant", req.Tenant)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	h.logger.Info("Revoked API keys for subscription deletion",
+		"subscription", req.Subscription,
+		"tenant", req.Tenant,
+		"revokedCount", count,
+		"initiator", "controller",
+	)
+
+	c.JSON(http.StatusOK, RevokeResponse{
+		RevokedCount: count,
+		Message:      fmt.Sprintf("Revoked %d API keys for subscription %s", count, req.Subscription),
+	})
+}
+
 // BulkRevokeAPIKeys handles POST /v1/api-keys/bulk-revoke
 // Revokes all active API keys for a specific user.
 func (h *Handler) BulkRevokeAPIKeys(c *gin.Context) {

@@ -1254,3 +1254,64 @@ func TestCreateAPIKey_GroupNameValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestRevokeAllForTenant_BlocksNewKeys(t *testing.T) {
+	ctx := context.Background()
+	store := api_keys.NewMockStore()
+	defer store.Close()
+
+	cfg := &config.Config{}
+	selector := serviceTestSubSelector{}
+	svc := api_keys.NewServiceWithLogger(store, cfg, selector, logger.Development())
+
+	// Create an initial key for tenant-a
+	_, err := svc.CreateAPIKey(ctx, "alice", []string{"users"}, "test-key", "", nil, false, "", "tenant-a")
+	require.NoError(t, err)
+
+	t.Run("BlocksNewKeysAfterRevocation", func(t *testing.T) {
+		// Revoke all keys for tenant-a (marks tenant as deleting)
+		count, err := svc.RevokeAllForTenant(ctx, "tenant-a")
+		require.NoError(t, err)
+		assert.Equal(t, 1, count, "should revoke 1 key")
+
+		// Attempt to create a new key for tenant-a should fail
+		_, err = svc.CreateAPIKey(ctx, "bob", []string{"users"}, "blocked-key", "", nil, false, "", "tenant-a")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "tenant \"tenant-a\" is being deleted", "should block new key creation")
+	})
+
+	t.Run("OtherTenantsUnaffected", func(t *testing.T) {
+		// tenant-a is marked as deleting, but tenant-b should work fine
+		_, err := svc.CreateAPIKey(ctx, "charlie", []string{"users"}, "tenant-b-key", "", nil, false, "", "tenant-b")
+		require.NoError(t, err, "tenant-b should not be affected by tenant-a deletion")
+	})
+}
+
+func TestRevokeAllForSubscription_NoBlocking(t *testing.T) {
+	ctx := context.Background()
+	store := api_keys.NewMockStore()
+	defer store.Close()
+
+	cfg := &config.Config{}
+	selector := serviceTestSubSelector{}
+	svc := api_keys.NewServiceWithLogger(store, cfg, selector, logger.Development())
+
+	// Create keys for sub-1
+	_, err := svc.CreateAPIKey(ctx, "alice", []string{"users"}, "test-key-1", "", nil, false, "sub-1", "tenant-a")
+	require.NoError(t, err)
+	_, err = svc.CreateAPIKey(ctx, "bob", []string{"users"}, "test-key-2", "", nil, false, "sub-1", "tenant-a")
+	require.NoError(t, err)
+
+	t.Run("RevokeAllForSubscription_Success", func(t *testing.T) {
+		count, err := svc.RevokeAllForSubscription(ctx, "sub-1", "tenant-a")
+		require.NoError(t, err)
+		assert.Equal(t, 2, count, "should revoke 2 keys")
+	})
+
+	t.Run("NoBlockingAfterSubscriptionRevocation", func(t *testing.T) {
+		// Subscription revocation does NOT block new keys (small race window acceptable)
+		// subscription.Select() will fail if subscription is truly deleted
+		_, err := svc.CreateAPIKey(ctx, "charlie", []string{"users"}, "new-key", "", nil, false, "sub-1", "tenant-a")
+		require.NoError(t, err, "subscription deletion should not block new keys (Select() is authoritative)")
+	})
+}

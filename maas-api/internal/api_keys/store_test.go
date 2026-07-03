@@ -58,6 +58,107 @@ func TestPostgresStoreFromURL(t *testing.T) {
 	})
 }
 
+func TestRevokeAllForTenant(t *testing.T) {
+	ctx := t.Context()
+	store := createTestStore(t)
+	defer store.Close()
+
+	// Add keys for tenant-a
+	err := store.AddKey(ctx, "alice", "key-tenant-a-1", "hash-a1", "Alice Key 1", "", []string{"users"}, "sub-a", "tenant-a", nil, false)
+	require.NoError(t, err)
+	err = store.AddKey(ctx, "bob", "key-tenant-a-2", "hash-a2", "Bob Key 1", "", []string{"users"}, "sub-a", "tenant-a", nil, false)
+	require.NoError(t, err)
+
+	// Add keys for tenant-b (should not be affected)
+	err = store.AddKey(ctx, "charlie", "key-tenant-b-1", "hash-b1", "Charlie Key 1", "", []string{"users"}, "sub-b", "tenant-b", nil, false)
+	require.NoError(t, err)
+
+	t.Run("RevokeAllForTenant_Success", func(t *testing.T) {
+		count, err := store.RevokeAllForTenant(ctx, "tenant-a")
+		require.NoError(t, err)
+		assert.Equal(t, 2, count, "should revoke 2 keys for tenant-a")
+
+		// Verify tenant-a keys are revoked
+		_, err = store.GetByHash(ctx, "hash-a1")
+		require.ErrorIs(t, err, api_keys.ErrInvalidKey, "tenant-a key should be revoked")
+		_, err = store.GetByHash(ctx, "hash-a2")
+		require.ErrorIs(t, err, api_keys.ErrInvalidKey, "tenant-a key should be revoked")
+
+		// Verify tenant-b key is still active
+		key, err := store.GetByHash(ctx, "hash-b1")
+		require.NoError(t, err)
+		assert.Equal(t, "Charlie Key 1", key.Name, "tenant-b key should still be active")
+	})
+
+	t.Run("RevokeAllForTenant_NoKeys", func(t *testing.T) {
+		count, err := store.RevokeAllForTenant(ctx, "tenant-c")
+		require.NoError(t, err)
+		assert.Equal(t, 0, count, "should return 0 when no keys exist for tenant")
+	})
+
+	t.Run("RevokeAllForTenant_AlreadyRevoked", func(t *testing.T) {
+		// tenant-a keys already revoked above
+		count, err := store.RevokeAllForTenant(ctx, "tenant-a")
+		require.NoError(t, err)
+		assert.Equal(t, 0, count, "should return 0 when all keys already revoked")
+	})
+}
+
+func TestRevokeAllForSubscription(t *testing.T) {
+	ctx := t.Context()
+	store := createTestStore(t)
+	defer store.Close()
+
+	// Add keys for sub-1 in tenant-a
+	err := store.AddKey(ctx, "alice", "key-sub1-1", "hash-s1-1", "Alice Sub1 Key", "", []string{"users"}, "sub-1", "tenant-a", nil, false)
+	require.NoError(t, err)
+	err = store.AddKey(ctx, "bob", "key-sub1-2", "hash-s1-2", "Bob Sub1 Key", "", []string{"users"}, "sub-1", "tenant-a", nil, false)
+	require.NoError(t, err)
+
+	// Add key for sub-2 in tenant-a (should not be affected)
+	err = store.AddKey(ctx, "alice", "key-sub2-1", "hash-s2-1", "Alice Sub2 Key", "", []string{"users"}, "sub-2", "tenant-a", nil, false)
+	require.NoError(t, err)
+
+	// Add key for sub-1 in tenant-b (should not be affected - different tenant)
+	err = store.AddKey(ctx, "charlie", "key-sub1-tenant-b", "hash-s1-b", "Charlie Sub1 Key", "", []string{"users"}, "sub-1", "tenant-b", nil, false)
+	require.NoError(t, err)
+
+	t.Run("RevokeAllForSubscription_Success", func(t *testing.T) {
+		count, err := store.RevokeAllForSubscription(ctx, "sub-1", "tenant-a")
+		require.NoError(t, err)
+		assert.Equal(t, 2, count, "should revoke 2 keys for sub-1 in tenant-a")
+
+		// Verify sub-1 keys in tenant-a are revoked
+		_, err = store.GetByHash(ctx, "hash-s1-1")
+		require.ErrorIs(t, err, api_keys.ErrInvalidKey, "sub-1 key should be revoked")
+		_, err = store.GetByHash(ctx, "hash-s1-2")
+		require.ErrorIs(t, err, api_keys.ErrInvalidKey, "sub-1 key should be revoked")
+
+		// Verify sub-2 key in tenant-a is still active
+		key, err := store.GetByHash(ctx, "hash-s2-1")
+		require.NoError(t, err)
+		assert.Equal(t, "Alice Sub2 Key", key.Name, "sub-2 key should still be active")
+
+		// Verify sub-1 key in tenant-b is still active
+		key, err = store.GetByHash(ctx, "hash-s1-b")
+		require.NoError(t, err)
+		assert.Equal(t, "Charlie Sub1 Key", key.Name, "sub-1 key in tenant-b should still be active")
+	})
+
+	t.Run("RevokeAllForSubscription_NoKeys", func(t *testing.T) {
+		count, err := store.RevokeAllForSubscription(ctx, "sub-99", "tenant-a")
+		require.NoError(t, err)
+		assert.Equal(t, 0, count, "should return 0 when no keys exist for subscription")
+	})
+
+	t.Run("RevokeAllForSubscription_AlreadyRevoked", func(t *testing.T) {
+		// sub-1 keys already revoked above
+		count, err := store.RevokeAllForSubscription(ctx, "sub-1", "tenant-a")
+		require.NoError(t, err)
+		assert.Equal(t, 0, count, "should return 0 when all keys already revoked")
+	})
+}
+
 func TestAPIKeyOperations(t *testing.T) {
 	ctx := t.Context()
 	store := createTestStore(t)

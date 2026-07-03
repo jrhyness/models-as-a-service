@@ -86,5 +86,13 @@ type MetadataStore interface {
 	// Returns the count of deleted keys.
 	DeleteExpiredEphemeral(ctx context.Context) (int64, error)
 
+	// RevokeAllForTenant revokes all active API keys for a tenant (soft delete with status='revoked').
+	// Used by tenant deletion cleanup. Returns count of revoked keys.
+	RevokeAllForTenant(ctx context.Context, tenant string) (int, error)
+
+	// RevokeAllForSubscription revokes all active API keys bound to a subscription (soft delete).
+	// Used by subscription deletion cleanup. Returns count of revoked keys.
+	RevokeAllForSubscription(ctx context.Context, subscription string, tenant string) (int, error)
+
 	Close() error
 }

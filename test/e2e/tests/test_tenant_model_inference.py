@@ -19,6 +19,8 @@ import pytest
 import requests
 
 from multitenancy_helpers import (
+    AITENANT_KIND,
+    AITENANT_NAMESPACE,
     GATEWAY_NAMESPACE,
     TLS_VERIFY,
     _oc_run,
@@ -33,6 +35,7 @@ from multitenancy_helpers import (
     redact_sensitive,
     require_aitenant_crd,
     wait_for_httproute_accepted,
+    wait_for_not_found,
     wait_for_status_phase,
 )
 
@@ -274,3 +277,85 @@ class TestTenantModelInference:
                 f"Unexpected API key creation failure: {api_key_response.status_code} "
                 f"{redact_sensitive(api_key_response.text)}"
             )
+
+    def test_tenant_deletion_prevents_key_reuse_on_recreation(self):
+        """Tenant deletion revokes keys - orphaned keys don't work if tenant is recreated.
+
+        Security test (RHOAIENG-72792): When a tenant is deleted and recreated with
+        the same name, old API keys from the deleted tenant should not grant access.
+
+        Steps:
+        1. Create AITenant
+        2. Create API key
+        3. Delete AITenant
+        4. Recreate AITenant with same name
+        5. Verify old API key does not work
+        """
+        require_aitenant_crd()
+        case = new_named_tenant_case("e2e-reuse")
+
+        orphaned_key = None
+
+        try:
+            # Step 1: Create AITenant
+            bootstrap_aitenant_tenant(case)
+
+            model_name = f"test-model-{case['suffix']}"
+            _create_llmis(model_name, case["tenant_ns"], case["gateway_name"], GATEWAY_NAMESPACE)
+            wait_for_httproute_accepted(
+                f"{model_name}-kserve-route", case["tenant_ns"], case["gateway_name"], timeout=180
+            )
+            _create_maas_model_ref(model_name, case["tenant_ns"], model_name)
+            apply_maas_subscription(
+                f"{model_name}-sub", case["tenant_ns"], model_ref=model_name, model_namespace=case["tenant_ns"]
+            )
+            apply_maas_auth_policy(
+                f"{model_name}-auth", case["tenant_ns"], model_ref=model_name, model_namespace=case["tenant_ns"]
+            )
+            wait_for_status_phase("maasmodelref", model_name, case["tenant_ns"], expected_phase="Ready", timeout=180)
+
+            # Step 2: Create API key
+            gateway_url = _get_tenant_gateway_url(case["gateway_name"])
+            oc_token = _get_cluster_token()
+
+            r = requests.post(
+                f"{gateway_url}/maas-api/v1/api-keys",
+                headers={"Authorization": f"Bearer {oc_token}", "Content-Type": "application/json"},
+                json={"name": "e2e-orphaned-key", "subscription": f"{model_name}-sub"},
+                timeout=45,
+                verify=TLS_VERIFY,
+            )
+            assert r.status_code in (200, 201), f"Failed to create key: {r.status_code}"
+            orphaned_key = r.json()["key"]
+
+            # Step 3: Delete AITenant (this should revoke the key)
+            cleanup_discovery_case(case)
+            wait_for_not_found(AITENANT_KIND, case["tenant_label_name"], AITENANT_NAMESPACE, timeout=300)
+
+            # Step 4: Recreate AITenant with same name
+            bootstrap_aitenant_tenant(case)
+            _create_llmis(model_name, case["tenant_ns"], case["gateway_name"], GATEWAY_NAMESPACE)
+            wait_for_httproute_accepted(
+                f"{model_name}-kserve-route", case["tenant_ns"], case["gateway_name"], timeout=180
+            )
+            _create_maas_model_ref(model_name, case["tenant_ns"], model_name)
+            apply_maas_subscription(
+                f"{model_name}-sub", case["tenant_ns"], model_ref=model_name, model_namespace=case["tenant_ns"]
+            )
+            apply_maas_auth_policy(
+                f"{model_name}-auth", case["tenant_ns"], model_ref=model_name, model_namespace=case["tenant_ns"]
+            )
+            wait_for_status_phase("maasmodelref", model_name, case["tenant_ns"], expected_phase="Ready", timeout=180)
+
+            # Step 5: Verify orphaned key does NOT work
+            gateway_url = _get_tenant_gateway_url(case["gateway_name"])
+            validate_url = f"{gateway_url}/maas-api/v1/api-keys/validate"
+
+            r = requests.post(validate_url, headers={"X-API-Key": orphaned_key}, timeout=45, verify=TLS_VERIFY)
+            assert r.status_code == 401, (
+                f"Orphaned key should be revoked (401), but got {r.status_code}. "
+                f"Old keys from deleted tenant must not work when tenant is recreated!"
+            )
+
+        finally:
+            cleanup_discovery_case(case)

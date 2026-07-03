@@ -53,6 +53,7 @@ import (
 
 	maasv1alpha1 "github.com/opendatahub-io/models-as-a-service/maas-controller/api/maas/v1alpha1"
 	"github.com/opendatahub-io/models-as-a-service/maas-controller/pkg/controller/maas"
+	"github.com/opendatahub-io/models-as-a-service/maas-controller/pkg/httpclient"
 	"github.com/opendatahub-io/models-as-a-service/maas-controller/pkg/platform/tenantreconcile"
 	"github.com/opendatahub-io/models-as-a-service/maas-controller/pkg/reconciler/externalmodel"
 	"github.com/opendatahub-io/models-as-a-service/maas-controller/pkg/webhook"
@@ -662,6 +663,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "MaaSAuthPolicy")
 		os.Exit(1)
 	}
+
+	// Initialize HTTP client for maas-api communication
+	maasAPIClient, err := httpclient.NewInClusterClient(10 * time.Second)
+	if err != nil {
+		setupLog.Error(err, "unable to create maas-api HTTP client")
+		os.Exit(1)
+	}
+
 	if err := (&maas.MaaSSubscriptionReconciler{
 		Client:                          mgr.GetClient(),
 		Scheme:                          mgr.GetScheme(),
@@ -669,6 +678,7 @@ func main() {
 		TenantNamespaceDiscoveryEnabled: enableTenantNamespaceDiscovery,
 		GatewayName:                     gatewayName,
 		GatewayNamespace:                gatewayNamespace,
+		MaaSAPIClient:                   maasAPIClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MaaSSubscription")
 		os.Exit(1)
@@ -681,6 +691,7 @@ func main() {
 		TenantNamespace:   maasSubscriptionNamespace,
 		AITenantNamespace: aitenantNamespace,
 		GatewayNamespace:  gatewayNamespace,
+		MaaSAPIClient:     maasAPIClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AITenant")
 		os.Exit(1)

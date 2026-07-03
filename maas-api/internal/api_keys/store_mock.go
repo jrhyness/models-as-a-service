@@ -511,6 +511,40 @@ func (m *MockStore) DeleteExpiredEphemeral(ctx context.Context) (int64, error) {
 	return count, nil
 }
 
+// RevokeAllForTenant revokes all active API keys for a tenant.
+// This is a soft delete (status='revoked').
+func (m *MockStore) RevokeAllForTenant(ctx context.Context, tenant string) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	count := 0
+	for _, k := range m.keys {
+		if k.metadata.Tenant == tenant && k.metadata.Status == StatusActive {
+			k.metadata.Status = StatusRevoked
+			count++
+		}
+	}
+
+	return count, nil
+}
+
+// RevokeAllForSubscription revokes all active API keys for a subscription.
+// This is a soft delete (status='revoked').
+func (m *MockStore) RevokeAllForSubscription(ctx context.Context, subscription string, tenant string) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	count := 0
+	for _, k := range m.keys {
+		if k.metadata.Subscription == subscription && k.metadata.Tenant == tenant && k.metadata.Status == StatusActive {
+			k.metadata.Status = StatusRevoked
+			count++
+		}
+	}
+
+	return count, nil
+}
+
 func (m *MockStore) Close() error {
 	return nil
 }

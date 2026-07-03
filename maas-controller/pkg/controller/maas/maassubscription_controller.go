@@ -48,6 +48,7 @@ import (
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	maasv1alpha1 "github.com/opendatahub-io/models-as-a-service/maas-controller/api/maas/v1alpha1"
+	"github.com/opendatahub-io/models-as-a-service/maas-controller/pkg/httpclient"
 	"github.com/opendatahub-io/models-as-a-service/maas-controller/pkg/platform/tenantreconcile"
 )
 
@@ -66,6 +67,8 @@ type MaaSSubscriptionReconciler struct {
 	// Tenant does not yet carry spec.gatewayRef.
 	GatewayName      string
 	GatewayNamespace string
+	// MaaSAPIClient is used to call maas-api internal endpoints for API key revocation.
+	MaaSAPIClient *httpclient.Client
 }
 
 //+kubebuilder:rbac:groups=maas.opendatahub.io,resources=maassubscriptions,verbs=get;list;watch;create;update;patch;delete
@@ -849,6 +852,13 @@ func (r *MaaSSubscriptionReconciler) deleteModelTRLP(ctx context.Context, log lo
 
 func (r *MaaSSubscriptionReconciler) handleDeletion(ctx context.Context, log logr.Logger, subscription *maasv1alpha1.MaaSSubscription) (ctrl.Result, error) {
 	if controllerutil.ContainsFinalizer(subscription, maasSubscriptionFinalizer) {
+		// Step 1: Revoke API keys FIRST (soft delete per ADR-MS-0003)
+		if err := r.revokeAPIKeysForSubscription(ctx, subscription); err != nil {
+			log.Error(err, "failed to revoke API keys for subscription, will retry")
+			return ctrl.Result{}, err
+		}
+
+		// Step 2: Rebuild TokenRateLimitPolicies (existing code)
 		// For each model referenced by this subscription, rebuild the aggregated TokenRateLimitPolicy
 		// without the deleted subscription's limits. If no other subscriptions reference the model,
 		// the TRLP will be deleted. This ensures zero-downtime rate limiting during subscription removal.
@@ -870,6 +880,8 @@ func (r *MaaSSubscriptionReconciler) handleDeletion(ctx context.Context, log log
 		if err := r.cleanupStaleTRLPs(ctx, log, subscription); err != nil {
 			return ctrl.Result{}, err
 		}
+
+		// Step 3: Remove finalizer
 		controllerutil.RemoveFinalizer(subscription, maasSubscriptionFinalizer)
 		if err := r.Update(ctx, subscription); err != nil {
 			return ctrl.Result{}, err
@@ -1286,4 +1298,70 @@ func (r *MaaSSubscriptionReconciler) mapHTTPRouteToMaaSSubscriptions(ctx context
 		}
 	}
 	return requests
+}
+
+func (r *MaaSSubscriptionReconciler) revokeAPIKeysForSubscription(ctx context.Context, subscription *maasv1alpha1.MaaSSubscription) error {
+	// Skip if HTTP client not configured (e.g., in tests)
+	if r.MaaSAPIClient == nil {
+		log := ctrl.LoggerFrom(ctx)
+		log.V(1).Info("Skipping API key revocation - MaaSAPIClient not configured", "subscription", subscription.Name)
+		return nil
+	}
+
+	// Determine tenant identifier from namespace
+	tenant := r.resolveTenantID(subscription.Namespace)
+
+	// Determine the correct maas-api service name (per-tenant or default)
+	var maasAPIServiceName string
+	if tenant == "models-as-a-service" {
+		maasAPIServiceName = "maas-api"
+	} else {
+		maasAPIServiceName = fmt.Sprintf("maas-api-%s", tenant)
+	}
+
+	// Call internal endpoint (network-restricted, no auth required)
+	maasAPIURL := fmt.Sprintf("https://%s.%s.svc.cluster.local:8443/internal/v1/api-keys/revoke-for-subscription",
+		maasAPIServiceName, subscription.Namespace)
+
+	reqBody := map[string]string{
+		"subscription": subscription.Name,
+		"tenant":       tenant,
+	}
+
+	var respBody struct {
+		RevokedCount int    `json:"revokedCount"`
+		Message      string `json:"message"`
+	}
+
+	// Call maas-api with retry (3 attempts, exponential backoff)
+	err := httpclient.WithRetry(ctx, httpclient.DefaultRetryConfig(), func() error {
+		return r.MaaSAPIClient.PostAndReadJSON(ctx, maasAPIURL, reqBody, &respBody)
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to revoke API keys for subscription %s after retries: %w", subscription.Name, err)
+	}
+
+	// Audit logging
+	log := ctrl.LoggerFrom(ctx)
+	log.Info("Revoked API keys for subscription deletion",
+		"subscription", subscription.Name,
+		"tenant", tenant,
+		"maasAPIService", maasAPIServiceName,
+		"revokedCount", respBody.RevokedCount,
+		"initiator", "MaaSSubscription controller finalizer",
+	)
+
+	return nil
+}
+
+func (r *MaaSSubscriptionReconciler) resolveTenantID(namespace string) string {
+	// For default tenant namespace: return default tenant ID
+	if namespace == r.DefaultTenantNamespace {
+		return "models-as-a-service"
+	}
+
+	// For AITenant-managed namespaces: use namespace name
+	// (Namespace is created by AITenant with same name as tenant)
+	return namespace
 }
