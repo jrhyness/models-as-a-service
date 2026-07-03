@@ -372,8 +372,8 @@ func (s *Service) RevokeAllForTenant(ctx context.Context, tenant string) (int, e
 }
 
 // RevokeAllForSubscription revokes all active API keys for a subscription.
-// Marks the subscription as deleting FIRST to prevent new key creation during revocation.
-// Returns count of revoked keys.
+// Does NOT block new key creation - the race window is small and subscription.Select()
+// will fail once the CR is deleted. Returns count of revoked keys.
 func (s *Service) RevokeAllForSubscription(ctx context.Context, subscription string, tenant string) (int, error) {
 	if subscription == "" {
 		return 0, errors.New("subscription name is required")

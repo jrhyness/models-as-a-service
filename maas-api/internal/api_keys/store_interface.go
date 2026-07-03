@@ -26,6 +26,7 @@ const (
 	TokenStatusRevoked = "revoked"
 )
 
+//nolint:interfacebloat // MetadataStore covers all API key operations (CRUD, validation, revocation)
 type MetadataStore interface {
 	// AddKey stores an API key with hash-only storage (no plaintext).
 	// Keys can be permanent (expiresAt=nil) or expiring (expiresAt set).

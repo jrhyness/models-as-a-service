@@ -528,6 +528,7 @@ func (h *Handler) CleanupExpiredEphemeralKeys(c *gin.Context) {
 // RevokeForTenantHandler handles POST /internal/v1/api-keys/revoke-for-tenant
 // Revokes all API keys for a tenant (called by AITenant controller finalizer).
 // Access is restricted at the network level via NetworkPolicy.
+// TODO(RHOAIENG-72792): Add ServiceAccount authentication after PR #1066 merges.
 func (h *Handler) RevokeForTenantHandler(c *gin.Context) {
 	var req RevokeForTenantRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -557,6 +558,7 @@ func (h *Handler) RevokeForTenantHandler(c *gin.Context) {
 // RevokeForSubscriptionHandler handles POST /internal/v1/api-keys/revoke-for-subscription
 // Revokes all API keys for a subscription (called by MaaSSubscription controller finalizer).
 // Access is restricted at the network level via NetworkPolicy.
+// TODO(RHOAIENG-72792): Add ServiceAccount authentication after PR #1066 merges.
 func (h *Handler) RevokeForSubscriptionHandler(c *gin.Context) {
 	var req RevokeForSubscriptionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

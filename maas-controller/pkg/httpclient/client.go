@@ -73,12 +73,16 @@ func (c *Client) PostAndReadJSON(ctx context.Context, url string, reqBody any, r
 	}
 	defer resp.Body.Close()
 
+	// Limit response body size to prevent memory exhaustion (1MB should be plenty for our JSON responses)
+	const maxResponseSize = 1 << 20 // 1MB
+	limitedBody := io.LimitReader(resp.Body, maxResponseSize)
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(limitedBody)
 		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(respBody); err != nil {
+	if err := json.NewDecoder(limitedBody).Decode(respBody); err != nil {
 		return fmt.Errorf("failed to decode response: %w", err)
 	}
 

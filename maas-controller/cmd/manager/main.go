@@ -678,6 +678,7 @@ func main() {
 		TenantNamespaceDiscoveryEnabled: enableTenantNamespaceDiscovery,
 		GatewayName:                     gatewayName,
 		GatewayNamespace:                gatewayNamespace,
+		MaaSAPINamespace:                maasAPINamespace,
 		MaaSAPIClient:                   maasAPIClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MaaSSubscription")

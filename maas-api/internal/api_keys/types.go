@@ -173,13 +173,13 @@ type CleanupResponse struct {
 
 // RevokeForTenantRequest for POST /internal/v1/api-keys/revoke-for-tenant.
 type RevokeForTenantRequest struct {
-	Tenant string `json:"tenant" binding:"required"`
+	Tenant string `binding:"required" json:"tenant"`
 }
 
 // RevokeForSubscriptionRequest for POST /internal/v1/api-keys/revoke-for-subscription.
 type RevokeForSubscriptionRequest struct {
-	Subscription string `json:"subscription" binding:"required"`
-	Tenant       string `json:"tenant" binding:"required"`
+	Subscription string `binding:"required" json:"subscription"`
+	Tenant       string `binding:"required" json:"tenant"`
 }
 
 // RevokeResponse is the HTTP response for internal revocation endpoints.

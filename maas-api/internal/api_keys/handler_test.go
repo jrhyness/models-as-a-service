@@ -2237,6 +2237,7 @@ func TestRevokeForTenantHandler(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		requestBody := `{"tenant": "tenant-a"}`
 		c.Request = httptest.NewRequest(http.MethodPost, "/internal/v1/api-keys/revoke-for-tenant", strings.NewReader(requestBody))
+		c.Request = c.Request.WithContext(ctx)
 		c.Request.Header.Set("Content-Type", "application/json")
 
 		handler.RevokeForTenantHandler(c)
@@ -2265,6 +2266,7 @@ func TestRevokeForTenantHandler(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		requestBody := `{"tenant": "tenant-c"}`
 		c.Request = httptest.NewRequest(http.MethodPost, "/internal/v1/api-keys/revoke-for-tenant", strings.NewReader(requestBody))
+		c.Request = c.Request.WithContext(ctx)
 		c.Request.Header.Set("Content-Type", "application/json")
 
 		handler.RevokeForTenantHandler(c)
@@ -2281,6 +2283,7 @@ func TestRevokeForTenantHandler(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		requestBody := `{}`
 		c.Request = httptest.NewRequest(http.MethodPost, "/internal/v1/api-keys/revoke-for-tenant", strings.NewReader(requestBody))
+		c.Request = c.Request.WithContext(ctx)
 		c.Request.Header.Set("Content-Type", "application/json")
 
 		handler.RevokeForTenantHandler(c)
@@ -2293,6 +2296,7 @@ func TestRevokeForTenantHandler(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		requestBody := `{"tenant": }`
 		c.Request = httptest.NewRequest(http.MethodPost, "/internal/v1/api-keys/revoke-for-tenant", strings.NewReader(requestBody))
+		c.Request = c.Request.WithContext(ctx)
 		c.Request.Header.Set("Content-Type", "application/json")
 
 		handler.RevokeForTenantHandler(c)
@@ -2329,6 +2333,7 @@ func TestRevokeForSubscriptionHandler(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		requestBody := `{"subscription": "sub-1", "tenant": "tenant-a"}`
 		c.Request = httptest.NewRequest(http.MethodPost, "/internal/v1/api-keys/revoke-for-subscription", strings.NewReader(requestBody))
+		c.Request = c.Request.WithContext(ctx)
 		c.Request.Header.Set("Content-Type", "application/json")
 
 		handler.RevokeForSubscriptionHandler(c)
@@ -2362,6 +2367,7 @@ func TestRevokeForSubscriptionHandler(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		requestBody := `{"subscription": "sub-99", "tenant": "tenant-a"}`
 		c.Request = httptest.NewRequest(http.MethodPost, "/internal/v1/api-keys/revoke-for-subscription", strings.NewReader(requestBody))
+		c.Request = c.Request.WithContext(ctx)
 		c.Request.Header.Set("Content-Type", "application/json")
 
 		handler.RevokeForSubscriptionHandler(c)
@@ -2402,6 +2408,7 @@ func TestRevokeForSubscriptionHandler(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		requestBody := `{"subscription": "sub-1", "tenant": }`
 		c.Request = httptest.NewRequest(http.MethodPost, "/internal/v1/api-keys/revoke-for-subscription", strings.NewReader(requestBody))
+		c.Request = c.Request.WithContext(ctx)
 		c.Request.Header.Set("Content-Type", "application/json")
 
 		handler.RevokeForSubscriptionHandler(c)
