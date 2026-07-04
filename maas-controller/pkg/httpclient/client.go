@@ -16,6 +16,7 @@ import (
 
 const (
 	ServiceAccountCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	ServiceCAPath        = "/var/run/secrets/openshift-service-ca/service-ca.crt"
 )
 
 type Client struct {
@@ -23,18 +24,27 @@ type Client struct {
 }
 
 // NewInClusterClient creates an HTTP client configured for in-cluster communication with TLS.
-// The client loads the cluster CA certificate for TLS verification but does not include
-// authentication tokens (internal endpoints are network-restricted).
+// The client loads both the cluster CA and OpenShift service CA certificates for TLS verification.
+// Internal maas-api services use OpenShift service serving certificates.
 func NewInClusterClient(timeout time.Duration) (*Client, error) {
-	// Load cluster CA certificate for TLS verification
-	caCert, err := os.ReadFile(ServiceAccountCAPath)
+	caCertPool := x509.NewCertPool()
+
+	// Load cluster CA certificate
+	clusterCA, err := os.ReadFile(ServiceAccountCAPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load cluster CA: %w", err)
 	}
-
-	caCertPool := x509.NewCertPool()
-	if !caCertPool.AppendCertsFromPEM(caCert) {
+	if !caCertPool.AppendCertsFromPEM(clusterCA) {
 		return nil, errors.New("failed to parse cluster CA certificate")
+	}
+
+	// Load OpenShift service CA certificate for maas-api service certificates
+	serviceCA, err := os.ReadFile(ServiceCAPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load service CA: %w", err)
+	}
+	if !caCertPool.AppendCertsFromPEM(serviceCA) {
+		return nil, errors.New("failed to parse service CA certificate")
 	}
 
 	tlsConfig := &tls.Config{

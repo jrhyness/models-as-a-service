@@ -113,10 +113,16 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: webhook-cert
           readOnly: true
+        - mountPath: /var/run/secrets/openshift-service-ca
+          name: service-ca
+          readOnly: true
       volumes:
       - name: webhook-cert
         secret:
           defaultMode: 420
           secretName: maas-controller-webhook-cert
+      - name: service-ca
+        configMap:
+          name: openshift-service-ca.crt
       serviceAccountName: maas-controller
       terminationGracePeriodSeconds: 30

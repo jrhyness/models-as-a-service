@@ -1312,7 +1312,18 @@ func (r *MaaSSubscriptionReconciler) revokeAPIKeysForSubscription(ctx context.Co
 	}
 
 	// Determine tenant identifier from namespace
-	tenant := r.resolveTenantID(subscription.Namespace)
+	tenant, err := r.resolveTenantID(ctx, subscription.Namespace)
+	if err != nil {
+		// If we can't resolve the tenant ID (Tenant CR not found or deleted),
+		// the maas-api deployment is likely already gone, so keys are inaccessible.
+		log := ctrl.LoggerFrom(ctx)
+		log.Info("Unable to resolve tenant ID during subscription deletion - tenant may be deleted",
+			"subscription", subscription.Name,
+			"namespace", subscription.Namespace,
+			"error", err.Error(),
+		)
+		return nil
+	}
 
 	// Determine the correct maas-api service name (per-tenant or default)
 	var maasAPIServiceName string
@@ -1339,7 +1350,7 @@ func (r *MaaSSubscriptionReconciler) revokeAPIKeysForSubscription(ctx context.Co
 	}
 
 	// Call maas-api with retry (3 attempts, exponential backoff)
-	err := httpclient.WithRetry(ctx, httpclient.DefaultRetryConfig(), func() error {
+	err = httpclient.WithRetry(ctx, httpclient.DefaultRetryConfig(), func() error {
 		return r.MaaSAPIClient.PostAndReadJSON(ctx, maasAPIURL, reqBody, &respBody)
 	})
 
@@ -1372,13 +1383,25 @@ func (r *MaaSSubscriptionReconciler) revokeAPIKeysForSubscription(ctx context.Co
 	return nil
 }
 
-func (r *MaaSSubscriptionReconciler) resolveTenantID(namespace string) string {
+func (r *MaaSSubscriptionReconciler) resolveTenantID(ctx context.Context, namespace string) (string, error) {
 	// For default tenant namespace: return default tenant ID
 	if namespace == r.DefaultTenantNamespace {
-		return "models-as-a-service"
+		return "models-as-a-service", nil
 	}
 
-	// For AITenant-managed namespaces: use namespace name
-	// (Namespace is created by AITenant with same name as tenant)
-	return namespace
+	// For AITenant-managed namespaces: look up the Tenant CR to get the actual tenant ID.
+	// The tenant ID (from AITenant.Name) may differ from the namespace name.
+	// For example: AITenant "a" creates namespace "ai-tenant-a" with Tenant CR labeled with tenant ID "a".
+	var tenant maasv1alpha1.Tenant
+	if err := r.Get(ctx, types.NamespacedName{Name: "default-tenant", Namespace: namespace}, &tenant); err != nil {
+		return "", fmt.Errorf("failed to lookup Tenant CR in namespace %s: %w", namespace, err)
+	}
+
+	// The tenant ID is stored in the label ai-gateway.opendatahub.io/tenant
+	tenantID, ok := tenant.Labels["ai-gateway.opendatahub.io/tenant"]
+	if !ok {
+		return "", fmt.Errorf("Tenant CR %s/%s missing label ai-gateway.opendatahub.io/tenant", namespace, tenant.Name)
+	}
+
+	return tenantID, nil
 }
