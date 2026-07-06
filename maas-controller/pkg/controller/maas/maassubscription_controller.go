@@ -1400,7 +1400,7 @@ func (r *MaaSSubscriptionReconciler) resolveTenantID(ctx context.Context, namesp
 	// The tenant ID is stored in the label ai-gateway.opendatahub.io/tenant
 	tenantID, ok := tenant.Labels["ai-gateway.opendatahub.io/tenant"]
 	if !ok {
-		return "", fmt.Errorf("Tenant CR %s/%s missing label ai-gateway.opendatahub.io/tenant", namespace, tenant.Name)
+		return "", fmt.Errorf("tenant CR %s/%s missing label ai-gateway.opendatahub.io/tenant", namespace, tenant.Name)
 	}
 
 	return tenantID, nil
