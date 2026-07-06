@@ -2402,7 +2402,6 @@ func TestRevokeForSubscriptionHandler(t *testing.T) {
 				c.Request = httptest.NewRequest(http.MethodPost, "/internal/v1/api-keys/revoke-for-subscription", strings.NewReader(tc.body))
 				c.Request.Header.Set("Content-Type", "application/json")
 
-				//nolint:contextcheck // Gin handlers receive *gin.Context which contains the context.
 				handler.RevokeForSubscriptionHandler(c)
 
 				assert.Equal(t, http.StatusBadRequest, w.Code)
