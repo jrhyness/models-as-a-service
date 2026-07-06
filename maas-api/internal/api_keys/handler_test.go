@@ -2240,6 +2240,7 @@ func TestRevokeForTenantHandler(t *testing.T) {
 		c.Request = c.Request.WithContext(ctx)
 		c.Request.Header.Set("Content-Type", "application/json")
 
+		//nolint:contextcheck // Gin handlers receive *gin.Context which contains the context.
 		handler.RevokeForTenantHandler(c)
 
 		assert.Equal(t, http.StatusOK, w.Code)
@@ -2269,6 +2270,7 @@ func TestRevokeForTenantHandler(t *testing.T) {
 		c.Request = c.Request.WithContext(ctx)
 		c.Request.Header.Set("Content-Type", "application/json")
 
+		//nolint:contextcheck // Gin handlers receive *gin.Context which contains the context.
 		handler.RevokeForTenantHandler(c)
 
 		assert.Equal(t, http.StatusOK, w.Code)
@@ -2286,6 +2288,7 @@ func TestRevokeForTenantHandler(t *testing.T) {
 		c.Request = c.Request.WithContext(ctx)
 		c.Request.Header.Set("Content-Type", "application/json")
 
+		//nolint:contextcheck // Gin handlers receive *gin.Context which contains the context.
 		handler.RevokeForTenantHandler(c)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -2299,6 +2302,7 @@ func TestRevokeForTenantHandler(t *testing.T) {
 		c.Request = c.Request.WithContext(ctx)
 		c.Request.Header.Set("Content-Type", "application/json")
 
+		//nolint:contextcheck // Gin handlers receive *gin.Context which contains the context.
 		handler.RevokeForTenantHandler(c)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -2336,6 +2340,7 @@ func TestRevokeForSubscriptionHandler(t *testing.T) {
 		c.Request = c.Request.WithContext(ctx)
 		c.Request.Header.Set("Content-Type", "application/json")
 
+		//nolint:contextcheck // Gin handlers receive *gin.Context which contains the context.
 		handler.RevokeForSubscriptionHandler(c)
 
 		assert.Equal(t, http.StatusOK, w.Code)
@@ -2370,6 +2375,7 @@ func TestRevokeForSubscriptionHandler(t *testing.T) {
 		c.Request = c.Request.WithContext(ctx)
 		c.Request.Header.Set("Content-Type", "application/json")
 
+		//nolint:contextcheck // Gin handlers receive *gin.Context which contains the context.
 		handler.RevokeForSubscriptionHandler(c)
 
 		assert.Equal(t, http.StatusOK, w.Code)
@@ -2396,6 +2402,7 @@ func TestRevokeForSubscriptionHandler(t *testing.T) {
 				c.Request = httptest.NewRequest(http.MethodPost, "/internal/v1/api-keys/revoke-for-subscription", strings.NewReader(tc.body))
 				c.Request.Header.Set("Content-Type", "application/json")
 
+				//nolint:contextcheck // Gin handlers receive *gin.Context which contains the context.
 				handler.RevokeForSubscriptionHandler(c)
 
 				assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -2411,6 +2418,7 @@ func TestRevokeForSubscriptionHandler(t *testing.T) {
 		c.Request = c.Request.WithContext(ctx)
 		c.Request.Header.Set("Content-Type", "application/json")
 
+		//nolint:contextcheck // Gin handlers receive *gin.Context which contains the context.
 		handler.RevokeForSubscriptionHandler(c)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
