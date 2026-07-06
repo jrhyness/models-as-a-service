@@ -8,29 +8,31 @@
       
       
       
-        <link rel="canonical" href="https://opendatahub-io.github.io/models-as-a-service/dev/reference/crds/tenant/">
+        <link rel="canonical" href="https://opendatahub-io.github.io/models-as-a-service/dev/configuration-and-management/tenant-rbac/">
       
       
-        <link rel="prev" href="../ai-tenant/">
+        <link rel="prev" href="../namespace-rbac/">
       
+      
+        <link rel="next" href="../troubleshooting-external-model-rbac/">
       
       
         
       
       
-      <link rel="icon" href="../../../assets/favicon.ico">
+      <link rel="icon" href="../../assets/favicon.ico">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>Tenant - ODH Models-as-a-Service Documentation</title>
+        <title>Tenant RBAC - ODH Models-as-a-Service Documentation</title>
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -49,7 +51,7 @@
       
     
     
-    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -74,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tenant" class="md-skip">
+        <a href="#tenant-rbac" class="md-skip">
           Skip to content
         </a>
       
@@ -92,9 +94,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../../.." title="ODH Models-as-a-Service Documentation" class="md-header__button md-logo" aria-label="ODH Models-as-a-Service Documentation" data-md-component="logo">
+    <a href="../.." title="ODH Models-as-a-Service Documentation" class="md-header__button md-logo" aria-label="ODH Models-as-a-Service Documentation" data-md-component="logo">
       
-  <img src="../../../assets/favicon.ico" alt="logo">
+  <img src="../../assets/favicon.ico" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -111,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Tenant
+              Tenant RBAC
             
           </span>
         </div>
@@ -231,7 +233,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../.." class="md-tabs__link">
+        <a href="../.." class="md-tabs__link">
           
   
   
@@ -251,7 +253,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../concepts/architecture/" class="md-tabs__link">
+        <a href="../../concepts/architecture/" class="md-tabs__link">
           
   
   
@@ -271,7 +273,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../quickstart/" class="md-tabs__link">
+        <a href="../../quickstart/" class="md-tabs__link">
           
   
   
@@ -287,6 +289,8 @@
   
   
   
+    
+  
   
     
     
@@ -294,11 +298,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../../configuration-and-management/quota-and-access-configuration/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../quota-and-access-configuration/" class="md-tabs__link">
           
   
   
@@ -321,7 +327,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../observability/" class="md-tabs__link">
+        <a href="../../observability/" class="md-tabs__link">
           
   
   
@@ -341,7 +347,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../user-guide/api-key-management/" class="md-tabs__link">
+        <a href="../../user-guide/api-key-management/" class="md-tabs__link">
           
   
   
@@ -361,7 +367,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../architecture-internals/controller-architecture/" class="md-tabs__link">
+        <a href="../../architecture-internals/controller-architecture/" class="md-tabs__link">
           
   
   
@@ -377,13 +383,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../maas-api-overview/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../reference/maas-api-overview/" class="md-tabs__link">
           
   
   
@@ -417,9 +421,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../../.." title="ODH Models-as-a-Service Documentation" class="md-nav__button md-logo" aria-label="ODH Models-as-a-Service Documentation" data-md-component="logo">
+    <a href="../.." title="ODH Models-as-a-Service Documentation" class="md-nav__button md-logo" aria-label="ODH Models-as-a-Service Documentation" data-md-component="logo">
       
-  <img src="../../../assets/favicon.ico" alt="logo">
+  <img src="../../assets/favicon.ico" alt="logo">
 
     </a>
     ODH Models-as-a-Service Documentation
@@ -500,7 +504,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../.." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -528,7 +532,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../release-notes/" class="md-nav__link">
+      <a href="../../release-notes/" class="md-nav__link">
         
   
   
@@ -610,7 +614,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../migration/tier-to-subscription/" class="md-nav__link">
+      <a href="../../migration/tier-to-subscription/" class="md-nav__link">
         
   
   
@@ -638,7 +642,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../migration/upgrade-to-3.4/" class="md-nav__link">
+      <a href="../../migration/upgrade-to-3.4/" class="md-nav__link">
         
   
   
@@ -735,7 +739,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/architecture/" class="md-nav__link">
+      <a href="../../concepts/architecture/" class="md-nav__link">
         
   
   
@@ -763,7 +767,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/personas/" class="md-nav__link">
+      <a href="../../concepts/personas/" class="md-nav__link">
         
   
   
@@ -791,7 +795,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/subscription-overview/" class="md-nav__link">
+      <a href="../../concepts/subscription-overview/" class="md-nav__link">
         
   
   
@@ -819,7 +823,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/model-reference/" class="md-nav__link">
+      <a href="../../concepts/model-reference/" class="md-nav__link">
         
   
   
@@ -847,7 +851,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/api-key-authentication/" class="md-nav__link">
+      <a href="../../concepts/api-key-authentication/" class="md-nav__link">
         
   
   
@@ -875,7 +879,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/model-access-control/" class="md-nav__link">
+      <a href="../../concepts/model-access-control/" class="md-nav__link">
         
   
   
@@ -964,7 +968,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../quickstart/" class="md-nav__link">
+      <a href="../../quickstart/" class="md-nav__link">
         
   
   
@@ -1046,7 +1050,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/prerequisites/" class="md-nav__link">
+      <a href="../../install/prerequisites/" class="md-nav__link">
         
   
   
@@ -1074,7 +1078,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/platform-setup/" class="md-nav__link">
+      <a href="../../install/platform-setup/" class="md-nav__link">
         
   
   
@@ -1164,7 +1168,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/maas-setup/" class="md-nav__link">
+      <a href="../../install/maas-setup/" class="md-nav__link">
         
   
   
@@ -1192,7 +1196,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/model-setup/" class="md-nav__link">
+      <a href="../../install/model-setup/" class="md-nav__link">
         
   
   
@@ -1220,7 +1224,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/external-model-setup/" class="md-nav__link">
+      <a href="../../install/external-model-setup/" class="md-nav__link">
         
   
   
@@ -1248,7 +1252,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/validation/" class="md-nav__link">
+      <a href="../../install/validation/" class="md-nav__link">
         
   
   
@@ -1276,7 +1280,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/troubleshooting/" class="md-nav__link">
+      <a href="../../install/troubleshooting/" class="md-nav__link">
         
   
   
@@ -1316,28 +1320,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
-        
-          
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -1355,7 +1362,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1370,28 +1377,31 @@
                 
   
   
+    
   
   
+  
     
     
     
     
       
       
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
         
           
+          
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1" >
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" checked>
         
           
-          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="">
             
   
   
@@ -1409,7 +1419,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4_1">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1427,7 +1437,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/quota-and-access-configuration/" class="md-nav__link">
+      <a href="../quota-and-access-configuration/" class="md-nav__link">
         
   
   
@@ -1455,7 +1465,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/api-key-administration/" class="md-nav__link">
+      <a href="../api-key-administration/" class="md-nav__link">
         
   
   
@@ -1483,7 +1493,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/namespace-rbac/" class="md-nav__link">
+      <a href="../namespace-rbac/" class="md-nav__link">
         
   
   
@@ -1508,10 +1518,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../../configuration-and-management/tenant-rbac/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tenant RBAC
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1527,6 +1564,92 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#controller-created-roles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Controller-Created Roles
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tenant-admin-permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenant-Admin Permissions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#subjectaccessreview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SubjectAccessReview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#default-tenant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default Tenant
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#additional-tenants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Additional Tenants
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify Access
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1539,7 +1662,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/troubleshooting-external-model-rbac/" class="md-nav__link">
+      <a href="../troubleshooting-external-model-rbac/" class="md-nav__link">
         
   
   
@@ -1567,7 +1690,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/tls-configuration/" class="md-nav__link">
+      <a href="../tls-configuration/" class="md-nav__link">
         
   
   
@@ -1595,7 +1718,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/gateway-patterns/" class="md-nav__link">
+      <a href="../gateway-patterns/" class="md-nav__link">
         
   
   
@@ -1637,10 +1760,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -1649,7 +1775,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_2" >
         
           
-          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="">
             
   
   
@@ -1685,7 +1811,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/model-setup/" class="md-nav__link">
+      <a href="../model-setup/" class="md-nav__link">
         
   
   
@@ -1713,7 +1839,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/model-listing-flow/" class="md-nav__link">
+      <a href="../model-listing-flow/" class="md-nav__link">
         
   
   
@@ -1755,10 +1881,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -1767,7 +1896,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_3" >
         
           
-          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="">
             
   
   
@@ -1803,7 +1932,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../advanced-administration/subscription-cardinality/" class="md-nav__link">
+      <a href="../../advanced-administration/subscription-cardinality/" class="md-nav__link">
         
   
   
@@ -1831,7 +1960,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../advanced-administration/limitador-persistence/" class="md-nav__link">
+      <a href="../../advanced-administration/limitador-persistence/" class="md-nav__link">
         
   
   
@@ -1859,7 +1988,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/authorino-caching/" class="md-nav__link">
+      <a href="../authorino-caching/" class="md-nav__link">
         
   
   
@@ -1956,7 +2085,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../observability/" class="md-nav__link">
+      <a href="../../observability/" class="md-nav__link">
         
   
   
@@ -1984,7 +2113,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../observability/setup/" class="md-nav__link">
+      <a href="../../observability/setup/" class="md-nav__link">
         
   
   
@@ -2012,7 +2141,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../observability/metrics-and-dashboards/" class="md-nav__link">
+      <a href="../../observability/metrics-and-dashboards/" class="md-nav__link">
         
   
   
@@ -2040,7 +2169,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../observability/operations/" class="md-nav__link">
+      <a href="../../observability/operations/" class="md-nav__link">
         
   
   
@@ -2129,7 +2258,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../user-guide/api-key-management/" class="md-nav__link">
+      <a href="../../user-guide/api-key-management/" class="md-nav__link">
         
   
   
@@ -2157,7 +2286,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../user-guide/model-discovery/" class="md-nav__link">
+      <a href="../../user-guide/model-discovery/" class="md-nav__link">
         
   
   
@@ -2185,7 +2314,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../user-guide/inference/" class="md-nav__link">
+      <a href="../../user-guide/inference/" class="md-nav__link">
         
   
   
@@ -2274,7 +2403,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture-internals/controller-architecture/" class="md-nav__link">
+      <a href="../../architecture-internals/controller-architecture/" class="md-nav__link">
         
   
   
@@ -2302,7 +2431,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture-internals/reconciliation-flow/" class="md-nav__link">
+      <a href="../../architecture-internals/reconciliation-flow/" class="md-nav__link">
         
   
   
@@ -2330,7 +2459,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture-internals/authentication-internals/" class="md-nav__link">
+      <a href="../../architecture-internals/authentication-internals/" class="md-nav__link">
         
   
   
@@ -2412,7 +2541,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/testing-guide/" class="md-nav__link">
+      <a href="../../contributing/testing-guide/" class="md-nav__link">
         
   
   
@@ -2440,7 +2569,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/release-strategy/" class="md-nav__link">
+      <a href="../../contributing/release-strategy/" class="md-nav__link">
         
   
   
@@ -2480,31 +2609,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
         
           
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
             
   
   
@@ -2522,7 +2648,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2540,7 +2666,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../maas-api-overview/" class="md-nav__link">
+      <a href="../../reference/maas-api-overview/" class="md-nav__link">
         
   
   
@@ -2568,7 +2694,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api-reference/" class="md-nav__link">
+      <a href="../../reference/api-reference/" class="md-nav__link">
         
   
   
@@ -2593,31 +2719,28 @@
                 
   
   
-    
   
   
-  
     
     
     
     
       
       
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
         
           
-          
         
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_3" >
         
           
-          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
             
   
   
@@ -2635,7 +2758,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_8_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2653,7 +2776,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../maas-model-ref/" class="md-nav__link">
+      <a href="../../reference/crds/maas-model-ref/" class="md-nav__link">
         
   
   
@@ -2681,7 +2804,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../external-model/" class="md-nav__link">
+      <a href="../../reference/crds/external-model/" class="md-nav__link">
         
   
   
@@ -2709,7 +2832,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../maas-auth-policy/" class="md-nav__link">
+      <a href="../../reference/crds/maas-auth-policy/" class="md-nav__link">
         
   
   
@@ -2737,7 +2860,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../maas-subscription/" class="md-nav__link">
+      <a href="../../reference/crds/maas-subscription/" class="md-nav__link">
         
   
   
@@ -2765,7 +2888,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../ai-tenant/" class="md-nav__link">
+      <a href="../../reference/crds/ai-tenant/" class="md-nav__link">
         
   
   
@@ -2790,37 +2913,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Tenant
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../reference/crds/tenant/" class="md-nav__link">
         
   
   
@@ -2836,187 +2932,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#multi-tenant-deployment" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Multi-Tenant Deployment
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#spec" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Spec
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Spec">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#tenantspec" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TenantSpec
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tenantgatewayref" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TenantGatewayRef
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tenantapikeysconfig" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TenantAPIKeysConfig
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tenantexternaloidcconfig" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TenantExternalOIDCConfig
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tenanttelemetryconfig" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TenantTelemetryConfig
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="TenantTelemetryConfig">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#tenantmetricsconfig" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TenantMetricsConfig
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Status
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Status">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#tenantstatus" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TenantStatus
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#print-columns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Print Columns
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Example
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#related-documentation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Related Documentation
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -3064,10 +2979,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#multi-tenant-deployment" class="md-nav__link">
+  <a href="#controller-created-roles" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Multi-Tenant Deployment
+        Controller-Created Roles
       
     </span>
   </a>
@@ -3075,38 +2990,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#spec" class="md-nav__link">
+  <a href="#tenant-admin-permissions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Spec
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Spec">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#tenantspec" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TenantSpec
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tenantgatewayref" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TenantGatewayRef
+        Tenant-Admin Permissions
       
     </span>
   </a>
@@ -3114,10 +3001,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tenantapikeysconfig" class="md-nav__link">
+  <a href="#subjectaccessreview" class="md-nav__link">
     <span class="md-ellipsis">
       
-        TenantAPIKeysConfig
+        SubjectAccessReview
       
     </span>
   </a>
@@ -3125,10 +3012,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tenantexternaloidcconfig" class="md-nav__link">
+  <a href="#default-tenant" class="md-nav__link">
     <span class="md-ellipsis">
       
-        TenantExternalOIDCConfig
+        Default Tenant
       
     </span>
   </a>
@@ -3136,77 +3023,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tenanttelemetryconfig" class="md-nav__link">
+  <a href="#additional-tenants" class="md-nav__link">
     <span class="md-ellipsis">
       
-        TenantTelemetryConfig
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="TenantTelemetryConfig">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#tenantmetricsconfig" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TenantMetricsConfig
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Status
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Status">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#tenantstatus" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TenantStatus
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#print-columns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Print Columns
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Example
+        Additional Tenants
       
     </span>
   </a>
@@ -3214,10 +3034,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#related-documentation" class="md-nav__link">
+  <a href="#verify-access" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Related Documentation
+        Verify Access
       
     </span>
   </a>
@@ -3244,321 +3064,120 @@
   
 
 
-<h1 id="tenant">Tenant</h1>
-<p>Configures MaaS-specific tenant settings. The Tenant CRD is a namespace-scoped singleton — the resource name must be <code>default-tenant</code> (enforced by CEL validation). For AITenant-managed tenants, platform-derived context such as Gateway and external OIDC is owned by <code>AITenant</code>; <code>Tenant</code> owns MaaS-specific user configuration such as API key policies and telemetry settings.</p>
-<h2 id="multi-tenant-deployment">Multi-Tenant Deployment</h2>
-<p>In multi-tenant deployments, each tenant has its own Tenant CR in a dedicated namespace:</p>
+<h1 id="tenant-rbac">Tenant RBAC</h1>
+<p><code>AITenant</code> creates the Roles required for tenant administration, but it does not bind users, groups, or ServiceAccounts to those Roles. Platform administrators grant tenant access by creating standard Kubernetes <code>RoleBinding</code> resources.</p>
+<p>These <code>RoleBinding</code> resources are fully user-managed. Deleting an <code>AITenant</code> does not remove user-managed RoleBindings, and recreating the same tenant name can re-enable access if stale RoleBindings still reference the recreated Roles. Review or delete tenant RoleBindings before deleting or recreating a tenant.</p>
+<h2 id="controller-created-roles">Controller-Created Roles</h2>
+<p>For each <code>AITenant</code>, the controller creates two Roles.</p>
 <table>
 <thead>
 <tr>
-<th>Tenant Type</th>
-<th>Tenant CR Namespace</th>
-<th>Tenant CR Name</th>
-<th>maas-api Service (in operator namespace)</th>
-<th>Created By</th>
+<th>Role</th>
+<th>Namespace</th>
+<th>Purpose</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Default</strong></td>
-<td><code>models-as-a-service</code></td>
-<td><code>default-tenant</code></td>
-<td><code>maas-api</code></td>
-<td>Default AITenant bootstrap</td>
+<td><code>aitenant-&lt;tenant-name&gt;-tenant-admin</code></td>
+<td>Tenant namespace</td>
+<td>Manage tenant-scoped MaaS resources.</td>
 </tr>
 <tr>
-<td><strong>Additional</strong></td>
-<td><code>ai-tenant-{tenantID}</code></td>
-<td><code>default-tenant</code></td>
-<td><code>maas-api-{tenantID}</code></td>
-<td>AITenant reconciler</td>
+<td><code>aitenant-&lt;tenant-name&gt;-object-admin</code></td>
+<td>AITenant infrastructure namespace, usually <code>ai-tenants</code></td>
+<td>Read the <code>AITenant</code> object.</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Key points:</strong>
-- All Tenant CRs are named <code>default-tenant</code> within their respective namespace
-- The default <code>Tenant/default-tenant</code> is created or adopted by <code>AITenant/models-as-a-service</code>
-- Additional tenants are created by the AITenant reconciler, which provisions the tenant namespace and Tenant CR
-- All maas-api Services deploy to the operator namespace (opendatahub for ODH, redhat-ods-applications for RHOAI), not to tenant namespaces
-- Each tenant has an isolated maas-api instance for API key and subscription management
-- Tenant CRs for additional tenants have the finalizer <code>maas.opendatahub.io/tenant-cleanup</code>
-- For AITenant-managed tenants, <code>Tenant.spec.gatewayRef</code> and <code>Tenant.spec.externalOIDC</code> are ignored. Gateway comes from the owning <code>AITenant.status.gatewayRef</code>; OIDC comes from <code>AITenant.spec.oidc</code>.</p>
-<p><strong>Naming conventions:</strong>
-- <code>TenantIdentifier</code>: Used for Kubernetes resource naming (empty string for default, <code>{tenantID}</code> for additional tenants)
-- <code>TenantName</code>: Used for database queries and HTTP headers (always <code>models-as-a-service</code> for default, <code>{tenantID}</code> for additional tenants)</p>
-<p>See <a href="../ai-tenant/">AITenant CRD</a> for creating additional tenants.</p>
-<hr />
-<h2 id="spec">Spec</h2>
-<h3 id="tenantspec">TenantSpec</h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>gatewayRef</td>
-<td>TenantGatewayRef</td>
-<td>No</td>
-<td>Legacy/unmanaged Tenant reference to the Gateway (Gateway API) used for exposing model endpoints. Ignored for AITenant-managed tenants.</td>
-</tr>
-<tr>
-<td>apiKeys</td>
-<td>TenantAPIKeysConfig</td>
-<td>No</td>
-<td>Configuration for API key management</td>
-</tr>
-<tr>
-<td>externalOIDC</td>
-<td>TenantExternalOIDCConfig</td>
-<td>No</td>
-<td>Legacy/unmanaged Tenant external OIDC identity provider settings for the maas-api AuthPolicy. Ignored for AITenant-managed tenants; use <code>AITenant.spec.oidc</code>.</td>
-</tr>
-<tr>
-<td>telemetry</td>
-<td>TenantTelemetryConfig</td>
-<td>No</td>
-<td>Telemetry and metrics collection configuration</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="tenantgatewayref">TenantGatewayRef</h2>
-<p><code>spec.gatewayRef</code> identifies the Gateway API Gateway resource that the controller uses for model endpoint routing only for legacy/unmanaged Tenant resources. For AITenant-managed tenants, this value comes from the owning <code>AITenant.status.gatewayRef</code>.</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Default</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>namespace</td>
-<td>string</td>
-<td>No</td>
-<td><code>openshift-ingress</code></td>
-<td>Namespace of the Gateway resource. Max length: 63 characters.</td>
-</tr>
-<tr>
-<td>name</td>
-<td>string</td>
-<td>No</td>
-<td><code>maas-default-gateway</code></td>
-<td>Name of the Gateway resource. Max length: 63 characters.</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="tenantapikeysconfig">TenantAPIKeysConfig</h2>
-<p><code>spec.apiKeys</code> controls API key lifecycle policies.</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>maxExpirationDays</td>
-<td>int32</td>
-<td>No</td>
-<td>Maximum number of days an API key can be valid. Must be at least 1.</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="tenantexternaloidcconfig">TenantExternalOIDCConfig</h2>
-<p><code>spec.externalOIDC</code> configures an external OIDC identity provider for token-based authentication only for legacy/unmanaged Tenant resources. For AITenant-managed tenants, configure <code>AITenant.spec.oidc</code>.</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Default</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>issuerUrl</td>
-<td>string</td>
-<td>Yes</td>
-<td>—</td>
-<td>OIDC issuer URL. Must start with <code>https://</code>. Max length: 2048 characters.</td>
-</tr>
-<tr>
-<td>clientId</td>
-<td>string</td>
-<td>Yes</td>
-<td>—</td>
-<td>OAuth2 client ID. Max length: 256 characters.</td>
-</tr>
-<tr>
-<td>ttl</td>
-<td>int</td>
-<td>No</td>
-<td><code>300</code></td>
-<td>JWKS cache duration in seconds. Minimum: 30.</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="tenanttelemetryconfig">TenantTelemetryConfig</h2>
-<p><code>spec.telemetry</code> controls what telemetry data the platform collects.</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Default</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>enabled</td>
-<td>bool</td>
-<td>No</td>
-<td><code>true</code></td>
-<td>Whether telemetry collection is enabled</td>
-</tr>
-<tr>
-<td>metrics</td>
-<td>TenantMetricsConfig</td>
-<td>No</td>
-<td>—</td>
-<td>Fine-grained control over metric dimensions</td>
-</tr>
-</tbody>
-</table>
-<h3 id="tenantmetricsconfig">TenantMetricsConfig</h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Default</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>captureOrganization</td>
-<td>bool</td>
-<td>No</td>
-<td><code>true</code></td>
-<td>Add an "organization" dimension to telemetry metrics</td>
-</tr>
-<tr>
-<td>captureUser</td>
-<td>bool</td>
-<td>No</td>
-<td><code>false</code></td>
-<td>Add a "user" dimension containing the authenticated user ID. May have GDPR / privacy implications — ensure compliance before enabling.</td>
-</tr>
-<tr>
-<td>captureGroup</td>
-<td>bool</td>
-<td>No</td>
-<td><code>false</code></td>
-<td>Add a "group" dimension to telemetry metrics</td>
-</tr>
-<tr>
-<td>captureModelUsage</td>
-<td>bool</td>
-<td>No</td>
-<td><code>true</code></td>
-<td>Capture per-model usage metrics</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="status">Status</h2>
-<h3 id="tenantstatus">TenantStatus</h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>phase</td>
-<td>string</td>
-<td>High-level lifecycle phase. One of: <code>Pending</code>, <code>Active</code>, <code>Degraded</code>, <code>Failed</code></td>
-</tr>
-<tr>
-<td>conditions</td>
-<td>[]Condition</td>
-<td>Latest observations. Types: <code>Ready</code>, <code>DependenciesAvailable</code>, <code>MaaSPrerequisitesAvailable</code>, <code>DeploymentsAvailable</code>, <code>Degraded</code></td>
-</tr>
-</tbody>
-</table>
-<h3 id="print-columns">Print Columns</h3>
-<p><code>kubectl get tenant</code> displays:</p>
-<table>
-<thead>
-<tr>
-<th>Column</th>
-<th>Source</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Ready</td>
-<td><code>.status.conditions[?(@.type=="Ready")].status</code></td>
-</tr>
-<tr>
-<td>Reason</td>
-<td><code>.status.conditions[?(@.type=="Ready")].reason</code></td>
-</tr>
-<tr>
-<td>Age</td>
-<td><code>.metadata.creationTimestamp</code></td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="example">Example</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maas.opendatahub.io/v1alpha1</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Tenant</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default-tenant</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">models-as-a-service</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">apiKeys</span><span class="p">:</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">maxExpirationDays</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">90</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="nt">telemetry</span><span class="p">:</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nt">metrics</span><span class="p">:</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">      </span><span class="nt">captureOrganization</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">      </span><span class="nt">captureUser</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">      </span><span class="nt">captureGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">      </span><span class="nt">captureModelUsage</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<p>For long tenant names, the controller truncates the Role name and appends a hash so the name fits the Kubernetes 63-character limit. To find the exact Role name, list Roles by tenant label:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>roles<span class="w"> </span>-A<span class="w"> </span>-l<span class="w"> </span>ai-gateway.opendatahub.io/tenant<span class="o">=</span>&lt;tenant-name&gt;
 </code></pre></div>
-<hr />
-<h2 id="related-documentation">Related Documentation</h2>
+<h2 id="tenant-admin-permissions">Tenant-Admin Permissions</h2>
+<p>The tenant-admin Role in the tenant namespace grants:</p>
 <ul>
-<li><a href="../maas-model-ref/">MaaSModelRef CRD</a> - Model endpoint references</li>
-<li><a href="../maas-auth-policy/">MaaSAuthPolicy CRD</a> - Access control policies</li>
-<li><a href="../maas-subscription/">MaaSSubscription CRD</a> - Subscription and rate limiting</li>
+<li><code>get</code>, <code>list</code>, <code>watch</code>, <code>create</code>, <code>update</code>, <code>patch</code>, and <code>delete</code> on <code>MaaSAuthPolicy</code></li>
+<li><code>get</code>, <code>list</code>, <code>watch</code>, <code>create</code>, <code>update</code>, <code>patch</code>, and <code>delete</code> on <code>MaaSSubscription</code></li>
+<li><code>get</code>, <code>update</code>, and <code>patch</code> on <code>Tenant/default-tenant</code></li>
+<li><code>get</code>, <code>list</code>, and <code>watch</code> on <code>MaaSModelRef</code></li>
 </ul>
+<p>The object-admin Role grants <code>get</code> on the specific <code>AITenant</code> object in the AITenant infrastructure namespace. Bind it when tenant administrators or dashboards need to read tenant bootstrap status.</p>
+<h2 id="subjectaccessreview">SubjectAccessReview</h2>
+<p>Kubernetes authorization checks use the username, groups, and ServiceAccount identity in the request. OIDC-backed users and groups do not need matching OpenShift <code>User</code> objects before they can be referenced in a RoleBinding. If the authenticated request identity matches a RoleBinding subject, <code>SubjectAccessReview</code> can authorize it.</p>
+<h2 id="default-tenant">Default Tenant</h2>
+<p>The default tenant usually uses:</p>
+<ul>
+<li>AITenant name: <code>models-as-a-service</code></li>
+<li>Tenant namespace: <code>models-as-a-service</code></li>
+<li>AITenant infrastructure namespace: <code>ai-tenants</code></li>
+</ul>
+<p>Grant a group access to manage default tenant MaaS resources:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>rolebinding<span class="w"> </span>models-as-a-service-tenant-admin<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--role<span class="o">=</span>aitenant-models-as-a-service-tenant-admin<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--group<span class="o">=</span>rhoai-admins<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>-n<span class="w"> </span>models-as-a-service
+</code></pre></div>
+<p>Grant the same group read access to the default <code>AITenant</code> object:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>rolebinding<span class="w"> </span>models-as-a-service-aitenant-reader<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>--role<span class="o">=</span>aitenant-models-as-a-service-object-admin<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--group<span class="o">=</span>rhoai-admins<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>-n<span class="w"> </span>ai-tenants
+</code></pre></div>
+<h2 id="additional-tenants">Additional Tenants</h2>
+<p>For an additional tenant named <code>red-team</code>, the tenant namespace is usually <code>ai-tenant-red-team</code>.</p>
+<p>Grant a user tenant-admin access:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>rolebinding<span class="w"> </span>red-team-tenant-admin<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--role<span class="o">=</span>aitenant-red-team-tenant-admin<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>--user<span class="o">=</span>alice@example.com<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>-n<span class="w"> </span>ai-tenant-red-team
+</code></pre></div>
+<p>Grant a group tenant-admin access:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io/v1</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RoleBinding</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">red-team-tenant-admins</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ai-tenant-red-team</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nt">subjects</span><span class="p">:</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Group</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">red-team-admins</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="nt">roleRef</span><span class="p">:</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">  </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Role</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">aitenant-red-team-tenant-admin</span>
+</code></pre></div>
+<p>Grant a ServiceAccount tenant-admin access:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io/v1</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RoleBinding</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">red-team-admin-serviceaccount</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ai-tenant-red-team</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="nt">subjects</span><span class="p">:</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ServiceAccount</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenant-admin</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">platform-automation</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="nt">roleRef</span><span class="p">:</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">  </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Role</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">aitenant-red-team-tenant-admin</span>
+</code></pre></div>
+<p>Grant read access to the <code>AITenant</code> object:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>rolebinding<span class="w"> </span>red-team-aitenant-reader<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span>--role<span class="o">=</span>aitenant-red-team-object-admin<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>--user<span class="o">=</span>alice@example.com<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>-n<span class="w"> </span>ai-tenants
+</code></pre></div>
+<h2 id="verify-access">Verify Access</h2>
+<p>Check tenant namespace permissions:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>auth<span class="w"> </span>can-i<span class="w"> </span>create<span class="w"> </span>maassubscriptions.maas.opendatahub.io<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span>--as<span class="o">=</span>alice@example.com<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span>-n<span class="w"> </span>ai-tenant-red-team
+</code></pre></div>
+<p>Check <code>AITenant</code> read access:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>kubectl<span class="w"> </span>auth<span class="w"> </span>can-i<span class="w"> </span>get<span class="w"> </span>aitenants.maas.opendatahub.io/red-team<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span>--as<span class="o">=</span>alice@example.com<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span>-n<span class="w"> </span>ai-tenants
+</code></pre></div>
 
 
 
@@ -3581,7 +3200,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="June 29, 2026 18:40:07 UTC">June 29, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 6, 2026 16:38:02 UTC">July 6, 2026</span>
   </span>
 
     
@@ -3591,7 +3210,7 @@
     <span class="md-icon" title="Created">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="May 5, 2026 17:10:22 UTC">May 5, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 6, 2026 16:38:02 UTC">July 6, 2026</span>
   </span>
 
     
@@ -3646,10 +3265,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "search.suggest", "search.boost", "navigation.instant"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "search.suggest", "search.boost", "navigation.instant"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>

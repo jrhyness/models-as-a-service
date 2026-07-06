@@ -1513,6 +1513,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../configuration-and-management/tenant-rbac/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tenant RBAC
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../configuration-and-management/troubleshooting-external-model-rbac/" class="md-nav__link">
         
   
@@ -2871,30 +2899,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#aitenantrbacconfig" class="md-nav__link">
+  <a href="#tenant-administration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        AITenantRBACConfig
+        Tenant Administration
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="AITenantRBACConfig">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#aitenantrbacsubject" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        AITenantRBACSubject
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -3099,30 +3110,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#aitenantrbacconfig" class="md-nav__link">
+  <a href="#tenant-administration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        AITenantRBACConfig
+        Tenant Administration
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="AITenantRBACConfig">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#aitenantrbacsubject" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        AITenantRBACSubject
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -3197,7 +3191,7 @@
 
 
 <h1 id="aitenant">AITenant</h1>
-<p>Bootstraps a MaaS tenant from an infrastructure namespace. <code>AITenant</code> creates or labels the derived tenant namespace, validates an existing tenant Gateway, owns tenant platform context such as Gateway and OIDC configuration, creates the temporary <code>Tenant/default-tenant</code> MaaS config object, and grants tenant-admin RBAC.</p>
+<p>Bootstraps a MaaS tenant from an infrastructure namespace. <code>AITenant</code> creates or labels the derived tenant namespace, validates an existing tenant Gateway, owns tenant platform context such as Gateway and OIDC configuration, creates the temporary <code>Tenant/default-tenant</code> MaaS config object, and creates tenant-admin Roles.</p>
 <p><code>AITenant</code> resources must be created in the controller-configured infrastructure namespace, which defaults to <code>ai-tenants</code>. The controller creates this namespace if it does not already exist. Set the controller <code>--aitenant-namespace</code> flag to use a different infrastructure namespace.</p>
 <p>Creates outside the configured infrastructure namespace are rejected by the validating admission webhook before the object is persisted.</p>
 <p>The controller automatically creates <code>AITenant/models-as-a-service</code> for the default tenant once per <code>Config/default</code> lifecycle. That AITenant targets the existing default Gateway and creates or adopts <code>Tenant/default-tenant</code> in the MaaS subscription namespace. For migration compatibility, the default tenant keeps legacy resource names such as <code>maas-api</code>, <code>maas-api-route</code>, and <code>maas-api-auth-policy</code>; non-default tenants use suffixed names. If an administrator deletes the default AITenant after bootstrap, the controller does not recreate it until the <code>Config/default</code> anchor is recreated.</p>
@@ -3230,10 +3224,11 @@
 <td>rbac</td>
 <td>AITenantRBACConfig</td>
 <td>No</td>
-<td>Tenant-admin subjects that receive RBAC in the tenant namespace and read access to this <code>AITenant</code>.</td>
+<td>Deprecated compatibility field. Accepted but ignored; create standard Kubernetes RoleBindings instead.</td>
 </tr>
 </tbody>
 </table>
+<p><code>spec.rbac</code> remains in the served schema only for upgrade compatibility with existing manifests. New manifests should omit it. The controller does not create, update, or delete user-managed RoleBindings from this field.</p>
 <hr />
 <h2 id="tenant-namespace">Tenant Namespace</h2>
 <p>For non-default tenants, the controller derives the tenant namespace from the <code>AITenant</code> name as <code>ai-tenant-&lt;aitenant-name&gt;</code>. <code>AITenant</code> names are limited to 41 characters so per-tenant platform resources stay within Kubernetes 63-character name limits. The default <code>AITenant/models-as-a-service</code> keeps the configured MaaS tenant namespace, usually <code>models-as-a-service</code>, for migration compatibility.</p>
@@ -3247,7 +3242,7 @@
 <ul>
 <li>Gateway context: <code>spec.gateway</code> intent and resolved <code>status.gatewayRef</code></li>
 <li>External OIDC context: <code>spec.oidc</code></li>
-<li>Tenant namespace metadata and tenant-admin RBAC</li>
+<li>Tenant namespace metadata and tenant-admin Roles</li>
 </ul>
 <p>The temporary <code>Tenant/default-tenant</code> object in each tenant namespace owns MaaS-specific user configuration, such as API key and telemetry settings. For backward compatibility, old <code>Tenant.spec.gatewayRef</code> and <code>Tenant.spec.externalOIDC</code> values may remain on existing objects, but AITenant-managed reconciliation ignores them.</p>
 <hr />
@@ -3274,56 +3269,8 @@
 </table>
 <p>The Gateway namespace is controller configuration, not an <code>AITenant</code> spec field. The Gateway must already exist, normally after network or cluster administrator approval. The controller only reads the Gateway and reports the resolved reference in <code>status.gatewayRef</code>; it does not create, label, annotate, reconcile, adopt, or delete Gateway resources.</p>
 <hr />
-<h2 id="aitenantrbacconfig">AITenantRBACConfig</h2>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>admins</td>
-<td>[]AITenantRBACSubject</td>
-<td>No</td>
-<td>Subjects granted tenant-admin RBAC. Max 128 entries.</td>
-</tr>
-</tbody>
-</table>
-<h3 id="aitenantrbacsubject">AITenantRBACSubject</h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>kind</td>
-<td>string</td>
-<td>Yes</td>
-<td>One of <code>User</code>, <code>Group</code>, or <code>ServiceAccount</code>.</td>
-</tr>
-<tr>
-<td>name</td>
-<td>string</td>
-<td>Yes</td>
-<td>Subject name.</td>
-</tr>
-<tr>
-<td>namespace</td>
-<td>string</td>
-<td>No</td>
-<td>Required only for <code>ServiceAccount</code> subjects.</td>
-</tr>
-</tbody>
-</table>
+<h2 id="tenant-administration">Tenant Administration</h2>
+<p>The controller creates tenant-admin Roles but does not create RoleBindings from <code>spec.rbac</code> or any other <code>AITenant</code> field. Platform administrators grant tenant access by creating standard Kubernetes <code>RoleBinding</code> resources that reference those Roles. See <a href="../../../configuration-and-management/tenant-rbac/">Tenant RBAC</a> for Role names, permissions, lifecycle cleanup notes, and examples for users, groups, and ServiceAccounts.</p>
 <hr />
 <h2 id="status">Status</h2>
 <h3 id="aitenantstatus">AITenantStatus</h3>
@@ -3371,10 +3318,6 @@
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="nt">oidc</span><span class="p">:</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="nt">issuerUrl</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;https://keycloak.example.com/realms/red-team&quot;</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nt">clientId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">red-team-maas</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">  </span><span class="nt">rbac</span><span class="p">:</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="nt">admins</span><span class="p">:</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Group</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">red-team-admins</span>
 </code></pre></div>
 <hr />
 <h2 id="related-documentation">Related Documentation</h2>
@@ -3382,6 +3325,7 @@
 <li><a href="../tenant/">Tenant CRD</a> - Temporary MaaS runtime config object</li>
 <li><a href="../maas-auth-policy/">MaaSAuthPolicy CRD</a> - Access control policies</li>
 <li><a href="../maas-subscription/">MaaSSubscription CRD</a> - Subscription and rate limiting</li>
+<li><a href="../../../configuration-and-management/tenant-rbac/">Tenant RBAC</a> - Granting tenant administration access with RoleBindings</li>
 </ul>
 
 
@@ -3405,7 +3349,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="June 29, 2026 18:40:07 UTC">June 29, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 6, 2026 16:38:02 UTC">July 6, 2026</span>
   </span>
 
     
