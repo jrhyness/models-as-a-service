@@ -148,3 +148,37 @@ func TestExtractGatewayMetadata_NoReadyListeners(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "could not determine external hostname")
 }
+
+func TestExtractGatewayMetadata_FallbackToStatusAddresses(t *testing.T) {
+	log := logger.New(false)
+	handler := NewHandler(log, nil, "test-tenant", "test-gateway", "test-ns")
+
+	// Gateway with no listener hostname, should fall back to status.addresses
+	gateway := map[string]any{
+		"status": map[string]any{
+			"addresses": []any{
+				map[string]any{
+					"type":  "IPAddress",
+					"value": "gateway.fallback.example.com",
+				},
+			},
+			"listeners": []any{
+				map[string]any{
+					"name":           "https",
+					"port":           int64(443),
+					"protocol":       "HTTPS",
+					"attachedRoutes": int64(2),
+					// No hostname in listener
+				},
+			},
+		},
+	}
+
+	ctx := context.Background()
+	metadata, err := handler.extractGatewayMetadata(ctx, gateway)
+
+	require.NoError(t, err)
+	assert.Equal(t, "https://gateway.fallback.example.com", metadata.ExternalURL)
+	assert.Equal(t, "https", metadata.Protocol)
+	assert.Equal(t, int64(443), metadata.Port)
+}
