@@ -44,16 +44,10 @@ rules:
 
 # Gateways for /v1/tenants endpoint (gateway discovery)
 # Only 'get' needed - code uses .Get(gatewayName) not .List()
+# External hostname comes from Gateway status (status.addresses or listener.hostname)
 - apiGroups: ["gateway.networking.k8s.io"]
   resources: ["gateways"]
   verbs: ["get"]
-
-# OpenShift Routes for /v1/tenants endpoint (external hostname discovery)
-# Routes are optional - endpoint will fall back to Gateway status if Routes don't exist
-# 'list' needed - code uses .List() to find Route targeting Gateway
-- apiGroups: ["route.openshift.io"]
-  resources: ["routes"]
-  verbs: ["list"]
 
 # Metrics and monitoring
 - apiGroups: [""]

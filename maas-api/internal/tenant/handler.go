@@ -125,8 +125,7 @@ func (h *Handler) GetTenantInfo(c *gin.Context) {
 }
 
 // extractGatewayMetadata extracts connection metadata from Gateway status.
-// It attempts to find the external hostname from OpenShift Routes first,
-// falling back to Gateway status if no Route is found.
+// Uses Gateway status.addresses and status.listeners to determine external hostname.
 func (h *Handler) extractGatewayMetadata(ctx context.Context, gateway map[string]any) (*GatewayMetadata, error) {
 	// Extract status
 	status, ok := gateway["status"].(map[string]any)
@@ -166,7 +165,7 @@ func (h *Handler) extractGatewayMetadata(ctx context.Context, gateway map[string
 			protocol = protocolVal
 		}
 
-		// Extract hostname for fallback
+		// Extract hostname from listener
 		if hostnameVal, ok := listener["hostname"].(string); ok {
 			hostname = hostnameVal
 		}
@@ -175,15 +174,10 @@ func (h *Handler) extractGatewayMetadata(ctx context.Context, gateway map[string
 		break
 	}
 
-	// Try to find external hostname from OpenShift Route (preferred for external access)
-	externalHost := h.findRouteHostname(ctx)
+	// Get external hostname from Gateway status
+	externalHost := hostname
 
-	// Fallback: try hostname from listener
-	if externalHost == "" {
-		externalHost = hostname
-	}
-
-	// Fallback: try status.addresses
+	// Fallback: try status.addresses (set by Gateway controller with external hostname)
 	if externalHost == "" {
 		if addresses, ok := status["addresses"].([]any); ok && len(addresses) > 0 {
 			if addr, ok := addresses[0].(map[string]any); ok {
@@ -219,105 +213,3 @@ func (h *Handler) extractGatewayMetadata(ctx context.Context, gateway map[string
 	}, nil
 }
 
-// findRouteHostname attempts to find the external hostname from OpenShift Routes
-// that reference this Gateway. Returns empty string if no Route is found.
-func (h *Handler) findRouteHostname(ctx context.Context) string {
-	// Skip if dynamic client is not available (e.g., in unit tests)
-	if h.dynamicClient == nil {
-		return ""
-	}
-
-	// OpenShift Route GVR
-	routeGVR := schema.GroupVersionResource{
-		Group:    "route.openshift.io",
-		Version:  "v1",
-		Resource: "routes",
-	}
-
-	// List Routes in the Gateway's namespace
-	routes, err := h.dynamicClient.Resource(routeGVR).Namespace(h.gatewayNamespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		// Routes may not exist (non-OpenShift cluster) or no RBAC - not an error
-		h.log.Debug("Could not list Routes (may not be OpenShift)", "error", err)
-		return ""
-	}
-
-	// Find Route that references this Gateway
-	gatewayServiceName := fmt.Sprintf("%s-openshift-default", h.gatewayName)
-
-	for _, item := range routes.Items {
-		spec, ok := item.Object["spec"].(map[string]any)
-		if !ok {
-			continue
-		}
-
-		to, ok := spec["to"].(map[string]any)
-		if !ok {
-			continue
-		}
-
-		// Check if Route targets the Gateway Service
-		serviceName, ok := to["name"].(string)
-		if !ok || serviceName != gatewayServiceName {
-			continue
-		}
-
-		// Verify Route is admitted (prevents poisoning from unadmitted Routes)
-		status, ok := item.Object["status"].(map[string]any)
-		if !ok {
-			continue
-		}
-
-		ingress, ok := status["ingress"].([]any)
-		if !ok || len(ingress) == 0 {
-			continue
-		}
-
-		// Check if any ingress entry has Admitted=True condition
-		admitted := false
-		for _, ing := range ingress {
-			ingMap, ok := ing.(map[string]any)
-			if !ok {
-				continue
-			}
-
-			conditions, ok := ingMap["conditions"].([]any)
-			if !ok {
-				continue
-			}
-
-			for _, cond := range conditions {
-				condMap, ok := cond.(map[string]any)
-				if !ok {
-					continue
-				}
-
-				if condType, _ := condMap["type"].(string); condType == "Admitted" {
-					if condStatus, _ := condMap["status"].(string); condStatus == "True" {
-						admitted = true
-						break
-					}
-				}
-			}
-
-			if admitted {
-				break
-			}
-		}
-
-		if !admitted {
-			h.log.Debug("Skipping unadmitted Route", "route", item.GetName())
-			continue
-		}
-
-		// Extract hostname from Route spec
-		if host, ok := spec["host"].(string); ok && host != "" {
-			h.log.Debug("Found external hostname from admitted Route",
-				"route", item.GetName(),
-				"hostname", host)
-			return host
-		}
-	}
-
-	return ""
-}
