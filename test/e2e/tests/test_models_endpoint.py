@@ -818,6 +818,22 @@ class TestModelsEndpoint:
 
             _wait_reconcile()
 
+            # DIAGNOSTIC: Check MaaSModelRef status before querying /v1/models
+            log.info("=== DIAGNOSTIC: Checking MaaSModelRef status ===")
+            model_ref_1 = _get_cr("maasmodelref", MODEL_REF, namespace=MODEL_NAMESPACE)
+            model_ref_2 = _get_cr("maasmodelref", PREMIUM_MODEL_REF, namespace=MODEL_NAMESPACE)
+            if model_ref_1:
+                status_1 = model_ref_1.get("status", {})
+                log.info(f"{MODEL_REF}: phase={status_1.get('phase')}, endpoint={status_1.get('endpoint')}")
+            else:
+                log.warning(f"{MODEL_REF}: NOT FOUND")
+            if model_ref_2:
+                status_2 = model_ref_2.get("status", {})
+                log.info(f"{PREMIUM_MODEL_REF}: phase={status_2.get('phase')}, endpoint={status_2.get('endpoint')}")
+            else:
+                log.warning(f"{PREMIUM_MODEL_REF}: NOT FOUND")
+            log.info("=== END DIAGNOSTIC ===")
+
             # Query /v1/models
             log.info(f"Querying /v1/models with subscription: {subscription_name}")
             r = _get_models_with_gateway_retry(
@@ -836,6 +852,12 @@ class TestModelsEndpoint:
             # Get model IDs from response
             model_ids = [m["id"] for m in models]
             unique_ids = set(model_ids)
+
+            # DIAGNOSTIC: Log full model details from API response
+            log.info("=== DIAGNOSTIC: API response details ===")
+            for i, model in enumerate(models):
+                log.info(f"Model {i+1}: id={model.get('id')}, ownedBy={model.get('ownedBy')}, url={model.get('url')}")
+            log.info("=== END DIAGNOSTIC ===")
 
             log.info(f"📊 API Response: {len(models)} total model(s), {len(unique_ids)} unique ID(s)")
             log.info(f"   Model IDs: {model_ids}")
