@@ -102,7 +102,7 @@ func (h *Handler) GetTenantInfo(c *gin.Context) {
 	}
 
 	// Extract gateway metadata
-	gatewayMetadata, err := h.extractGatewayMetadata(ctx, gateway.Object)
+	gatewayMetadata, err := h.extractGatewayMetadata(gateway.Object)
 	if err != nil {
 		h.log.Error("Failed to extract gateway metadata", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -126,7 +126,7 @@ func (h *Handler) GetTenantInfo(c *gin.Context) {
 
 // extractGatewayMetadata extracts connection metadata from Gateway status.
 // Uses Gateway status.addresses and status.listeners to determine external hostname.
-func (h *Handler) extractGatewayMetadata(ctx context.Context, gateway map[string]any) (*GatewayMetadata, error) {
+func (h *Handler) extractGatewayMetadata(gateway map[string]any) (*GatewayMetadata, error) {
 	// Extract status
 	status, ok := gateway["status"].(map[string]any)
 	if !ok {
@@ -212,4 +212,3 @@ func (h *Handler) extractGatewayMetadata(ctx context.Context, gateway map[string
 		Port:        port,
 	}, nil
 }
-

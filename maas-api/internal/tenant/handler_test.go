@@ -2,7 +2,6 @@
 package tenant
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -43,8 +42,7 @@ func TestExtractGatewayMetadata_Success(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
-	metadata, err := handler.extractGatewayMetadata(ctx, gateway)
+	metadata, err := handler.extractGatewayMetadata(gateway)
 
 	require.NoError(t, err)
 	assert.NotNil(t, metadata)
@@ -73,8 +71,7 @@ func TestExtractGatewayMetadata_NonStandardPort(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
-	metadata, err := handler.extractGatewayMetadata(ctx, gateway)
+	metadata, err := handler.extractGatewayMetadata(gateway)
 
 	require.NoError(t, err)
 	assert.Equal(t, "https://maas.example.com:8443", metadata.ExternalURL)
@@ -99,8 +96,7 @@ func TestExtractGatewayMetadata_HTTPListener(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
-	metadata, err := handler.extractGatewayMetadata(ctx, gateway)
+	metadata, err := handler.extractGatewayMetadata(gateway)
 
 	require.NoError(t, err)
 	assert.Equal(t, "http://maas.example.com", metadata.ExternalURL)
@@ -117,8 +113,7 @@ func TestExtractGatewayMetadata_NoListeners(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
-	_, err := handler.extractGatewayMetadata(ctx, gateway)
+	_, err := handler.extractGatewayMetadata(gateway)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no listeners")
@@ -142,8 +137,7 @@ func TestExtractGatewayMetadata_NoReadyListeners(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
-	_, err := handler.extractGatewayMetadata(ctx, gateway)
+	_, err := handler.extractGatewayMetadata(gateway)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "could not determine external hostname")
@@ -174,8 +168,7 @@ func TestExtractGatewayMetadata_FallbackToStatusAddresses(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
-	metadata, err := handler.extractGatewayMetadata(ctx, gateway)
+	metadata, err := handler.extractGatewayMetadata(gateway)
 
 	require.NoError(t, err)
 	assert.Equal(t, "https://gateway.fallback.example.com", metadata.ExternalURL)
