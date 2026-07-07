@@ -124,49 +124,82 @@ func (h *Handler) GetTenantInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// extractGatewayMetadata extracts connection metadata from Gateway status.
-// Uses Gateway status.addresses and status.listeners to determine external hostname.
+// extractGatewayMetadata extracts connection metadata from Gateway spec and status.
+// Hostname, port, and protocol come from spec.listeners.
+// Readiness (attachedRoutes) comes from status.listeners.
 func (h *Handler) extractGatewayMetadata(gateway map[string]any) (*GatewayMetadata, error) {
+	// Extract spec
+	spec, ok := gateway["spec"].(map[string]any)
+	if !ok {
+		return nil, errors.New("gateway spec not found")
+	}
+
 	// Extract status
 	status, ok := gateway["status"].(map[string]any)
 	if !ok {
 		return nil, errors.New("gateway status not found")
 	}
 
-	// Extract listeners from status to get port and protocol
-	listenersRaw, ok := status["listeners"].([]any)
-	if !ok || len(listenersRaw) == 0 {
+	// Extract listeners from spec (contains hostname, port, protocol)
+	specListenersRaw, ok := spec["listeners"].([]any)
+	if !ok || len(specListenersRaw) == 0 {
+		return nil, errors.New("gateway has no listeners in spec")
+	}
+
+	// Extract listeners from status (contains attachedRoutes for readiness)
+	statusListenersRaw, ok := status["listeners"].([]any)
+	if !ok || len(statusListenersRaw) == 0 {
 		return nil, errors.New("gateway has no listeners in status")
 	}
-	// Find first ready listener (has attached routes)
+
+	// Build map of status listeners by name for quick lookup
+	statusListenersByName := make(map[string]map[string]any)
+	for _, l := range statusListenersRaw {
+		if statusListener, ok := l.(map[string]any); ok {
+			if name, ok := statusListener["name"].(string); ok {
+				statusListenersByName[name] = statusListener
+			}
+		}
+	}
+
+	// Find first ready listener (has attached routes in status)
 	var port int64 = 443   // default
 	var protocol = "HTTPS" // default
 	var hostname string
 
-	for _, l := range listenersRaw {
-		listener, ok := l.(map[string]any)
+	for _, l := range specListenersRaw {
+		specListener, ok := l.(map[string]any)
 		if !ok {
 			continue
 		}
 
-		// Get attached routes count to determine if listener is ready
-		attachedRoutes, _ := listener["attachedRoutes"].(int64)
-		if attachedRoutes == 0 {
+		// Get listener name to check status
+		listenerName, _ := specListener["name"].(string)
+		statusListener, hasStatus := statusListenersByName[listenerName]
+
+		// Check if listener is ready (has attached routes)
+		if hasStatus {
+			attachedRoutes, _ := statusListener["attachedRoutes"].(int64)
+			if attachedRoutes == 0 {
+				continue
+			}
+		} else {
+			// No status for this listener, skip
 			continue
 		}
 
-		// Extract port
-		if portVal, ok := listener["port"].(int64); ok {
+		// Extract port from spec
+		if portVal, ok := specListener["port"].(int64); ok {
 			port = portVal
 		}
 
-		// Extract protocol
-		if protocolVal, ok := listener["protocol"].(string); ok {
+		// Extract protocol from spec
+		if protocolVal, ok := specListener["protocol"].(string); ok {
 			protocol = protocolVal
 		}
 
-		// Extract hostname from listener
-		if hostnameVal, ok := listener["hostname"].(string); ok {
+		// Extract hostname from spec
+		if hostnameVal, ok := specListener["hostname"].(string); ok {
 			hostname = hostnameVal
 		}
 

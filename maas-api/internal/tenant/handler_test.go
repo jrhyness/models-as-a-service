@@ -23,6 +23,16 @@ func TestExtractGatewayMetadata_Success(t *testing.T) {
 	handler := NewHandler(log, nil, "test-tenant", "test-gateway", "test-ns")
 
 	gateway := map[string]any{
+		"spec": map[string]any{
+			"listeners": []any{
+				map[string]any{
+					"name":     "https",
+					"hostname": "maas.apps.example.com",
+					"port":     int64(443),
+					"protocol": "HTTPS",
+				},
+			},
+		},
 		"status": map[string]any{
 			"addresses": []any{
 				map[string]any{
@@ -33,9 +43,6 @@ func TestExtractGatewayMetadata_Success(t *testing.T) {
 			"listeners": []any{
 				map[string]any{
 					"name":           "https",
-					"hostname":       "maas.apps.example.com",
-					"port":           int64(443),
-					"protocol":       "HTTPS",
 					"attachedRoutes": int64(5),
 				},
 			},
@@ -58,13 +65,20 @@ func TestExtractGatewayMetadata_NonStandardPort(t *testing.T) {
 	handler := NewHandler(log, nil, "test-tenant", "test-gateway", "test-ns")
 
 	gateway := map[string]any{
+		"spec": map[string]any{
+			"listeners": []any{
+				map[string]any{
+					"name":     "https",
+					"hostname": "maas.example.com",
+					"port":     int64(8443),
+					"protocol": "HTTPS",
+				},
+			},
+		},
 		"status": map[string]any{
 			"listeners": []any{
 				map[string]any{
 					"name":           "https",
-					"hostname":       "maas.example.com",
-					"port":           int64(8443),
-					"protocol":       "HTTPS",
 					"attachedRoutes": int64(1),
 				},
 			},
@@ -83,13 +97,20 @@ func TestExtractGatewayMetadata_HTTPListener(t *testing.T) {
 	handler := NewHandler(log, nil, "test-tenant", "test-gateway", "test-ns")
 
 	gateway := map[string]any{
+		"spec": map[string]any{
+			"listeners": []any{
+				map[string]any{
+					"name":     "http",
+					"hostname": "maas.example.com",
+					"port":     int64(80),
+					"protocol": "HTTP",
+				},
+			},
+		},
 		"status": map[string]any{
 			"listeners": []any{
 				map[string]any{
 					"name":           "http",
-					"hostname":       "maas.example.com",
-					"port":           int64(80),
-					"protocol":       "HTTP",
 					"attachedRoutes": int64(1),
 				},
 			},
@@ -108,6 +129,9 @@ func TestExtractGatewayMetadata_NoListeners(t *testing.T) {
 	handler := NewHandler(log, nil, "test-tenant", "test-gateway", "test-ns")
 
 	gateway := map[string]any{
+		"spec": map[string]any{
+			"listeners": []any{},
+		},
 		"status": map[string]any{
 			"listeners": []any{},
 		},
@@ -124,13 +148,20 @@ func TestExtractGatewayMetadata_NoReadyListeners(t *testing.T) {
 	handler := NewHandler(log, nil, "test-tenant", "test-gateway", "test-ns")
 
 	gateway := map[string]any{
+		"spec": map[string]any{
+			"listeners": []any{
+				map[string]any{
+					"name":     "https",
+					"hostname": "maas.example.com",
+					"port":     int64(443),
+					"protocol": "HTTPS",
+				},
+			},
+		},
 		"status": map[string]any{
 			"listeners": []any{
 				map[string]any{
 					"name":           "https",
-					"hostname":       "maas.example.com",
-					"port":           int64(443),
-					"protocol":       "HTTPS",
 					"attachedRoutes": int64(0), // No routes attached
 				},
 			},
@@ -147,8 +178,18 @@ func TestExtractGatewayMetadata_FallbackToStatusAddresses(t *testing.T) {
 	log := logger.New(false)
 	handler := NewHandler(log, nil, "test-tenant", "test-gateway", "test-ns")
 
-	// Gateway with no listener hostname, should fall back to status.addresses
+	// Gateway with no listener hostname in spec, should fall back to status.addresses
 	gateway := map[string]any{
+		"spec": map[string]any{
+			"listeners": []any{
+				map[string]any{
+					"name":     "https",
+					"port":     int64(443),
+					"protocol": "HTTPS",
+					// No hostname in spec.listeners
+				},
+			},
+		},
 		"status": map[string]any{
 			"addresses": []any{
 				map[string]any{
@@ -159,10 +200,7 @@ func TestExtractGatewayMetadata_FallbackToStatusAddresses(t *testing.T) {
 			"listeners": []any{
 				map[string]any{
 					"name":           "https",
-					"port":           int64(443),
-					"protocol":       "HTTPS",
 					"attachedRoutes": int64(2),
-					// No hostname in listener
 				},
 			},
 		},
