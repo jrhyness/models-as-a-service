@@ -15,12 +15,14 @@ import (
 )
 
 const (
-	ServiceAccountCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	ServiceCAPath        = "/var/run/secrets/openshift-service-ca/service-ca.crt"
+	ServiceAccountCAPath    = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	ServiceCAPath           = "/var/run/secrets/openshift-service-ca/service-ca.crt"
+	ServiceAccountTokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 )
 
 type Client struct {
 	httpClient *http.Client
+	token      string // Service account token for authentication
 }
 
 // NewInClusterClient creates an HTTP client configured for in-cluster communication with TLS.
@@ -52,6 +54,12 @@ func NewInClusterClient(timeout time.Duration) (*Client, error) {
 		MinVersion: tls.VersionTLS12,
 	}
 
+	// Load service account token for authentication with maas-api internal endpoints
+	token, err := os.ReadFile(ServiceAccountTokenPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load service account token: %w", err)
+	}
+
 	return &Client{
 		httpClient: &http.Client{
 			Timeout: timeout,
@@ -59,6 +67,7 @@ func NewInClusterClient(timeout time.Duration) (*Client, error) {
 				TLSClientConfig: tlsConfig,
 			},
 		},
+		token: string(token),
 	}, nil
 }
 
@@ -76,6 +85,10 @@ func (c *Client) PostAndReadJSON(ctx context.Context, url string, reqBody any, r
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	// Add service account token for authentication with maas-api internal endpoints
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
