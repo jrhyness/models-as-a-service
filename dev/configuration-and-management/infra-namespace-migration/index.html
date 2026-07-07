@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://opendatahub-io.github.io/models-as-a-service/dev/configuration-and-management/tenant-rbac/">
+        <link rel="canonical" href="https://opendatahub-io.github.io/models-as-a-service/dev/configuration-and-management/infra-namespace-migration/">
       
       
-        <link rel="prev" href="../namespace-rbac/">
+        <link rel="prev" href="../api-key-administration/">
       
       
-        <link rel="next" href="../troubleshooting-external-model-rbac/">
+        <link rel="next" href="../namespace-rbac/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>Tenant RBAC - ODH Models-as-a-Service Documentation</title>
+        <title>Infrastructure Namespace Separation - ODH Models-as-a-Service Documentation</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tenant-rbac" class="md-skip">
+        <a href="#infrastructure-namespace-separation" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Tenant RBAC
+              Infrastructure Namespace Separation
             
           </span>
         </div>
@@ -1490,10 +1490,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../infra-namespace-migration/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Infrastructure Namespace Separation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1509,6 +1536,176 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#default-behavior-namespace-separation-enabled" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default Behavior (Namespace Separation Enabled)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Default Behavior (Namespace Separation Enabled)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-gets-deployed-where" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Gets Deployed Where
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#disabling-namespace-separation-rosa-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disabling Namespace Separation (ROSA Only)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Disabling Namespace Separation (ROSA Only)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#disable-via-script" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disable via Script
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#disable-via-kustomize" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disable via Kustomize
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#custom-infrastructure-namespace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom Infrastructure Namespace
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration &amp; Cleanup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Verification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#with-namespace-separation-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        With Namespace Separation (Default)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#without-namespace-separation-rosa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Without Namespace Separation (ROSA)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1546,37 +1743,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Tenant RBAC
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../tenant-rbac/" class="md-nav__link">
         
   
   
@@ -1592,92 +1762,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#controller-created-roles" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Controller-Created Roles
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tenant-admin-permissions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Tenant-Admin Permissions
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#subjectaccessreview" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        SubjectAccessReview
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#default-tenant" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Default Tenant
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#additional-tenants" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Additional Tenants
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#verify-access" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Verify Access
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -3007,10 +3091,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#controller-created-roles" class="md-nav__link">
+  <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Controller-Created Roles
+        Overview
       
     </span>
   </a>
@@ -3018,10 +3102,77 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tenant-admin-permissions" class="md-nav__link">
+  <a href="#default-behavior-namespace-separation-enabled" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Tenant-Admin Permissions
+        Default Behavior (Namespace Separation Enabled)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Default Behavior (Namespace Separation Enabled)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-gets-deployed-where" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Gets Deployed Where
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#disabling-namespace-separation-rosa-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disabling Namespace Separation (ROSA Only)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Disabling Namespace Separation (ROSA Only)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#disable-via-script" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disable via Script
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#disable-via-kustomize" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disable via Kustomize
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#custom-infrastructure-namespace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom Infrastructure Namespace
       
     </span>
   </a>
@@ -3029,10 +3180,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#subjectaccessreview" class="md-nav__link">
+  <a href="#migration-cleanup" class="md-nav__link">
     <span class="md-ellipsis">
       
-        SubjectAccessReview
+        Migration &amp; Cleanup
       
     </span>
   </a>
@@ -3040,32 +3191,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#default-tenant" class="md-nav__link">
+  <a href="#verification" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Default Tenant
+        Verification
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Verification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#with-namespace-separation-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        With Namespace Separation (Default)
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#additional-tenants" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#without-namespace-separation-rosa" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Additional Tenants
+        Without Namespace Separation (ROSA)
       
     </span>
   </a>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
-  <a href="#verify-access" class="md-nav__link">
+  <a href="#references" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Verify Access
+        References
       
     </span>
   </a>
@@ -3092,120 +3260,95 @@
   
 
 
-<h1 id="tenant-rbac">Tenant RBAC</h1>
-<p><code>AITenant</code> creates the Roles required for tenant administration, but it does not bind users, groups, or ServiceAccounts to those Roles. Platform administrators grant tenant access by creating standard Kubernetes <code>RoleBinding</code> resources.</p>
-<p>These <code>RoleBinding</code> resources are fully user-managed. Deleting an <code>AITenant</code> does not remove user-managed RoleBindings, and recreating the same tenant name can re-enable access if stale RoleBindings still reference the recreated Roles. Review or delete tenant RoleBindings before deleting or recreating a tenant.</p>
-<h2 id="controller-created-roles">Controller-Created Roles</h2>
-<p>For each <code>AITenant</code>, the controller creates two Roles.</p>
-<table>
-<thead>
-<tr>
-<th>Role</th>
-<th>Namespace</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>aitenant-&lt;tenant-name&gt;-tenant-admin</code></td>
-<td>Tenant namespace</td>
-<td>Manage tenant-scoped MaaS resources.</td>
-</tr>
-<tr>
-<td><code>aitenant-&lt;tenant-name&gt;-object-admin</code></td>
-<td>AITenant infrastructure namespace, usually <code>ai-tenants</code></td>
-<td>Read the <code>AITenant</code> object.</td>
-</tr>
-</tbody>
-</table>
-<p>For long tenant names, the controller truncates the Role name and appends a hash so the name fits the Kubernetes 63-character limit. To find the exact Role name, list Roles by tenant label:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>roles<span class="w"> </span>-A<span class="w"> </span>-l<span class="w"> </span>ai-gateway.opendatahub.io/tenant<span class="o">=</span>&lt;tenant-name&gt;
-</code></pre></div>
-<h2 id="tenant-admin-permissions">Tenant-Admin Permissions</h2>
-<p>The tenant-admin Role in the tenant namespace grants:</p>
+<h1 id="infrastructure-namespace-separation">Infrastructure Namespace Separation</h1>
+<h2 id="overview">Overview</h2>
+<p>MaaS separates infrastructure services (maas-api deployment and maas-db-config secret) from controller components into dedicated namespaces <strong>by default</strong>.</p>
+<p><strong>Note:</strong> PostgreSQL itself can be external (e.g., AWS RDS, Azure Database). Only the maas-api deployment and the database connection secret (<code>maas-db-config</code>) move to the infrastructure namespace.</p>
+<p>For details on the full namespace architecture, see <a href="../../architecture-internals/controller-architecture/">Controller Architecture</a>.</p>
+<h2 id="default-behavior-namespace-separation-enabled">Default Behavior (Namespace Separation Enabled)</h2>
+<p>By default, MaaS automatically derives the infrastructure namespace from the controller namespace:</p>
 <ul>
-<li><code>get</code>, <code>list</code>, <code>watch</code>, <code>create</code>, <code>update</code>, <code>patch</code>, and <code>delete</code> on <code>MaaSAuthPolicy</code></li>
-<li><code>get</code>, <code>list</code>, <code>watch</code>, <code>create</code>, <code>update</code>, <code>patch</code>, and <code>delete</code> on <code>MaaSSubscription</code></li>
-<li><code>get</code>, <code>update</code>, and <code>patch</code> on <code>Tenant/default-tenant</code></li>
-<li><code>get</code>, <code>list</code>, and <code>watch</code> on <code>MaaSModelRef</code></li>
+<li><strong>ODH</strong>: <code>opendatahub</code> (controller) → <code>odh-ai-gateway-infra</code> (infrastructure)</li>
+<li><strong>RHOAI</strong>: <code>redhat-ods-applications</code> (controller) → <code>redhat-ai-gateway-infra</code> (infrastructure)</li>
 </ul>
-<p>The object-admin Role grants <code>get</code> on the specific <code>AITenant</code> object in the AITenant infrastructure namespace. Bind it when tenant administrators or dashboards need to read tenant bootstrap status.</p>
-<h2 id="subjectaccessreview">SubjectAccessReview</h2>
-<p>Kubernetes authorization checks use the username, groups, and ServiceAccount identity in the request. OIDC-backed users and groups do not need matching OpenShift <code>User</code> objects before they can be referenced in a RoleBinding. If the authenticated request identity matches a RoleBinding subject, <code>SubjectAccessReview</code> can authorize it.</p>
-<h2 id="default-tenant">Default Tenant</h2>
-<p>The default tenant usually uses:</p>
+<p>This provides better security isolation and simpler upgrades.</p>
+<h3 id="what-gets-deployed-where">What Gets Deployed Where</h3>
+<p><strong>Infrastructure namespace</strong> (<code>odh-ai-gateway-infra</code> or <code>redhat-ai-gateway-infra</code>):
+- maas-api Deployment
+- maas-db-config Secret
+- PostgreSQL (if using built-in, development only)</p>
+<p><strong>Controller namespace</strong> (<code>opendatahub</code> or <code>redhat-ods-applications</code>):
+- maas-controller Deployment
+- CRDs and RBAC
+- Webhook</p>
+<h2 id="disabling-namespace-separation-rosa-only">Disabling Namespace Separation (ROSA Only)</h2>
+<div class="admonition warning">
+<p class="admonition-title">ROSA Clusters Only</p>
+<p><strong>ODH on ROSA does not support namespace separation</strong> due to OpenShift webhook restrictions that block namespace creation.</p>
+<p>On ROSA clusters, you <strong>must disable</strong> namespace separation by setting <code>INFRA_NAMESPACE=""</code> (empty string).</p>
+</div>
+<h3 id="disable-via-script">Disable via Script</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">INFRA_NAMESPACE</span><span class="o">=</span><span class="s2">&quot;&quot;</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>./scripts/deploy.sh
+</code></pre></div>
+<h3 id="disable-via-kustomize">Disable via Kustomize</h3>
+<p>In your overlay's <code>kustomization.yaml</code>, add a patch:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">patches</span><span class="p">:</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">target</span><span class="p">:</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Deployment</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maas-controller</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">patch</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|-</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="no">- op: replace</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">      </span><span class="no">path: /spec/template/spec/containers/0/env</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">      </span><span class="no">value:</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="no">- name: INFRA_NAMESPACE</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">        </span><span class="no">value: &quot;&quot;</span>
+</code></pre></div>
+<p><strong>What happens when disabled:</strong>
+- maas-api deploys to controller namespace (same as controller)
+- No separate infrastructure namespace created
+- Works on ROSA clusters with namespace creation restrictions</p>
+<h2 id="custom-infrastructure-namespace">Custom Infrastructure Namespace</h2>
+<p>You can override the auto-derived namespace with a custom value:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">INFRA_NAMESPACE</span><span class="o">=</span>my-custom-namespace
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>./scripts/deploy.sh
+</code></pre></div>
+<p>Or via kustomize patch (similar to ROSA disable above, but set <code>value: "my-custom-namespace"</code>).</p>
+<h2 id="migration-cleanup">Migration &amp; Cleanup</h2>
+<p>Migration happens <strong>automatically</strong> when switching between modes:</p>
+<ol>
+<li>Scripts detect existing PostgreSQL (if present) in controller namespace</li>
+<li><code>maas-db-config</code> secret copied to new infra namespace</li>
+<li>New maas-api deployed to infra namespace  </li>
+<li><strong>Controller automatically deletes old maas-api</strong> from controller namespace</li>
+<li>Services use FQDN for cross-namespace communication</li>
+</ol>
+<h2 id="verification">Verification</h2>
+<h3 id="with-namespace-separation-default">With Namespace Separation (Default)</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Check infrastructure namespace has maas-api</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>odh-ai-gateway-infra<span class="w">  </span><span class="c1"># Should show maas-api (and postgres if using built-in)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Controller namespace should NOT have maas-api</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>opendatahub<span class="w">  </span><span class="c1"># Should only show maas-controller</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Validate everything works</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>./scripts/validate-deployment.sh
+</code></pre></div>
+<h3 id="without-namespace-separation-rosa">Without Namespace Separation (ROSA)</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Check controller namespace has both controller and maas-api</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>opendatahub<span class="w">  </span><span class="c1"># Should show both maas-controller and maas-api</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># No separate infrastructure namespace</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>kubectl<span class="w"> </span>get<span class="w"> </span>namespace<span class="w"> </span>odh-ai-gateway-infra<span class="w">  </span><span class="c1"># Should not exist (or be empty)</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Validate everything works</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="nv">INFRA_NAMESPACE</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="w"> </span>./scripts/validate-deployment.sh
+</code></pre></div>
+<h2 id="references">References</h2>
 <ul>
-<li>AITenant name: <code>models-as-a-service</code></li>
-<li>Tenant namespace: <code>models-as-a-service</code></li>
-<li>AITenant infrastructure namespace: <code>ai-tenants</code></li>
+<li>Auto-derivation logic: <code>resolveInfraNamespace()</code> in <code>main.go</code> and <code>derive_infra_namespace()</code> in scripts</li>
+<li>Namespace architecture: <a href="../../architecture-internals/controller-architecture/">Controller Architecture</a></li>
 </ul>
-<p>Grant a group access to manage default tenant MaaS resources:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>rolebinding<span class="w"> </span>models-as-a-service-tenant-admin<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--role<span class="o">=</span>aitenant-models-as-a-service-tenant-admin<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--group<span class="o">=</span>rhoai-admins<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>-n<span class="w"> </span>models-as-a-service
-</code></pre></div>
-<p>Grant the same group read access to the default <code>AITenant</code> object:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>rolebinding<span class="w"> </span>models-as-a-service-aitenant-reader<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>--role<span class="o">=</span>aitenant-models-as-a-service-object-admin<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--group<span class="o">=</span>rhoai-admins<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>-n<span class="w"> </span>ai-tenants
-</code></pre></div>
-<h2 id="additional-tenants">Additional Tenants</h2>
-<p>For an additional tenant named <code>red-team</code>, the tenant namespace is usually <code>ai-tenant-red-team</code>.</p>
-<p>Grant a user tenant-admin access:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>rolebinding<span class="w"> </span>red-team-tenant-admin<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--role<span class="o">=</span>aitenant-red-team-tenant-admin<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>--user<span class="o">=</span>alice@example.com<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>-n<span class="w"> </span>ai-tenant-red-team
-</code></pre></div>
-<p>Grant a group tenant-admin access:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io/v1</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RoleBinding</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">red-team-tenant-admins</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ai-tenant-red-team</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nt">subjects</span><span class="p">:</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Group</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">red-team-admins</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="nt">roleRef</span><span class="p">:</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">  </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Role</span>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">aitenant-red-team-tenant-admin</span>
-</code></pre></div>
-<p>Grant a ServiceAccount tenant-admin access:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io/v1</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RoleBinding</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">red-team-admin-serviceaccount</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ai-tenant-red-team</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="nt">subjects</span><span class="p">:</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ServiceAccount</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tenant-admin</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">platform-automation</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="nt">roleRef</span><span class="p">:</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">  </span><span class="nt">apiGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Role</span>
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">aitenant-red-team-tenant-admin</span>
-</code></pre></div>
-<p>Grant read access to the <code>AITenant</code> object:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>rolebinding<span class="w"> </span>red-team-aitenant-reader<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span>--role<span class="o">=</span>aitenant-red-team-object-admin<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>--user<span class="o">=</span>alice@example.com<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>-n<span class="w"> </span>ai-tenants
-</code></pre></div>
-<h2 id="verify-access">Verify Access</h2>
-<p>Check tenant namespace permissions:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>auth<span class="w"> </span>can-i<span class="w"> </span>create<span class="w"> </span>maassubscriptions.maas.opendatahub.io<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span>--as<span class="o">=</span>alice@example.com<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span>-n<span class="w"> </span>ai-tenant-red-team
-</code></pre></div>
-<p>Check <code>AITenant</code> read access:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>kubectl<span class="w"> </span>auth<span class="w"> </span>can-i<span class="w"> </span>get<span class="w"> </span>aitenants.maas.opendatahub.io/red-team<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span>--as<span class="o">=</span>alice@example.com<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span>-n<span class="w"> </span>ai-tenants
-</code></pre></div>
 
 
 
@@ -3228,7 +3371,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 6, 2026 16:38:02 UTC">July 6, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 7, 2026 21:04:24 UTC">July 7, 2026</span>
   </span>
 
     
@@ -3238,7 +3381,7 @@
     <span class="md-icon" title="Created">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 6, 2026 16:38:02 UTC">July 6, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 7, 2026 21:04:24 UTC">July 7, 2026</span>
   </span>
 
     
