@@ -2307,7 +2307,7 @@ func TestRevokeForTenantHandler(t *testing.T) {
 	store := NewMockStore()
 	cfg := &config.Config{}
 	service := NewServiceWithLogger(store, cfg, fixedSubSelector{}, logger.Development())
-	handler := NewHandler(logger.Development(), service, newMockAdminChecker())
+	handler := NewHandler(logger.Development(), service, newMockAdminChecker(), &spyMetricsRecorder{})
 
 	ctx := context.Background()
 
@@ -2403,7 +2403,7 @@ func TestRevokeForSubscriptionHandler(t *testing.T) {
 	store := NewMockStore()
 	cfg := &config.Config{}
 	service := NewServiceWithLogger(store, cfg, fixedSubSelector{}, logger.Development())
-	handler := NewHandler(logger.Development(), service, newMockAdminChecker())
+	handler := NewHandler(logger.Development(), service, newMockAdminChecker(), &spyMetricsRecorder{})
 
 	ctx := context.Background()
 
