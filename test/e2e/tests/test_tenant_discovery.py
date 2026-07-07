@@ -15,6 +15,7 @@ import logging
 import subprocess
 import json
 import os
+import pytest
 import requests
 from conftest import TLS_VERIFY
 
@@ -184,7 +185,23 @@ def test_tenant_discovery_gateway_matches_deployment(maas_api_internal_url: str,
 
     This is a regression test for the original problem: Dashboard assuming cluster domain
     instead of using the actual gateway hostname.
+
+    Note: This test is skipped when the Gateway is deployed with ClusterIP service
+    and OpenShift Route. This configuration is not supported - it mixes incompatible
+    routing paradigms (OpenShift Routes with Gateway API). In this mode, the Gateway
+    has no external hostname configured in spec.listeners, so /v1/tenants returns an
+    error. The supported configuration is LoadBalancer service with hostname in spec.listeners.
     """
+    # Skip test when Gateway is deployed in unsupported ClusterIP + Route mode
+    ingress_mode = os.environ.get("INGRESS_MODE", "clusterip")
+    if ingress_mode == "clusterip":
+        pytest.skip(
+            "Skipping when Gateway uses ClusterIP + OpenShift Route (unsupported configuration). "
+            "This mixes incompatible routing paradigms. "
+            "Gateway has no external hostname in spec.listeners, so /v1/tenants returns an error. "
+            "Supported configuration: LoadBalancer service with hostname in spec.listeners."
+        )
+
     url = maas_api_internal_url + "/v1/tenants"
     namespace = os.environ.get("MAAS_NAMESPACE", "opendatahub")
 

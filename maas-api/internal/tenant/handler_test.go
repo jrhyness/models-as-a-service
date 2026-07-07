@@ -213,3 +213,42 @@ func TestExtractGatewayMetadata_FallbackToStatusAddresses(t *testing.T) {
 	assert.Equal(t, "https", metadata.Protocol)
 	assert.Equal(t, int64(443), metadata.Port)
 }
+
+func TestExtractGatewayMetadata_RejectsInternalServiceName(t *testing.T) {
+	log := logger.New(false)
+	handler := NewHandler(log, nil, "test-tenant", "test-gateway", "test-ns")
+
+	// Gateway with internal service name - should return error, not internal hostname
+	gateway := map[string]any{
+		"spec": map[string]any{
+			"listeners": []any{
+				map[string]any{
+					"name":     "https",
+					"port":     int64(443),
+					"protocol": "HTTPS",
+					// No hostname in spec.listeners
+				},
+			},
+		},
+		"status": map[string]any{
+			"addresses": []any{
+				map[string]any{
+					"type":  "Hostname",
+					"value": "test-gateway-openshift-default.openshift-ingress.svc.cluster.local",
+				},
+			},
+			"listeners": []any{
+				map[string]any{
+					"name":           "https",
+					"attachedRoutes": int64(2),
+				},
+			},
+		},
+	}
+
+	_, err := handler.extractGatewayMetadata(gateway)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not configured with an external hostname")
+	assert.Contains(t, err.Error(), "internal service name")
+}

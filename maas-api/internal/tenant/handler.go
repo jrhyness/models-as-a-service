@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -223,6 +224,18 @@ func (h *Handler) extractGatewayMetadata(gateway map[string]any) (*GatewayMetada
 
 	if externalHost == "" {
 		return nil, errors.New("could not determine external hostname from gateway")
+	}
+
+	// Reject internal service names - better to return error than misleading internal hostname
+	if strings.HasSuffix(externalHost, ".svc.cluster.local") {
+		h.log.Warn("Gateway has no external hostname configured",
+			"gateway", h.gatewayName,
+			"namespace", h.gatewayNamespace,
+			"internal_address", externalHost,
+			"recommendation", "Configure Gateway with hostname in spec.listeners and LoadBalancer service type")
+		return nil, fmt.Errorf("gateway %s/%s is not configured with an external hostname (found internal service name: %s). "+
+			"Please configure the Gateway with spec.listeners[].hostname and use LoadBalancer service type",
+			h.gatewayNamespace, h.gatewayName, externalHost)
 	}
 
 	// Build external URL
