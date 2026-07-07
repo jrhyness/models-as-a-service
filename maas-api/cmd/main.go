@@ -274,13 +274,22 @@ func registerHandlers(
 		auth.TenantAuthMiddleware(log, cluster.ClientSet), //nolint:contextcheck // gin middleware uses c.Request.Context()
 		tenantHandler.GetTenantInfo)
 
-	// Internal routes (no auth required - called by Authorino / CronJob / Controllers)
+	// Internal routes - some require auth, others don't
 	internalRoutes := router.Group("/internal/v1")
+
+	// No auth (called by Authorino / CronJob)
 	internalRoutes.POST("/api-keys/validate", apiKeyHandler.ValidateAPIKeyHandler)
 	internalRoutes.POST("/api-keys/cleanup", apiKeyHandler.CleanupExpiredEphemeralKeys)
-	internalRoutes.POST("/api-keys/revoke-for-tenant", apiKeyHandler.RevokeForTenantHandler)
-	internalRoutes.POST("/api-keys/revoke-for-subscription", apiKeyHandler.RevokeForSubscriptionHandler)
 	internalRoutes.POST("/subscriptions/select", subscriptionHandler.SelectSubscription)
+
+	// Controller-only auth (called by maas-controller service account)
+	controllerAuth := auth.ControllerAuthMiddleware(log, cluster.ClientSet, cfg.ControllerNamespace)
+	internalRoutes.POST("/api-keys/revoke-for-tenant",
+		controllerAuth, //nolint:contextcheck // gin middleware uses c.Request.Context()
+		apiKeyHandler.RevokeForTenantHandler)
+	internalRoutes.POST("/api-keys/revoke-for-subscription",
+		controllerAuth, //nolint:contextcheck // gin middleware uses c.Request.Context()
+		apiKeyHandler.RevokeForSubscriptionHandler)
 
 	return nil
 }

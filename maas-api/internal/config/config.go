@@ -31,6 +31,11 @@ type Config struct {
 
 	MaaSSubscriptionNamespace string
 
+	// ControllerNamespace is the namespace where the maas-controller is deployed.
+	// Used for authorizing controller service account calls to internal endpoints.
+	// Default: same as maas-api namespace (NAMESPACE env var).
+	ControllerNamespace string
+
 	// TenantName is the tenant identifier for this maas-api instance.
 	// Set to "models-as-a-service" for default tenant, or AITenant name (e.g., "redteam") for other tenants.
 	// Used to filter database queries to enforce tenant isolation.
@@ -120,12 +125,16 @@ func Load() *Config {
 	aitenantName := env.GetString("AITENANT_NAME", tenantName)
 	aitenantNamespace := env.GetString("AITENANT_NAMESPACE", "ai-tenants")
 
+	namespace := env.GetString("NAMESPACE", constant.DefaultNamespace)
+	controllerNamespace := env.GetString("CONTROLLER_NAMESPACE", namespace) // Default to same namespace for backward compatibility
+
 	c := &Config{
 		Name:                      env.GetString("INSTANCE_NAME", gatewayName),
-		Namespace:                 env.GetString("NAMESPACE", constant.DefaultNamespace),
+		Namespace:                 namespace,
 		GatewayName:               gatewayName,
 		GatewayNamespace:          env.GetString("GATEWAY_NAMESPACE", constant.DefaultGatewayNamespace),
 		MaaSSubscriptionNamespace: env.GetString("MAAS_SUBSCRIPTION_NAMESPACE", constant.DefaultMaaSSubscriptionNamespace),
+		ControllerNamespace:       controllerNamespace,
 		TenantName:                tenantName,
 		AITenantName:              aitenantName,
 		AITenantNamespace:         aitenantNamespace,
