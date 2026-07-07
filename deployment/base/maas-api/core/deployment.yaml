@@ -25,6 +25,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: CONTROLLER_NAMESPACE
+          value: "opendatahub"  # Replaced by controller at runtime based on its own namespace
         - name: SECURE
           value: "false"
         - name: MAAS_SUBSCRIPTION_NAMESPACE
