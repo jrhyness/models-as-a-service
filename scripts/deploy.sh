@@ -622,14 +622,11 @@ EOF
   fi
 
   # Patch INFRA_NAMESPACE if set via environment variable
-  if [ -n "${INFRA_NAMESPACE:-}" ]; then
+  # Patch INFRA_NAMESPACE if explicitly set (including empty string for ROSA)
+  # Use parameter expansion to distinguish: unset vs set-to-empty vs set-to-value
+  if [ "${INFRA_NAMESPACE+x}" = "x" ]; then
     log_info "  Patching maas-controller with INFRA_NAMESPACE=${INFRA_NAMESPACE}"
-    local infra_ns_value
-    if [ "$INFRA_NAMESPACE" = "AUTO" ]; then
-      infra_ns_value="AUTO"
-    else
-      infra_ns_value="$INFRA_NAMESPACE"
-    fi
+    local infra_ns_value="$INFRA_NAMESPACE"
 
     # Find the index of INFRA_NAMESPACE in the env array
     local env_index

@@ -206,6 +206,10 @@ func ensureAITenantNamespaceWithClient(ctx context.Context, namespace string, cl
 	return ensureManagedNamespaceWithClient(ctx, namespace, "aitenant", clientset)
 }
 
+func ensureInfraNamespaceWithClient(ctx context.Context, namespace string, clientset kubernetes.Interface) error {
+	return ensureManagedNamespaceWithClient(ctx, namespace, "infra", clientset)
+}
+
 // resolveNamespaceAfterTerminationWait interprets the namespace GET after a successful termination poll.
 // If fallThroughToCreate is true, the caller must assign the original finalErr to the outer GET error and
 // continue into namespace creation. If fallThroughToCreate is false and the returned error is nil, the
@@ -627,6 +631,14 @@ func main() {
 	if err := ensureAITenantNamespaceWithClient(context.Background(), aitenantNamespace, clientset); err != nil {
 		setupLog.Error(err, "unable to ensure AITenant namespace exists", "namespace", aitenantNamespace)
 		os.Exit(1)
+	}
+	// Ensure infrastructure namespace exists when it differs from controller namespace
+	// (required for operator-only installs that don't run setup-database.sh)
+	if infraNamespace != "" && infraNamespace != controllerNamespace {
+		if err := ensureInfraNamespaceWithClient(context.Background(), infraNamespace, clientset); err != nil {
+			setupLog.Error(err, "unable to ensure infrastructure namespace exists", "namespace", infraNamespace)
+			os.Exit(1)
+		}
 	}
 
 	nsCfg := map[string]cache.Config{maasSubscriptionNamespace: {}}
