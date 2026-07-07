@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	ServiceAccountCAPath    = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	ServiceCAPath           = "/var/run/secrets/openshift-service-ca/service-ca.crt"
+	ServiceAccountCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	ServiceCAPath        = "/var/run/secrets/openshift-service-ca/service-ca.crt"
+	//nolint:gosec // This is a file path, not a hardcoded credential
 	ServiceAccountTokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 )
 
