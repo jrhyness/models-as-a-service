@@ -125,6 +125,16 @@ def test_tenant_discovery_authenticated(maas_api_internal_url: str, headers: dic
     This test uses the standard auth headers (service account token) that other E2E tests use.
     The endpoint uses system:authenticated authorization, so any authenticated user can access it.
     """
+    # Skip test when Gateway is deployed in unsupported ClusterIP + Route mode
+    ingress_mode = os.environ.get("INGRESS_MODE", "clusterip")
+    if ingress_mode == "clusterip":
+        pytest.skip(
+            "Skipping when Gateway uses ClusterIP + OpenShift Route (unsupported configuration). "
+            "This mixes incompatible routing paradigms. "
+            "Gateway has no external hostname in spec.listeners, so /v1/tenants returns an error. "
+            "Supported configuration: LoadBalancer service with hostname in spec.listeners."
+        )
+
     url = maas_api_internal_url + "/v1/tenants"
     namespace = os.environ.get("MAAS_NAMESPACE", "opendatahub")
 
