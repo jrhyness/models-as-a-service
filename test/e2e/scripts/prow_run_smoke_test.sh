@@ -103,10 +103,9 @@ MAAS_SUBSCRIPTION_NAMESPACE="${MAAS_SUBSCRIPTION_NAMESPACE:-models-as-a-service}
 MODEL_NAMESPACE="${MODEL_NAMESPACE:-llm}"
 GATEWAY_NAMESPACE="${GATEWAY_NAMESPACE:-openshift-ingress}"
 GATEWAY_NAME="${GATEWAY_NAME:-maas-default-gateway}"
-# Use LoadBalancer (route) mode by default - the officially supported Gateway API pattern.
-# The clusterip mode (ClusterIP + OpenShift Route) is not officially supported per Red Hat.
-# Can be overridden by setting INGRESS_MODE=clusterip for testing legacy deployments.
-INGRESS_MODE="${INGRESS_MODE:-route}"
+# Use clusterip gateway mode by default in e2e to avoid cloud LB provisioning delays/failures.
+# Can be overridden by setting INGRESS_MODE=route explicitly.
+INGRESS_MODE="${INGRESS_MODE:-clusterip}"
 export INGRESS_MODE
 # Gateway programming can lag during fresh cluster bring-up; allow a generous timeout.
 GATEWAY_PROGRAMMED_TIMEOUT="${GATEWAY_PROGRAMMED_TIMEOUT:-600}"
