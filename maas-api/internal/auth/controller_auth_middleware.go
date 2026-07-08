@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	authenticationv1 "k8s.io/api/authentication/v1" //nolint:importas // Must use distinct alias from authorization/v1
+	authv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -40,8 +40,8 @@ func ControllerAuthMiddleware(log *logger.Logger, kubeClient kubernetes.Interfac
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 
 		// Step 2: Validate token via TokenReview and extract user identity
-		tr := &authenticationv1.TokenReview{
-			Spec: authenticationv1.TokenReviewSpec{Token: token},
+		tr := &authv1.TokenReview{
+			Spec: authv1.TokenReviewSpec{Token: token},
 		}
 		result, err := kubeClient.AuthenticationV1().TokenReviews().Create(
 			ctx, tr, metav1.CreateOptions{},

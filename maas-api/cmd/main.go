@@ -283,12 +283,12 @@ func registerHandlers(
 	internalRoutes.POST("/subscriptions/select", subscriptionHandler.SelectSubscription)
 
 	// Controller-only auth (called by maas-controller service account)
-	controllerAuth := auth.ControllerAuthMiddleware(log, cluster.ClientSet, cfg.ControllerNamespace)
+	controllerAuth := auth.ControllerAuthMiddleware(log, cluster.ClientSet, cfg.ControllerNamespace) //nolint:contextcheck // Gin middleware uses c.Request.Context() internally
 	internalRoutes.POST("/api-keys/revoke-for-tenant",
-		controllerAuth, //nolint:contextcheck // gin middleware uses c.Request.Context()
+		controllerAuth,
 		apiKeyHandler.RevokeForTenantHandler)
 	internalRoutes.POST("/api-keys/revoke-for-subscription",
-		controllerAuth, //nolint:contextcheck // gin middleware uses c.Request.Context()
+		controllerAuth,
 		apiKeyHandler.RevokeForSubscriptionHandler)
 
 	return nil
