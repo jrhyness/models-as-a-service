@@ -1028,14 +1028,20 @@ allow {
 			"unauthorized": map[string]any{
 				"code": int64(403),
 				"body": map[string]any{
-					"expression": `has(auth.metadata["subscription-info"].message) ? auth.metadata["subscription-info"].message : "Access denied"`,
+					// When API key is invalid/revoked (apiKeyValidation.valid == false):
+					// return JSON error matching test expectations. Otherwise, return
+					// subscription-info message (e.g., subscription not found, failed, etc.)
+					"expression": `has(auth.metadata.apiKeyValidation) && auth.metadata.apiKeyValidation.valid == false ? ` +
+						`'{"error": {"type": "permission_error", "message": "API key is invalid or has been revoked"}}' : ` +
+						`(has(auth.metadata["subscription-info"].message) ? auth.metadata["subscription-info"].message : "Access denied")`,
 				},
 				"headers": map[string]any{
 					"x-ext-auth-reason": map[string]any{
 						"expression": `has(auth.metadata["subscription-info"].error) ? auth.metadata["subscription-info"].error : "unauthorized"`,
 					},
 					"content-type": map[string]any{
-						"value": "text/plain",
+						// Use application/json for invalid API keys, text/plain for other failures
+						"expression": `has(auth.metadata.apiKeyValidation) && auth.metadata.apiKeyValidation.valid == false ? "application/json" : "text/plain"`,
 					},
 				},
 			},
