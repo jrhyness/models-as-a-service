@@ -100,7 +100,7 @@ func TestMaskConnectionURL(t *testing.T) {
 
 func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 	const (
-		secretName      = "maas-db-config"
+		secretName      = "maas-db-config" //nolint:gosec // secret name reference, not a credential
 		secretKey       = "DB_CONNECTION_URL"
 		controllerNs    = "opendatahub"
 		infraNs         = "odh-ai-gateway-infra"
@@ -122,7 +122,7 @@ func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 			name: "upgrade scenario - migrate secret with FQDN",
 			setupSecrets: func(cs *fake.Clientset) {
 				// Secret exists in controller namespace only
-				cs.CoreV1().Secrets(controllerNs).Create(context.Background(), &corev1.Secret{
+				_, _ = cs.CoreV1().Secrets(controllerNs).Create(context.Background(), &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      secretName,
 						Namespace: controllerNs,
@@ -143,7 +143,7 @@ func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 			name: "already migrated - no-op",
 			setupSecrets: func(cs *fake.Clientset) {
 				// Secret exists in both namespaces
-				cs.CoreV1().Secrets(controllerNs).Create(context.Background(), &corev1.Secret{
+				_, _ = cs.CoreV1().Secrets(controllerNs).Create(context.Background(), &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      secretName,
 						Namespace: controllerNs,
@@ -152,7 +152,7 @@ func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 						secretKey: []byte(originalConnURL),
 					},
 				}, metav1.CreateOptions{})
-				cs.CoreV1().Secrets(infraNs).Create(context.Background(), &corev1.Secret{
+				_, _ = cs.CoreV1().Secrets(infraNs).Create(context.Background(), &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      secretName,
 						Namespace: infraNs,
@@ -166,7 +166,7 @@ func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 			infraNs:             infraNs,
 			expectError:         false,
 			expectSecretInDst:   true,
-			expectFQDN:          true, // Should preserve existing FQDN
+			expectFQDN:          true,  // Should preserve existing FQDN
 			expectSourceDeleted: false, // No migration happened, source untouched
 		},
 		{
@@ -183,7 +183,7 @@ func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 		{
 			name: "same namespace - no migration",
 			setupSecrets: func(cs *fake.Clientset) {
-				cs.CoreV1().Secrets(controllerNs).Create(context.Background(), &corev1.Secret{
+				_, _ = cs.CoreV1().Secrets(controllerNs).Create(context.Background(), &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      secretName,
 						Namespace: controllerNs,
