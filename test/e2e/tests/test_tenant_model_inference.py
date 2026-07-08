@@ -328,10 +328,10 @@ class TestTenantModelInference:
             assert r.status_code in (200, 201), f"Failed to create key: {r.status_code}"
             orphaned_key = r.json()["key"]
 
-            # Verify key works BEFORE deletion
-            validate_url = f"{gateway_url}/maas-api/v1/api-keys/validate"
-            r = requests.post(validate_url, headers={"X-API-Key": orphaned_key}, timeout=45, verify=TLS_VERIFY)
-            assert r.status_code == 200, f"Key should work before deletion, but got {r.status_code}"
+            # Verify key works BEFORE deletion by calling /v1/models
+            models_url = f"{gateway_url}/v1/models"
+            r = requests.get(models_url, headers={"Authorization": f"Bearer {orphaned_key}"}, timeout=45, verify=TLS_VERIFY)
+            assert r.status_code == 200, f"Key should work before deletion, but got {r.status_code}: {r.text}"
 
             # Step 3: Delete AITenant (this should revoke the key)
             cleanup_discovery_case(case)
@@ -352,13 +352,13 @@ class TestTenantModelInference:
             )
             wait_for_status_phase("maasmodelref", model_name, case["tenant_ns"], expected_phase="Ready", timeout=180)
 
-            # Step 5: Verify orphaned key does NOT work
+            # Step 5: Verify orphaned key does NOT work by calling /v1/models
             gateway_url = _get_tenant_gateway_url(case["gateway_name"])
-            validate_url = f"{gateway_url}/maas-api/v1/api-keys/validate"
+            models_url = f"{gateway_url}/v1/models"
 
-            r = requests.post(validate_url, headers={"X-API-Key": orphaned_key}, timeout=45, verify=TLS_VERIFY)
-            assert r.status_code == 401, (
-                f"Orphaned key should be revoked (401), but got {r.status_code}. "
+            r = requests.get(models_url, headers={"Authorization": f"Bearer {orphaned_key}"}, timeout=45, verify=TLS_VERIFY)
+            assert r.status_code == 403, (
+                f"Orphaned key should be revoked (403), but got {r.status_code}: {r.text}. "
                 f"Old keys from deleted tenant must not work when tenant is recreated!"
             )
 
