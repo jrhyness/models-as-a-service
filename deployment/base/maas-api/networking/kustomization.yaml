@@ -7,4 +7,5 @@ metadata:
 resources:
 - httproute.yaml
 - maas-authorino-networkpolicy.yaml
+- maas-controller-networkpolicy.yaml
 - maas-gateway-networkpolicy.yaml

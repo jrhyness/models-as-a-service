@@ -1,0 +1,47 @@
+# NetworkPolicy to allow maas-controller pods to communicate with MaaS API
+# for internal API key revocation endpoints.
+#
+# Security constraints:
+# - podSelector: Restricted to maas-api pods only (not all namespace pods)
+# - from: Only maas-controller pods in opendatahub or redhat-ods-applications
+#
+# If maas-controller is installed in a different namespace, users will need to
+# create their own NetworkPolicy to allow traffic from that namespace.
+#
+# Background:
+# - maas-controller needs to call /internal/v1/api-keys/revoke-for-tenant
+#   and /internal/v1/api-keys/revoke-for-subscription endpoints
+# - These endpoints are protected by ControllerAuthMiddleware which validates
+#   the service account token
+# - This NetworkPolicy allows the network traffic; authentication is handled
+#   at the application layer by the middleware
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: maas-api-allow-controller
+  labels:
+    app.opendatahub.io/modelsasservice: "true"
+    app.kubernetes.io/part-of: maas
+    app.kubernetes.io/component: networking
+spec:
+  # Apply only to maas-api pods
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: maas-api
+      app.kubernetes.io/component: api
+      app.kubernetes.io/part-of: models-as-a-service
+  policyTypes:
+    - Ingress
+  ingress:
+    # Allow traffic from maas-controller pods
+    - from:
+        - namespaceSelector:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: In
+                values:
+                  - opendatahub                  # ODH operator namespace
+                  - redhat-ods-applications      # RHOAI operator namespace
+      ports:
+        - protocol: TCP
+          port: 8443
