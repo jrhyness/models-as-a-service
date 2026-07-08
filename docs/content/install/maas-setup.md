@@ -14,18 +14,29 @@ Complete [Operator Setup](platform-setup.md) before proceeding.
 
 `maas-api` uses PostgreSQL as its persistence layer for API key metadata: hashed tokens, subscription bindings, expiration dates, and revocation state. The database must be reachable before `maas-api` starts; the pod will crash-loop until the connection succeeds and the schema migration completes.
 
-Create the `maas-db-config` Secret in your ODH/RHOAI namespace (typically `opendatahub` for ODH or `redhat-ods-applications` for RHOAI):
+Create the `maas-db-config` Secret in the **infrastructure namespace**:
 
-```bash
-kubectl create secret generic maas-db-config \
-  -n opendatahub \
-  --from-literal=DB_CONNECTION_URL='postgresql://username:password@hostname:5432/database?sslmode=require'
-```
+=== "ODH"
+    ```bash
+    kubectl create secret generic maas-db-config \
+      -n odh-ai-gateway-infra \
+      --from-literal=DB_CONNECTION_URL='postgresql://username:password@hostname:5432/database?sslmode=require'
+    ```
+
+=== "RHOAI"
+    ```bash
+    kubectl create secret generic maas-db-config \
+      -n redhat-ai-gateway-infra \
+      --from-literal=DB_CONNECTION_URL='postgresql://username:password@hostname:5432/database?sslmode=require'
+    ```
 
 **Connection string format:**
 ```
 postgresql://USERNAME:PASSWORD@HOSTNAME:PORT/DATABASE?sslmode=require
 ```
+
+!!! info "Upgrading from older versions"
+    If upgrading from a version before infrastructure namespace separation, you can create the secret in the controller namespace (`opendatahub` or `redhat-ods-applications`) and it will be automatically migrated to the infrastructure namespace on controller startup.
 
 !!! note "Development"
     For development, you can deploy a PostgreSQL instance and Secret using the setup script:
@@ -34,14 +45,16 @@ postgresql://USERNAME:PASSWORD@HOSTNAME:PORT/DATABASE?sslmode=require
     ./scripts/setup-database.sh
     ```
 
-    **Setting the namespace:** The script defaults to `opendatahub`. Set the `NAMESPACE` environment variable if your MaaS deployment uses a different namespace:
+    The script automatically creates PostgreSQL and the `maas-db-config` secret in the correct infrastructure namespace. It also handles upgrades by migrating existing secrets from the controller namespace.
+
+    **Setting the controller namespace:** The script defaults to `opendatahub` as the controller namespace. Set the `NAMESPACE` environment variable for RHOAI or custom deployments:
 
     ```bash
-    # RHOAI uses redhat-ods-applications
+    # RHOAI (controller namespace: redhat-ods-applications, infra: redhat-ai-gateway-infra)
     NAMESPACE=redhat-ods-applications ./scripts/setup-database.sh
 
     # Custom namespace
-    NAMESPACE=my-maas-namespace ./scripts/setup-database.sh
+    NAMESPACE=my-controller-namespace ./scripts/setup-database.sh
     ```
 
     The full `scripts/deploy.sh` script also creates PostgreSQL automatically when deploying MaaS.
@@ -56,9 +69,15 @@ postgresql://USERNAME:PASSWORD@HOSTNAME:PORT/DATABASE?sslmode=require
 !!! note "Restarting maas-api"
     If you add or update the Secret after the DataScienceCluster already has modelsAsService in managed state, restart the maas-api deployment to pick up the config:
 
-    ```bash
-    kubectl rollout restart deployment/maas-api -n opendatahub
-    ```
+    === "ODH"
+        ```bash
+        kubectl rollout restart deployment/maas-api -n odh-ai-gateway-infra
+        ```
+
+    === "RHOAI"
+        ```bash
+        kubectl rollout restart deployment/maas-api -n redhat-ai-gateway-infra
+        ```
 
     This is not required when the Secret exists before enabling modelsAsService in your DataScienceCluster.
 
