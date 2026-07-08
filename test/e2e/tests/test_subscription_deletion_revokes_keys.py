@@ -9,19 +9,25 @@ granting access if a subscription is recreated with the same name.
 """
 
 import logging
+import os
 
 import requests
 
 from conftest import TLS_VERIFY
 from test_helper import (
     MODEL_NAMESPACE,
+    MODEL_REF,
     TIMEOUT,
     _apply_cr,
     _delete_cr,
+    _maas_api_url,
     _wait_reconcile,
 )
 
 log = logging.getLogger(__name__)
+
+# Use default tenant namespace which has Tenant CR already configured
+SUBSCRIPTION_NAMESPACE = os.environ.get("E2E_SUBSCRIPTION_NAMESPACE", os.environ.get("MAAS_SUBSCRIPTION_NAMESPACE", "models-as-a-service"))
 
 
 class TestSubscriptionDeletionRevokesKeys:
@@ -35,15 +41,19 @@ class TestSubscriptionDeletionRevokesKeys:
         key_ids_a, key_ids_b, keys_a, keys_b = [], [], [], []
 
         try:
-            # Create two subscriptions
+            # Create two subscriptions with a model ref (required by CRD validation)
             for sub_name in [sub_a_name, sub_b_name]:
                 _apply_cr({
                     "apiVersion": "maas.opendatahub.io/v1alpha1",
                     "kind": "MaaSSubscription",
-                    "metadata": {"name": sub_name, "namespace": MODEL_NAMESPACE},
+                    "metadata": {"name": sub_name, "namespace": SUBSCRIPTION_NAMESPACE},
                     "spec": {
                         "owner": {"groups": [{"name": "system:authenticated"}]},
-                        "modelRefs": [],  # No model refs needed - just testing key revocation
+                        "modelRefs": [{
+                            "name": MODEL_REF,
+                            "namespace": MODEL_NAMESPACE,
+                            "tokenRateLimits": [{"limit": 100, "window": "1m"}]
+                        }],
                     },
                 })
             log.info(f"Created subscriptions {sub_a_name}, {sub_b_name}")
@@ -75,28 +85,28 @@ class TestSubscriptionDeletionRevokesKeys:
                 key_ids_b.append(data_b["id"])
                 keys_b.append(data_b["key"])
 
-            # Verify all keys validate
-            validate_url = f"{api_keys_base_url}/validate"
+            # Verify all keys work by calling GET /v1/models
+            models_url = f"{_maas_api_url()}/v1/models"
             for key in keys_a + keys_b:
-                r = requests.post(validate_url, headers={"X-API-Key": key}, timeout=TIMEOUT, verify=TLS_VERIFY)
-                assert r.status_code == 200, f"Key validation failed: {r.status_code}"
+                r = requests.get(models_url, headers={"Authorization": f"Bearer {key}"}, timeout=TIMEOUT, verify=TLS_VERIFY)
+                assert r.status_code == 200, f"Key should work but got {r.status_code}: {r.text}"
             log.info("All keys validated ✓")
 
             # Delete sub-a
-            _delete_cr("maassubscription", sub_a_name, namespace=MODEL_NAMESPACE)
+            _delete_cr("maassubscription", sub_a_name, namespace=SUBSCRIPTION_NAMESPACE)
             log.info(f"Deleted subscription {sub_a_name}")
             _wait_reconcile()
 
-            # Verify sub-a keys are revoked
+            # Verify sub-a keys are revoked (403 for revoked keys)
             for key in keys_a:
-                r = requests.post(validate_url, headers={"X-API-Key": key}, timeout=TIMEOUT, verify=TLS_VERIFY)
-                assert r.status_code == 401, f"Key should be revoked but got {r.status_code}"
+                r = requests.get(models_url, headers={"Authorization": f"Bearer {key}"}, timeout=TIMEOUT, verify=TLS_VERIFY)
+                assert r.status_code == 403, f"Key should be revoked (403) but got {r.status_code}: {r.text}"
             log.info(f"Sub-a keys revoked ✓")
 
             # Verify sub-b keys still work
             for key in keys_b:
-                r = requests.post(validate_url, headers={"X-API-Key": key}, timeout=TIMEOUT, verify=TLS_VERIFY)
-                assert r.status_code == 200, f"Sub-b key should work but got {r.status_code}"
+                r = requests.get(models_url, headers={"Authorization": f"Bearer {key}"}, timeout=TIMEOUT, verify=TLS_VERIFY)
+                assert r.status_code == 200, f"Sub-b key should work but got {r.status_code}: {r.text}"
             log.info(f"Sub-b keys still active ✓")
 
         finally:
@@ -106,7 +116,7 @@ class TestSubscriptionDeletionRevokesKeys:
                 except Exception as e:
                     log.warning(f"Cleanup failed for key {kid}: {e}")
             try:
-                _delete_cr("maassubscription", sub_b_name, namespace=MODEL_NAMESPACE)
+                _delete_cr("maassubscription", sub_b_name, namespace=SUBSCRIPTION_NAMESPACE)
             except Exception as e:
                 log.warning(f"Cleanup failed for subscription {sub_b_name}: {e}")
             _wait_reconcile()
@@ -119,22 +129,26 @@ class TestSubscriptionDeletionRevokesKeys:
             _apply_cr({
                 "apiVersion": "maas.opendatahub.io/v1alpha1",
                 "kind": "MaaSSubscription",
-                "metadata": {"name": sub_name, "namespace": MODEL_NAMESPACE},
+                "metadata": {"name": sub_name, "namespace": SUBSCRIPTION_NAMESPACE},
                 "spec": {
                     "owner": {"groups": [{"name": "system:authenticated"}]},
-                    "modelRefs": [],  # No model refs needed - just testing deletion
+                    "modelRefs": [{
+                        "name": MODEL_REF,
+                        "namespace": MODEL_NAMESPACE,
+                        "tokenRateLimits": [{"limit": 100, "window": "1m"}]
+                    }],
                 },
             })
             _wait_reconcile()
 
-            _delete_cr("maassubscription", sub_name, namespace=MODEL_NAMESPACE)
+            _delete_cr("maassubscription", sub_name, namespace=SUBSCRIPTION_NAMESPACE)
             _wait_reconcile()
             log.info("Subscription with no keys deleted successfully ✓")
 
         except Exception as e:
             log.error(f"Deletion failed: {e}")
             try:
-                _delete_cr("maassubscription", sub_name, namespace=MODEL_NAMESPACE)
+                _delete_cr("maassubscription", sub_name, namespace=SUBSCRIPTION_NAMESPACE)
             except Exception as cleanup_err:
                 log.error(f"Cleanup failed for subscription {sub_name}: {cleanup_err}")
             raise
