@@ -1314,15 +1314,19 @@ func (r *MaaSSubscriptionReconciler) revokeAPIKeysForSubscription(ctx context.Co
 	// Determine tenant identifier from namespace
 	tenant, err := r.resolveTenantID(ctx, subscription.Namespace)
 	if err != nil {
-		// If we can't resolve the tenant ID (Tenant CR not found or deleted),
-		// the maas-api deployment is likely already gone, so keys are inaccessible.
 		log := ctrl.LoggerFrom(ctx)
-		log.Info("Unable to resolve tenant ID during subscription deletion - tenant may be deleted",
-			"subscription", subscription.Name,
-			"namespace", subscription.Namespace,
-			"error", err.Error(),
-		)
-		return nil
+		// If the Tenant CR is not found, the tenant (and maas-api deployment) has been deleted,
+		// so the keys are already inaccessible. Safe to skip revocation.
+		if apierrors.IsNotFound(err) {
+			log.Info("Tenant CR not found during subscription deletion - tenant already deleted, keys inaccessible",
+				"subscription", subscription.Name,
+				"namespace", subscription.Namespace,
+			)
+			return nil
+		}
+		// For any other error (API server issues, RBAC, etc.), fail the reconcile.
+		// The finalizer will block deletion until we can successfully revoke keys.
+		return fmt.Errorf("failed to resolve tenant ID for subscription %s: %w", subscription.Name, err)
 	}
 
 	// Determine the correct maas-api service name (per-tenant or default)
