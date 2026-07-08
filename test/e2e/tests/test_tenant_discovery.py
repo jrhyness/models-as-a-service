@@ -18,16 +18,19 @@ import os
 import pytest
 import requests
 from conftest import TLS_VERIFY
+from test_helper import INFRA_NAMESPACE
 
 log = logging.getLogger(__name__)
 
 
-def _kubectl_curl(url: str, headers: dict = None, namespace: str = "opendatahub") -> tuple[int, str]:
+def _kubectl_curl(url: str, headers: dict = None, namespace: str = None) -> tuple[int, str]:
     """
     Execute curl request from inside the cluster using kubectl run.
 
     Returns (status_code, response_body)
     """
+    if namespace is None:
+        namespace = INFRA_NAMESPACE
     curl_args = ["-sk", "-m", "10"]
 
     # Add headers
@@ -82,7 +85,7 @@ def test_tenant_discovery_requires_auth(maas_api_internal_url: str):
     so we use kubectl run with curl to access it from inside the cluster.
     """
     url = maas_api_internal_url + "/v1/tenants"
-    namespace = os.environ.get("MAAS_NAMESPACE", "opendatahub")
+    namespace = INFRA_NAMESPACE
 
     # Attempt without Authorization header
     status_code, body = _kubectl_curl(url, namespace=namespace)
@@ -106,7 +109,7 @@ def test_tenant_discovery_with_invalid_token(maas_api_internal_url: str):
     Verify /v1/tenants endpoint rejects invalid tokens.
     """
     url = maas_api_internal_url + "/v1/tenants"
-    namespace = os.environ.get("MAAS_NAMESPACE", "opendatahub")
+    namespace = INFRA_NAMESPACE
 
     # Attempt with invalid bearer token
     headers = {"Authorization": "Bearer invalid-token-12345"}
@@ -136,7 +139,7 @@ def test_tenant_discovery_authenticated(maas_api_internal_url: str, headers: dic
         )
 
     url = maas_api_internal_url + "/v1/tenants"
-    namespace = os.environ.get("MAAS_NAMESPACE", "opendatahub")
+    namespace = INFRA_NAMESPACE
 
     status_code, body = _kubectl_curl(url, headers=headers, namespace=namespace)
 
@@ -213,7 +216,7 @@ def test_tenant_discovery_gateway_matches_deployment(maas_api_internal_url: str,
         )
 
     url = maas_api_internal_url + "/v1/tenants"
-    namespace = os.environ.get("MAAS_NAMESPACE", "opendatahub")
+    namespace = INFRA_NAMESPACE
 
     status_code, body = _kubectl_curl(url, headers=headers, namespace=namespace)
 

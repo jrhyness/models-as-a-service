@@ -128,11 +128,11 @@ def maas_api_internal_url() -> str:
 
     # Default: cluster-internal service URL
     # maas-api uses TLS on port 8443 (self-signed cert, use -k/verify=False)
-    namespace = os.environ.get("MAAS_NAMESPACE", "opendatahub")
+    from test_helper import INFRA_NAMESPACE
     service_name = os.environ.get("MAAS_API_SERVICE_NAME", "maas-api")
     port = os.environ.get("MAAS_API_SERVICE_PORT", "8443")
 
-    return f"https://{service_name}.{namespace}.svc.cluster.local:{port}"
+    return f"https://{service_name}.{INFRA_NAMESPACE}.svc.cluster.local:{port}"
 
 @pytest.fixture(scope="session")
 def token() -> str:
