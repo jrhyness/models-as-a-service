@@ -70,8 +70,18 @@ DEPLOYMENT_NAMESPACE = os.environ.get("DEPLOYMENT_NAMESPACE", "opendatahub")
 # Handles: not set → AUTO-derived, "" → no separation (use DEPLOYMENT_NAMESPACE), "AUTO" → derive, explicit value → use it
 _infra_ns_raw = os.environ.get("INFRA_NAMESPACE")
 if _infra_ns_raw is None or _infra_ns_raw == "AUTO":
-    # Default to AUTO-derived (opendatahub → odh-ai-gateway-infra, redhat-ods-applications → redhat-ai-gateway-infra)
-    INFRA_NAMESPACE = "odh-ai-gateway-infra" if DEPLOYMENT_NAMESPACE == "opendatahub" else "redhat-ai-gateway-infra"
+    # Default to AUTO-derived based on known deployment namespaces
+    if DEPLOYMENT_NAMESPACE == "opendatahub":
+        INFRA_NAMESPACE = "odh-ai-gateway-infra"
+    elif DEPLOYMENT_NAMESPACE == "redhat-ods-applications":
+        INFRA_NAMESPACE = "redhat-ai-gateway-infra"
+    else:
+        # Unknown deployment namespace - fail fast rather than silently using wrong namespace
+        raise ValueError(
+            f"Unknown DEPLOYMENT_NAMESPACE='{DEPLOYMENT_NAMESPACE}'. "
+            f"Expected 'opendatahub' or 'redhat-ods-applications'. "
+            f"Set INFRA_NAMESPACE explicitly if using a custom deployment namespace."
+        )
 elif _infra_ns_raw == "":
     # Empty string means no separation (ROSA case)
     INFRA_NAMESPACE = DEPLOYMENT_NAMESPACE
