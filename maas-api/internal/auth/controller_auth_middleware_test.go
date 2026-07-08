@@ -16,7 +16,7 @@ import (
 	"github.com/opendatahub-io/models-as-a-service/maas-api/internal/logger"
 )
 
-// Helper to reduce test boilerplate
+// Helper to reduce test boilerplate.
 func setupMiddlewareTest(middleware gin.HandlerFunc) (*httptest.ResponseRecorder, *gin.Engine) {
 	w := httptest.NewRecorder()
 	_, router := gin.CreateTestContext(w)
