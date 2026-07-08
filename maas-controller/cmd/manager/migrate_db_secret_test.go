@@ -51,7 +51,7 @@ func TestConvertToFQDNConnectionURL(t *testing.T) {
 			name:      "no credentials",
 			url:       "postgresql://postgres:5432/db",
 			namespace: "opendatahub",
-			want:      "postgresql://postgres:5432/db", // No @ found, returns as-is
+			want:      "postgresql://postgres.opendatahub.svc.cluster.local:5432/db", // Now properly parsed and converted
 		},
 	}
 
@@ -74,7 +74,7 @@ func TestMaskConnectionURL(t *testing.T) {
 		{
 			name: "with password",
 			url:  "postgresql://user:password@host:5432/db",
-			want: "postgresql://user:***@host:5432/db",
+			want: "postgresql://user:xxxxx@host:5432/db", // url.Redacted() uses xxxxx
 		},
 		{
 			name: "no password",

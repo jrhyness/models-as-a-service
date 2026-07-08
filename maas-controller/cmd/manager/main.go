@@ -22,6 +22,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -351,85 +352,51 @@ func migrateMaaSDBSecretToInfraNamespace(ctx context.Context, controllerNs, infr
 
 // convertToFQDNConnectionURL updates a PostgreSQL connection URL to use FQDN for cross-namespace access.
 // Example: postgresql://user:pass@postgres:5432/db → postgresql://user:pass@postgres.opendatahub.svc.cluster.local:5432/db
-func convertToFQDNConnectionURL(url, namespace string) string {
-	// Use a simple regex-free approach to avoid importing regexp for this single use.
-	// The URL format is: postgresql://[user[:password]@]host[:port]/database[?params]
-	// We need to replace @hostname: with @hostname.namespace.svc.cluster.local:
-	// Only if hostname doesn't already contain dots (already FQDN).
-
-	// Find the @ symbol (start of host part after credentials)
-	atIdx := -1
-	for i := 0; i < len(url); i++ {
-		if url[i] == '@' {
-			atIdx = i
-			break
-		}
-	}
-	if atIdx == -1 {
-		// No @ found, malformed URL or no credentials - return as-is
-		return url
+func convertToFQDNConnectionURL(rawURL, namespace string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		// Invalid URL, return as-is rather than failing migration
+		setupLog.V(1).Info("failed to parse connection URL for FQDN conversion, using as-is", "error", err)
+		return rawURL
 	}
 
-	// Find the end of hostname (either : for port, / for path, or ? for query)
-	hostStart := atIdx + 1
-	hostEnd := hostStart
-	for hostEnd < len(url) && url[hostEnd] != ':' && url[hostEnd] != '/' && url[hostEnd] != '?' {
-		hostEnd++
+	// Extract hostname (without port)
+	hostname := u.Hostname()
+	if hostname == "" {
+		// No hostname, return as-is
+		return rawURL
 	}
 
-	hostname := url[hostStart:hostEnd]
-
-	// Skip if already FQDN (contains dots)
-	for i := 0; i < len(hostname); i++ {
-		if hostname[i] == '.' {
-			return url // Already FQDN
-		}
+	// Skip if already FQDN (contains dots) or is an IP address
+	if strings.Contains(hostname, ".") {
+		return rawURL
 	}
 
-	// Build FQDN
+	// Build FQDN: short-name.namespace.svc.cluster.local
 	fqdn := hostname + "." + namespace + ".svc.cluster.local"
-	return url[:hostStart] + fqdn + url[hostEnd:]
+
+	// Reconstruct URL with FQDN hostname
+	// Preserve port if present
+	if u.Port() != "" {
+		u.Host = fqdn + ":" + u.Port()
+	} else {
+		u.Host = fqdn
+	}
+
+	return u.String()
 }
 
 // maskConnectionURL masks the password in a connection URL for logging.
 // Example: postgresql://user:password@host:5432/db → postgresql://user:***@host:5432/db
-func maskConnectionURL(url string) string {
-	// Find credentials part (between :// and @)
-	schemeEnd := -1
-	for i := 0; i < len(url)-2; i++ {
-		if url[i] == ':' && url[i+1] == '/' && url[i+2] == '/' {
-			schemeEnd = i + 3
-			break
-		}
-	}
-	if schemeEnd == -1 {
-		return url
+func maskConnectionURL(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		// Invalid URL, return as-is
+		return rawURL
 	}
 
-	atIdx := -1
-	for i := schemeEnd; i < len(url); i++ {
-		if url[i] == '@' {
-			atIdx = i
-			break
-		}
-	}
-	if atIdx == -1 {
-		return url // No credentials
-	}
-
-	// Find password part (between : and @)
-	colonIdx := -1
-	for i := schemeEnd; i < atIdx; i++ {
-		if url[i] == ':' {
-			colonIdx = i
-			break
-		}
-	}
-	if colonIdx == -1 {
-		return url // No password
-	}
-
-	return url[:colonIdx+1] + "***" + url[atIdx:]
+	// Use url.URL.Redacted() which automatically masks the password
+	return u.Redacted()
 }
 
 // checkSubscriptionNamespaceReady returns nil if the subscription namespace exists and controllers can rely on it.
