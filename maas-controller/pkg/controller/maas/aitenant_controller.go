@@ -931,8 +931,7 @@ func (r *AITenantReconciler) revokeAPIKeysForTenant(ctx context.Context, aitenan
 		maasAPIServiceName = fmt.Sprintf("maas-api-%s", tenantID)
 	}
 
-	// Call internal endpoint (network-restricted, no auth required)
-	// TODO(RHOAIENG-72792): Add ServiceAccount authentication after PR #1066 merges.
+	// Call internal endpoint with ServiceAccount token authentication.
 	// maas-api service is deployed in AppNamespace (opendatahub), not TenantNamespace
 	maasAPIURL := fmt.Sprintf("https://%s.%s.svc.cluster.local:8443/internal/v1/api-keys/revoke-for-tenant",
 		maasAPIServiceName, r.AppNamespace)

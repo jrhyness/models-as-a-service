@@ -67,9 +67,9 @@ type MaaSSubscriptionReconciler struct {
 	// Tenant does not yet carry spec.gatewayRef.
 	GatewayName      string
 	GatewayNamespace string
-	// MaaSAPINamespace is the infrastructure namespace where all maas-api services
+	// InfraNamespace is the infrastructure namespace where all maas-api services
 	// (both default and per-tenant) are deployed (default: opendatahub).
-	MaaSAPINamespace string
+	InfraNamespace string
 	// MaaSAPIClient is used to call maas-api internal endpoints for API key revocation.
 	MaaSAPIClient *httpclient.Client
 }
@@ -1337,11 +1337,10 @@ func (r *MaaSSubscriptionReconciler) revokeAPIKeysForSubscription(ctx context.Co
 		maasAPIServiceName = fmt.Sprintf("maas-api-%s", tenant)
 	}
 
-	// Call internal endpoint (network-restricted, no auth required)
-	// TODO(RHOAIENG-72792): Add ServiceAccount authentication after PR #1066 merges.
-	// All maas-api services (default and per-tenant) are deployed in MaaSAPINamespace
+	// Call internal endpoint with ServiceAccount token authentication.
+	// All maas-api services (default and per-tenant) are deployed in InfraNamespace
 	maasAPIURL := fmt.Sprintf("https://%s.%s.svc.cluster.local:8443/internal/v1/api-keys/revoke-for-subscription",
-		maasAPIServiceName, r.MaaSAPINamespace)
+		maasAPIServiceName, r.InfraNamespace)
 
 	reqBody := map[string]string{
 		"subscription": subscription.Name,
