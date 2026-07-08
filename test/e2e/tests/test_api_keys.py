@@ -904,18 +904,18 @@ class TestEphemeralKeyCleanup:
     oc exec into the maas-api pod.
 
     Environment Variables:
-    - DEPLOYMENT_NAMESPACE: Namespace where maas-api is deployed (default: opendatahub)
+    - INFRA_NAMESPACE: Infrastructure namespace where maas-api is deployed (auto-derived or explicit)
     """
 
     @pytest.fixture
     def deployment_namespace(self) -> str:
-        """Return the namespace where maas-api is deployed.
+        """Return the infrastructure namespace where maas-api is deployed.
 
-        Controlled by E2E_MAAS_API_DEPLOYMENT_NAMESPACE env var,
-        defaults to DEPLOYMENT_NAMESPACE/opendatahub.
+        Controlled by INFRA_NAMESPACE env var. Defaults to AUTO-derived:
+        opendatahub → odh-ai-gateway-infra, redhat-ods-applications → redhat-ai-gateway-infra.
         """
-        from test_helper import MAAS_API_DEPLOYMENT_NAMESPACE
-        return MAAS_API_DEPLOYMENT_NAMESPACE
+        from test_helper import INFRA_NAMESPACE
+        return INFRA_NAMESPACE
 
     def test_cronjob_exists_and_configured(self, deployment_namespace: str):
         """Verify the maas-api-key-cleanup CronJob exists with expected configuration."""

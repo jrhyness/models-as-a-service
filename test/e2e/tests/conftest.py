@@ -323,10 +323,10 @@ def shared_test_tenants(gateway_host: str, is_https: bool):
             case["base_url"] = f"{scheme}://{host}/maas-api"
 
             # Wait for maas-api deployment to be ready before tests run
-            # AITenant deployments are in MAAS_API_DEPLOYMENT_NAMESPACE, not tenant-specific namespace
+            # AITenant deployments are in the infrastructure namespace, not tenant-specific namespace
             deployment_name = f"maas-api-{case['tenant_label_name']}"
-            from test_helper import MAAS_API_DEPLOYMENT_NAMESPACE
-            wait_for_deployment_available(deployment_name, namespace=MAAS_API_DEPLOYMENT_NAMESPACE, timeout=180)
+            from test_helper import INFRA_NAMESPACE
+            wait_for_deployment_available(deployment_name, namespace=INFRA_NAMESPACE, timeout=180)
 
         # Add aliases to match test expectations while keeping cleanup helper keys intact.
         for case in (case_a, case_b):
