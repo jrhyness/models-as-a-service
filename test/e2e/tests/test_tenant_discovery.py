@@ -87,11 +87,29 @@ def test_tenant_discovery_requires_auth(maas_api_internal_url: str):
     url = maas_api_internal_url + "/v1/tenants"
     namespace = INFRA_NAMESPACE
 
+    # Debug: Check if Service exists before attempting request
+    import subprocess
+    svc_check = subprocess.run(
+        ["kubectl", "get", "service", "maas-api", "-n", namespace, "-o", "name"],
+        capture_output=True, text=True, timeout=10
+    )
+    if svc_check.returncode != 0:
+        log.error(f"[tenant] Service maas-api not found in namespace {namespace}")
+        log.error(f"[tenant] kubectl output: {svc_check.stderr}")
+        print(f"⚠️  WARNING: Service maas-api does not exist in {namespace}")
+        print(f"   This will cause HTTP 0 (connection refused) errors")
+    else:
+        log.info(f"[tenant] Service maas-api exists in {namespace}")
+
     # Attempt without Authorization header
     status_code, body = _kubectl_curl(url, namespace=namespace)
 
     log.info(f"[tenant] GET {url} (no auth) -> HTTP {status_code}")
     print(f"[tenant] GET /v1/tenants without auth: HTTP {status_code}")
+
+    if status_code == 0:
+        log.error(f"[tenant] HTTP 0 indicates connection failure - Service likely doesn't exist or DNS failed")
+        print(f"❌ HTTP status 0 means connection failed (Service missing or unreachable)")
 
     assert status_code == 401, f"Expected 401 without auth, got {status_code}"
 
