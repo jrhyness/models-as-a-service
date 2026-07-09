@@ -570,6 +570,8 @@ main() {
     local cm_payload_processing_image="${PAYLOAD_PROCESSING_IMAGE:-$(get_odh_overlay_param payload-processing-image 2>/dev/null || echo "quay.io/opendatahub/odh-ai-gateway-payload-processing:odh-stable")}"
     local cm_cleanup_image="registry.redhat.io/ubi9/ubi-minimal:9.7"
     local cm_monitoring_namespace="${MONITORING_NAMESPACE:-opendatahub}"
+    local cm_infra_namespace
+    cm_infra_namespace=$(derive_infra_namespace "$NAMESPACE")
 
     log_info "  Ensuring maas-parameters ConfigMap..."
     kubectl create configmap maas-parameters -n "$NAMESPACE" \
@@ -578,6 +580,7 @@ main() {
       --from-literal="payload-processing-image=${cm_payload_processing_image}" \
       --from-literal="maas-api-key-cleanup-image=${cm_cleanup_image}" \
       --from-literal="monitoring-namespace=${cm_monitoring_namespace}" \
+      --from-literal="infrastructure-namespace=${cm_infra_namespace}" \
       --dry-run=client -o yaml | kubectl apply -f - || {
       log_error "Failed to create/update maas-parameters ConfigMap"
       return 1
@@ -594,6 +597,7 @@ main() {
       log_error "Failed to create temporary maas-controller overlay directory"
       return 1
     }
+
     cat > "${controller_overlay_dir}/kustomization.yaml" <<EOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -611,6 +615,47 @@ EOF
       return 1
     }
     rm -rf "${controller_overlay_dir}"
+
+    # Create RoleBindings for secret migration in both controller and infra namespaces
+    log_info "  Creating secret migration RoleBindings..."
+    local infra_ns
+    infra_ns=$(derive_infra_namespace "$NAMESPACE")
+
+    # RoleBinding in controller namespace
+    kubectl apply -f - <<YAML || log_warn "Failed to create secret migration RoleBinding in controller namespace"
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: maas-controller-secret-migrate-controller
+  namespace: ${NAMESPACE}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: maas-controller-secret-migrate-role
+subjects:
+- kind: ServiceAccount
+  name: maas-controller
+  namespace: ${NAMESPACE}
+YAML
+
+    # RoleBinding in infra namespace (only if different from controller namespace)
+    if [[ "$infra_ns" != "$NAMESPACE" ]]; then
+      kubectl apply -f - <<YAML || log_warn "Failed to create secret migration RoleBinding in infra namespace"
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: maas-controller-secret-migrate-infra
+  namespace: ${infra_ns}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: maas-controller-secret-migrate-role
+subjects:
+- kind: ServiceAccount
+  name: maas-controller
+  namespace: ${NAMESPACE}
+YAML
+    fi
 
     # Force pod recreation so imagePullPolicy=Always can pick up newly published
     # image content even when the maas-controller image tag itself is unchanged.
