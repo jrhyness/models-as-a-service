@@ -15,6 +15,7 @@ Prerequisites:
 """
 
 import json
+import time
 
 import pytest
 import requests
@@ -332,9 +333,14 @@ class TestTenantModelInference:
             assert r.status_code in (200, 201), f"Failed to create key: {r.status_code}"
             orphaned_key = r.json()["key"]
 
-            # Verify key works BEFORE deletion by calling /v1/models
+            # Verify key works BEFORE deletion by calling /v1/models (retry for infrastructure sync)
             models_url = f"{gateway_url}/v1/models"
-            r = requests.get(models_url, headers={"Authorization": f"Bearer {orphaned_key}"}, timeout=45, verify=TLS_VERIFY)
+            for attempt in range(3):
+                r = requests.get(models_url, headers={"Authorization": f"Bearer {orphaned_key}"}, timeout=45, verify=TLS_VERIFY)
+                if r.status_code == 200:
+                    break
+                if attempt < 2:
+                    time.sleep(5)
             assert r.status_code == 200, f"Key should work before deletion, but got {r.status_code}: {r.text}"
 
             # Step 3: Delete AITenant (this should revoke the key)
@@ -361,11 +367,16 @@ class TestTenantModelInference:
             # Allow AuthPolicy to propagate after tenant recreation
             _wait_reconcile()
 
-            # Step 5: Verify orphaned key does NOT work by calling /v1/models
+            # Step 5: Verify orphaned key does NOT work (retry for infrastructure sync)
             gateway_url = _get_tenant_gateway_url(case["gateway_name"])
             models_url = f"{gateway_url}/v1/models"
 
-            r = requests.get(models_url, headers={"Authorization": f"Bearer {orphaned_key}"}, timeout=45, verify=TLS_VERIFY)
+            for attempt in range(3):
+                r = requests.get(models_url, headers={"Authorization": f"Bearer {orphaned_key}"}, timeout=45, verify=TLS_VERIFY)
+                if r.status_code == 403:
+                    break
+                if attempt < 2:
+                    time.sleep(5)
             assert r.status_code == 403, (
                 f"Orphaned key should be revoked (403), but got {r.status_code}: {r.text}. "
                 f"Old keys from deleted tenant must not work when tenant is recreated!"

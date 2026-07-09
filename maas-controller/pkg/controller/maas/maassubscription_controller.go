@@ -1400,6 +1400,13 @@ func (r *MaaSSubscriptionReconciler) resolveTenantID(ctx context.Context, namesp
 		return "", fmt.Errorf("failed to lookup Tenant CR in namespace %s: %w", namespace, err)
 	}
 
+	// If the Tenant CR is being deleted, return NotFound error so caller can skip revocation.
+	// The tenant's finalizer will handle revoking ALL tenant keys, making per-subscription
+	// revocation redundant. Attempting it would race with maas-api deletion and timeout.
+	if !tenant.DeletionTimestamp.IsZero() {
+		return "", apierrors.NewNotFound(schema.GroupResource{Group: maasv1alpha1.GroupVersion.Group, Resource: "tenants"}, tenant.Name)
+	}
+
 	// The tenant ID is stored in the label ai-gateway.opendatahub.io/tenant
 	tenantID, ok := tenant.Labels["ai-gateway.opendatahub.io/tenant"]
 	if !ok {
