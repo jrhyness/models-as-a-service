@@ -49,7 +49,8 @@
 #   OIDC_READINESS_STRICT - When true, exit if OIDC gateway readiness fails (default: false).
 #                           If false, log a warning and continue to pytest.
 #   OIDC_READINESS_STRICT - When true, exit before pytest if the OIDC readiness probe times out.
-#   DEPLOYMENT_NAMESPACE - Namespace of MaaS API and controller (default: opendatahub)
+#   DEPLOYMENT_NAMESPACE - Namespace of maas-controller (default: opendatahub)
+#   INFRA_NAMESPACE - Namespace of MaaS API infrastructure; AUTO derives from DEPLOYMENT_NAMESPACE (default: AUTO)
 #   MAAS_SUBSCRIPTION_NAMESPACE - Namespace of MaaS CRs and Tenant CR (default: models-as-a-service)
 #   ENABLE_TENANT_NAMESPACE_DISCOVERY - Patch maas-controller with discovery flag before pytest (default: true)
 #   AITENANT_NAMESPACE - Namespace for AITenant CRs (default: ai-tenants)
@@ -109,8 +110,9 @@ INGRESS_MODE="${INGRESS_MODE:-clusterip}"
 export INGRESS_MODE
 # Gateway programming can lag during fresh cluster bring-up; allow a generous timeout.
 GATEWAY_PROGRAMMED_TIMEOUT="${GATEWAY_PROGRAMMED_TIMEOUT:-600}"
-# OIDC readiness gate: by default do not block pytest if Keycloak/Authorino still returns 401
-OIDC_READINESS_STRICT="${OIDC_READINESS_STRICT:-false}"
+# OIDC readiness gate: fail before pytest if Keycloak/Authorino isn't ready.
+# Set to false to warn-only (useful during local development against a partially ready cluster).
+OIDC_READINESS_STRICT="${OIDC_READINESS_STRICT:-true}"
 # Multi-tenancy Phase 1: patch maas-controller for tenant namespace discovery E2E.
 ENABLE_TENANT_NAMESPACE_DISCOVERY="${ENABLE_TENANT_NAMESPACE_DISCOVERY:-true}"
 AITENANT_NAMESPACE="${AITENANT_NAMESPACE:-ai-tenants}"
@@ -165,6 +167,12 @@ apply_default_oidc_for_keycloak() {
     export OIDC_CLIENT_ID="${OIDC_CLIENT_ID:-test-client}"
     export OIDC_USERNAME="${OIDC_USERNAME:-alice_lead}"
     export OIDC_PASSWORD="${OIDC_PASSWORD:-letmein}"
+    # dave_noaccess has no group memberships — used by the empty-list test.
+    export OIDC_USERNAME_NO_ACCESS="${OIDC_USERNAME_NO_ACCESS:-dave_noaccess}"
+    export OIDC_PASSWORD_NO_ACCESS="${OIDC_PASSWORD_NO_ACCESS:-letmein}"
+    # tenant-b token URL for per-tenant OIDC isolation test.
+    local realm_b_base="https://keycloak.${cluster_domain}/realms/tenant-b"
+    export OIDC_TOKEN_URL_TENANT_B="${OIDC_TOKEN_URL_TENANT_B:-${realm_b_base}/protocol/openid-connect/token}"
     echo "OIDC for e2e (Keycloak tenant-a defaults): issuer=${OIDC_ISSUER_URL}"
 }
 
@@ -514,12 +522,12 @@ wait_for_auth_policies_enforced() {
 validate_deployment() {
     echo "Deployment Validation"
     echo "Using controller namespace: $DEPLOYMENT_NAMESPACE"
-    echo "Using maas-api namespace: $DEPLOYMENT_NAMESPACE"
+    echo "Using maas-api namespace: $MAAS_API_DEPLOYMENT_NAMESPACE"
     echo "Using AITenant namespace: $AITENANT_NAMESPACE"
 
     if [ "$SKIP_VALIDATION" = false ]; then
-        # maas-api deploys to operator namespace (opendatahub for ODH, redhat-ods-applications for RHOAI)
-        # validate-deployment.sh uses MAAS_API_NAMESPACE env var or defaults to opendatahub
+        # maas-api deploys to the resolved infrastructure namespace.
+        # validate-deployment.sh derives INFRA_NAMESPACE the same way.
         if ! "$PROJECT_ROOT/scripts/validate-deployment.sh"; then
             echo "⚠️  First validation attempt failed, waiting 30 seconds and retrying..."
             sleep 30
