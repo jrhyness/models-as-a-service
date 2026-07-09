@@ -811,6 +811,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#deployment-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deployment Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#architecture" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1001,6 +1012,34 @@
     
   
     Model Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../auth-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication Modes
   
 
     
@@ -1430,6 +1469,62 @@
     
   
     Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/multi-tenant-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenant Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/multi-tenant-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenant Validation
   
 
     
@@ -3091,6 +3186,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#deployment-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deployment Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#architecture" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3225,6 +3331,15 @@
 <h2 id="overview">Overview</h2>
 <p>The MaaS Platform is a Kubernetes-native layer for AI model serving built on <a href="https://gateway-api.sigs.k8s.io/">Gateway API</a> and policy controllers (<a href="https://docs.kuadrant.io/">Kuadrant</a>, <a href="https://docs.kuadrant.io/1.0.x/authorino/">Authorino</a>, <a href="https://docs.kuadrant.io/1.0.x/limitador/">Limitador</a>). It provides policy-based authentication and authorization, plus subscription-based rate limiting.</p>
 <p>Our future plans include improved request routing and discovery—and we're already sketching what comes after that.</p>
+<h2 id="deployment-architecture">Deployment Architecture</h2>
+<p>MaaS is deployed as a sub-component of the <strong>AI Gateway Operator</strong>, managed by the ODH/RHOAI operator. Enabling <code>aigateway.modelsAsAService: Managed</code> in your <code>DataScienceCluster</code> triggers the following component chain:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>DataScienceCluster
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  └── aigateway.modelsAsAService: Managed
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        └── AI Gateway Operator
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>              └── maas-controller
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                    └── maas-api, Tenant, MaaSAuthPolicy, MaaSSubscription, ...
+</code></pre></div>
+<p>This replaces the previous <code>kserve.modelsAsService</code> nesting. KServe is no longer a prerequisite for MaaS — include it only if you need independent model serving.</p>
 <h2 id="architecture">Architecture</h2>
 <h3 id="high-level-architecture">🏗️ High-Level Architecture</h3>
 <p>The MaaS Platform is a layer for <strong>authorization and rate limiting</strong> built on <a href="https://docs.kuadrant.io/">Kuadrant</a>. It sits in front of <strong>models</strong> you deploy on the cluster; the same pattern is expected to extend to models hosted outside the cluster over time.</p>
@@ -3549,7 +3664,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="April 21, 2026 16:12:19 UTC">April 21, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 8, 2026 21:21:12 UTC">July 8, 2026</span>
   </span>
 
     

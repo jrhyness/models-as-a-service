@@ -8,25 +8,31 @@
       
       
       
+        <link rel="canonical" href="https://opendatahub-io.github.io/models-as-a-service/dev/install/multi-tenant-validation/">
       
+      
+        <link rel="prev" href="../multi-tenant-setup/">
+      
+      
+        <link rel="next" href="../troubleshooting/">
       
       
         
       
       
-      <link rel="icon" href="/models-as-a-service/dev/assets/favicon.ico">
+      <link rel="icon" href="../../assets/favicon.ico">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>ODH Models-as-a-Service Documentation</title>
+        <title>Multi-Tenant Validation - ODH Models-as-a-Service Documentation</title>
       
     
     
-      <link rel="stylesheet" href="/models-as-a-service/dev/assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="/models-as-a-service/dev/assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -45,7 +51,7 @@
       
     
     
-    <script>__md_scope=new URL("/models-as-a-service/dev",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -69,6 +75,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#multi-tenant-validation" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -83,9 +94,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="/models-as-a-service/dev/." title="ODH Models-as-a-Service Documentation" class="md-header__button md-logo" aria-label="ODH Models-as-a-Service Documentation" data-md-component="logo">
+    <a href="../.." title="ODH Models-as-a-Service Documentation" class="md-header__button md-logo" aria-label="ODH Models-as-a-Service Documentation" data-md-component="logo">
       
-  <img src="/models-as-a-service/dev/assets/favicon.ico" alt="logo">
+  <img src="../../assets/favicon.ico" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -102,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              
+              Multi-Tenant Validation
             
           </span>
         </div>
@@ -222,7 +233,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="/models-as-a-service/dev/." class="md-tabs__link">
+        <a href="../.." class="md-tabs__link">
           
   
   
@@ -242,7 +253,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="/models-as-a-service/dev/concepts/architecture/" class="md-tabs__link">
+        <a href="../../concepts/architecture/" class="md-tabs__link">
           
   
   
@@ -258,11 +269,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="/models-as-a-service/dev/quickstart/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../quickstart/" class="md-tabs__link">
           
   
   
@@ -289,7 +302,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="/models-as-a-service/dev/configuration-and-management/quota-and-access-configuration/" class="md-tabs__link">
+        <a href="../../configuration-and-management/quota-and-access-configuration/" class="md-tabs__link">
           
   
   
@@ -312,7 +325,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="/models-as-a-service/dev/observability/" class="md-tabs__link">
+        <a href="../../observability/" class="md-tabs__link">
           
   
   
@@ -332,7 +345,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="/models-as-a-service/dev/user-guide/api-key-management/" class="md-tabs__link">
+        <a href="../../user-guide/api-key-management/" class="md-tabs__link">
           
   
   
@@ -352,7 +365,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="/models-as-a-service/dev/architecture-internals/controller-architecture/" class="md-tabs__link">
+        <a href="../../architecture-internals/controller-architecture/" class="md-tabs__link">
           
   
   
@@ -372,7 +385,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="/models-as-a-service/dev/reference/maas-api-overview/" class="md-tabs__link">
+        <a href="../../reference/maas-api-overview/" class="md-tabs__link">
           
   
   
@@ -406,9 +419,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="/models-as-a-service/dev/." title="ODH Models-as-a-Service Documentation" class="md-nav__button md-logo" aria-label="ODH Models-as-a-Service Documentation" data-md-component="logo">
+    <a href="../.." title="ODH Models-as-a-Service Documentation" class="md-nav__button md-logo" aria-label="ODH Models-as-a-Service Documentation" data-md-component="logo">
       
-  <img src="/models-as-a-service/dev/assets/favicon.ico" alt="logo">
+  <img src="../../assets/favicon.ico" alt="logo">
 
     </a>
     ODH Models-as-a-Service Documentation
@@ -489,7 +502,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -517,7 +530,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/release-notes/" class="md-nav__link">
+      <a href="../../release-notes/" class="md-nav__link">
         
   
   
@@ -599,7 +612,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/migration/tier-to-subscription/" class="md-nav__link">
+      <a href="../../migration/tier-to-subscription/" class="md-nav__link">
         
   
   
@@ -627,7 +640,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/migration/upgrade-to-3.4/" class="md-nav__link">
+      <a href="../../migration/upgrade-to-3.4/" class="md-nav__link">
         
   
   
@@ -724,7 +737,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/concepts/architecture/" class="md-nav__link">
+      <a href="../../concepts/architecture/" class="md-nav__link">
         
   
   
@@ -752,7 +765,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/concepts/personas/" class="md-nav__link">
+      <a href="../../concepts/personas/" class="md-nav__link">
         
   
   
@@ -780,7 +793,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/concepts/subscription-overview/" class="md-nav__link">
+      <a href="../../concepts/subscription-overview/" class="md-nav__link">
         
   
   
@@ -808,7 +821,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/concepts/model-reference/" class="md-nav__link">
+      <a href="../../concepts/model-reference/" class="md-nav__link">
         
   
   
@@ -836,7 +849,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/concepts/auth-modes/" class="md-nav__link">
+      <a href="../../concepts/auth-modes/" class="md-nav__link">
         
   
   
@@ -864,7 +877,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/concepts/api-key-authentication/" class="md-nav__link">
+      <a href="../../concepts/api-key-authentication/" class="md-nav__link">
         
   
   
@@ -892,7 +905,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/concepts/model-access-control/" class="md-nav__link">
+      <a href="../../concepts/model-access-control/" class="md-nav__link">
         
   
   
@@ -924,28 +937,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   
@@ -963,7 +979,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -981,7 +997,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/quickstart/" class="md-nav__link">
+      <a href="../../quickstart/" class="md-nav__link">
         
   
   
@@ -1015,10 +1031,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -1027,7 +1046,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
         
           
-          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
             
   
   
@@ -1063,7 +1082,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/install/prerequisites/" class="md-nav__link">
+      <a href="../prerequisites/" class="md-nav__link">
         
   
   
@@ -1091,7 +1110,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/install/platform-setup/" class="md-nav__link">
+      <a href="../platform-setup/" class="md-nav__link">
         
   
   
@@ -1124,28 +1143,31 @@
                 
   
   
+    
   
   
+  
     
     
     
     
       
       
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
         
           
+          
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
             
   
   
@@ -1163,7 +1185,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1181,7 +1203,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/install/maas-setup/" class="md-nav__link">
+      <a href="../maas-setup/" class="md-nav__link">
         
   
   
@@ -1209,7 +1231,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/install/model-setup/" class="md-nav__link">
+      <a href="../model-setup/" class="md-nav__link">
         
   
   
@@ -1237,7 +1259,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/install/external-model-setup/" class="md-nav__link">
+      <a href="../external-model-setup/" class="md-nav__link">
         
   
   
@@ -1265,7 +1287,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/install/validation/" class="md-nav__link">
+      <a href="../validation/" class="md-nav__link">
         
   
   
@@ -1293,7 +1315,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/install/multi-tenant-setup/" class="md-nav__link">
+      <a href="../multi-tenant-setup/" class="md-nav__link">
         
   
   
@@ -1318,10 +1340,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/install/multi-tenant-validation/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenant Validation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1337,6 +1386,197 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-verify-aitenant-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Verify AITenant Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-verify-tenant-namespace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Verify Tenant Namespace
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-verify-maas-api-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Verify maas-api Deployment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-verify-gateway" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Verify Gateway
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-verify-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Verify Policies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-test-model-listing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Test Model Listing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-test-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Test Authentication
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-test-tenant-isolation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Test Tenant Isolation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-verify-all-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Verify All Components
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#aitenant-stuck-in-pending" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AITenant stuck in Pending
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#webhook-rejects-aitenant-creation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Webhook rejects AITenant creation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gateway-uniqueness-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gateway uniqueness error
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#maassubscription-rejected" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MaaSSubscription rejected
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1349,7 +1589,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/install/troubleshooting/" class="md-nav__link">
+      <a href="../troubleshooting/" class="md-nav__link">
         
   
   
@@ -1500,7 +1740,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/configuration-and-management/quota-and-access-configuration/" class="md-nav__link">
+      <a href="../../configuration-and-management/quota-and-access-configuration/" class="md-nav__link">
         
   
   
@@ -1528,7 +1768,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/configuration-and-management/api-key-administration/" class="md-nav__link">
+      <a href="../../configuration-and-management/api-key-administration/" class="md-nav__link">
         
   
   
@@ -1556,7 +1796,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/configuration-and-management/infra-namespace-migration/" class="md-nav__link">
+      <a href="../../configuration-and-management/infra-namespace-migration/" class="md-nav__link">
         
   
   
@@ -1584,7 +1824,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/configuration-and-management/namespace-rbac/" class="md-nav__link">
+      <a href="../../configuration-and-management/namespace-rbac/" class="md-nav__link">
         
   
   
@@ -1612,7 +1852,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/configuration-and-management/tenant-rbac/" class="md-nav__link">
+      <a href="../../configuration-and-management/tenant-rbac/" class="md-nav__link">
         
   
   
@@ -1640,7 +1880,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/configuration-and-management/troubleshooting-external-model-rbac/" class="md-nav__link">
+      <a href="../../configuration-and-management/troubleshooting-external-model-rbac/" class="md-nav__link">
         
   
   
@@ -1668,7 +1908,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/configuration-and-management/tls-configuration/" class="md-nav__link">
+      <a href="../../configuration-and-management/tls-configuration/" class="md-nav__link">
         
   
   
@@ -1696,7 +1936,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/configuration-and-management/gateway-patterns/" class="md-nav__link">
+      <a href="../../configuration-and-management/gateway-patterns/" class="md-nav__link">
         
   
   
@@ -1786,7 +2026,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/configuration-and-management/model-setup/" class="md-nav__link">
+      <a href="../../configuration-and-management/model-setup/" class="md-nav__link">
         
   
   
@@ -1814,7 +2054,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/configuration-and-management/model-listing-flow/" class="md-nav__link">
+      <a href="../../configuration-and-management/model-listing-flow/" class="md-nav__link">
         
   
   
@@ -1904,7 +2144,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/advanced-administration/subscription-cardinality/" class="md-nav__link">
+      <a href="../../advanced-administration/subscription-cardinality/" class="md-nav__link">
         
   
   
@@ -1932,7 +2172,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/advanced-administration/limitador-persistence/" class="md-nav__link">
+      <a href="../../advanced-administration/limitador-persistence/" class="md-nav__link">
         
   
   
@@ -1960,7 +2200,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/configuration-and-management/authorino-caching/" class="md-nav__link">
+      <a href="../../configuration-and-management/authorino-caching/" class="md-nav__link">
         
   
   
@@ -1988,7 +2228,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/advanced-administration/external-oidc/" class="md-nav__link">
+      <a href="../../advanced-administration/external-oidc/" class="md-nav__link">
         
   
   
@@ -2085,7 +2325,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/observability/" class="md-nav__link">
+      <a href="../../observability/" class="md-nav__link">
         
   
   
@@ -2113,7 +2353,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/observability/setup/" class="md-nav__link">
+      <a href="../../observability/setup/" class="md-nav__link">
         
   
   
@@ -2141,7 +2381,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/observability/metrics-and-dashboards/" class="md-nav__link">
+      <a href="../../observability/metrics-and-dashboards/" class="md-nav__link">
         
   
   
@@ -2169,7 +2409,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/observability/operations/" class="md-nav__link">
+      <a href="../../observability/operations/" class="md-nav__link">
         
   
   
@@ -2258,7 +2498,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/user-guide/api-key-management/" class="md-nav__link">
+      <a href="../../user-guide/api-key-management/" class="md-nav__link">
         
   
   
@@ -2286,7 +2526,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/user-guide/model-discovery/" class="md-nav__link">
+      <a href="../../user-guide/model-discovery/" class="md-nav__link">
         
   
   
@@ -2314,7 +2554,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/user-guide/inference/" class="md-nav__link">
+      <a href="../../user-guide/inference/" class="md-nav__link">
         
   
   
@@ -2403,7 +2643,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/architecture-internals/controller-architecture/" class="md-nav__link">
+      <a href="../../architecture-internals/controller-architecture/" class="md-nav__link">
         
   
   
@@ -2431,7 +2671,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/architecture-internals/reconciliation-flow/" class="md-nav__link">
+      <a href="../../architecture-internals/reconciliation-flow/" class="md-nav__link">
         
   
   
@@ -2459,7 +2699,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/architecture-internals/authentication-internals/" class="md-nav__link">
+      <a href="../../architecture-internals/authentication-internals/" class="md-nav__link">
         
   
   
@@ -2541,7 +2781,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/contributing/testing-guide/" class="md-nav__link">
+      <a href="../../contributing/testing-guide/" class="md-nav__link">
         
   
   
@@ -2569,7 +2809,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/contributing/release-strategy/" class="md-nav__link">
+      <a href="../../contributing/release-strategy/" class="md-nav__link">
         
   
   
@@ -2666,7 +2906,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/reference/maas-api-overview/" class="md-nav__link">
+      <a href="../../reference/maas-api-overview/" class="md-nav__link">
         
   
   
@@ -2694,7 +2934,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/reference/api-reference/" class="md-nav__link">
+      <a href="../../reference/api-reference/" class="md-nav__link">
         
   
   
@@ -2776,7 +3016,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/reference/crds/maas-model-ref/" class="md-nav__link">
+      <a href="../../reference/crds/maas-model-ref/" class="md-nav__link">
         
   
   
@@ -2804,7 +3044,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/reference/crds/external-model/" class="md-nav__link">
+      <a href="../../reference/crds/external-model/" class="md-nav__link">
         
   
   
@@ -2832,7 +3072,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/reference/crds/maas-auth-policy/" class="md-nav__link">
+      <a href="../../reference/crds/maas-auth-policy/" class="md-nav__link">
         
   
   
@@ -2860,7 +3100,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/reference/crds/maas-subscription/" class="md-nav__link">
+      <a href="../../reference/crds/maas-subscription/" class="md-nav__link">
         
   
   
@@ -2888,7 +3128,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/reference/crds/ai-tenant/" class="md-nav__link">
+      <a href="../../reference/crds/ai-tenant/" class="md-nav__link">
         
   
   
@@ -2916,7 +3156,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/models-as-a-service/dev/reference/crds/tenant/" class="md-nav__link">
+      <a href="../../reference/crds/tenant/" class="md-nav__link">
         
   
   
@@ -2969,6 +3209,187 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-verify-aitenant-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Verify AITenant Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-verify-tenant-namespace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Verify Tenant Namespace
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-verify-maas-api-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Verify maas-api Deployment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-verify-gateway" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Verify Gateway
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-verify-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Verify Policies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-test-model-listing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Test Model Listing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-test-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Test Authentication
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-test-tenant-isolation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Test Tenant Isolation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-verify-all-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Verify All Components
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#aitenant-stuck-in-pending" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AITenant stuck in Pending
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#webhook-rejects-aitenant-creation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Webhook rejects AITenant creation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gateway-uniqueness-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gateway uniqueness error
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#maassubscription-rejected" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MaaSSubscription rejected
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -2981,8 +3402,181 @@
               
               <article class="md-content__inner md-typeset">
                 
-  <h1>404 - Not found</h1>
+                  
 
+
+  
+  
+
+
+<h1 id="multi-tenant-validation">Multi-Tenant Validation</h1>
+<p>Validation steps for additional tenants. For default (single-tenant) validation, see <a href="../validation/">Validation</a>.</p>
+<h2 id="1-verify-aitenant-status">1. Verify AITenant Status</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">TENANT_NAME</span><span class="o">=</span><span class="s2">&quot;red-team&quot;</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>oc<span class="w"> </span>get<span class="w"> </span>aitenant<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="w"> </span>-n<span class="w"> </span>ai-tenants
+</code></pre></div>
+<p>Expected: <code>READY</code> is <code>True</code>. If <code>False</code>, check conditions:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>oc<span class="w"> </span>get<span class="w"> </span>aitenant<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="w"> </span>-n<span class="w"> </span>ai-tenants<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.conditions}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.
+</code></pre></div>
+<h2 id="2-verify-tenant-namespace">2. Verify Tenant Namespace</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">TENANT_NS</span><span class="o">=</span><span class="s2">&quot;ai-tenant-</span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>oc<span class="w"> </span>get<span class="w"> </span>namespace<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NS</span><span class="si">}</span><span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.metadata.labels}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.
+</code></pre></div>
+<p>Expected labels:</p>
+<ul>
+<li><code>ai-gateway.opendatahub.io/tenant: &lt;tenant-name&gt;</code></li>
+<li><code>maas.opendatahub.io/managed-by-aitenant: "true"</code></li>
+</ul>
+<p>Verify the Tenant CR:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>oc<span class="w"> </span>get<span class="w"> </span>tenant<span class="w"> </span>default-tenant<span class="w"> </span>-n<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NS</span><span class="si">}</span><span class="w"> </span>-o<span class="w"> </span>yaml
+</code></pre></div>
+<p>Expected: <code>status.phase</code> is <code>Active</code>.</p>
+<h2 id="3-verify-maas-api-deployment">3. Verify maas-api Deployment</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">INFRA_NS</span><span class="o">=</span><span class="k">$(</span>oc<span class="w"> </span>get<span class="w"> </span>deployment<span class="w"> </span>-A<span class="w"> </span>-o<span class="w"> </span>custom-columns<span class="o">=</span>NS:.metadata.namespace,NAME:.metadata.name<span class="w"> </span>--no-headers<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;maas-api-</span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span><span class="s1">&#39;{print $1}&#39;</span><span class="k">)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>oc<span class="w"> </span>get<span class="w"> </span>deployment<span class="w"> </span>maas-api-<span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="w"> </span>-n<span class="w"> </span><span class="si">${</span><span class="nv">INFRA_NS</span><span class="si">}</span>
+</code></pre></div>
+<p>Expected: <code>READY</code> is <code>1/1</code>.</p>
+<h2 id="4-verify-gateway">4. Verify Gateway</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>oc<span class="w"> </span>get<span class="w"> </span>gateway<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="w"> </span>-n<span class="w"> </span>openshift-ingress
+</code></pre></div>
+<p>Expected: <code>PROGRAMMED</code> is <code>True</code>.</p>
+<p>Verify the Route exists:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>oc<span class="w"> </span>get<span class="w"> </span>route<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span>-gateway<span class="w"> </span>-n<span class="w"> </span>openshift-ingress
+</code></pre></div>
+<h2 id="5-verify-policies">5. Verify Policies</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>oc<span class="w"> </span>get<span class="w"> </span>authpolicy<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span>-maas-auth<span class="w"> </span>-n<span class="w"> </span>openshift-ingress
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>oc<span class="w"> </span>get<span class="w"> </span>tokenratelimitpolicy<span class="w"> </span>-n<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NS</span><span class="si">}</span>
+</code></pre></div>
+<h2 id="6-test-model-listing">6. Test Model Listing</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">GATEWAY_HOST</span><span class="o">=</span><span class="k">$(</span>oc<span class="w"> </span>get<span class="w"> </span>gateway<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="w"> </span>-n<span class="w"> </span>openshift-ingress<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.spec.listeners[0].hostname}&#39;</span><span class="k">)</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nv">TOKEN</span><span class="o">=</span><span class="k">$(</span>oc<span class="w"> </span>whoami<span class="w"> </span>-t<span class="k">)</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>curl<span class="w"> </span>-sSk<span class="w"> </span><span class="s2">&quot;https://</span><span class="si">${</span><span class="nv">GATEWAY_HOST</span><span class="si">}</span><span class="s2">/maas-api/v1/models&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="si">${</span><span class="nv">TOKEN</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.
+</code></pre></div>
+<p>Expected: <code>200</code> with models configured for this tenant.</p>
+<h2 id="7-test-authentication">7. Test Authentication</h2>
+<p>Without a token (expected: <code>401</code>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>curl<span class="w"> </span>-sSk<span class="w"> </span>-o<span class="w"> </span>/dev/null<span class="w"> </span>-w<span class="w"> </span><span class="s2">&quot;%{http_code}\n&quot;</span><span class="w"> </span><span class="s2">&quot;https://</span><span class="si">${</span><span class="nv">GATEWAY_HOST</span><span class="si">}</span><span class="s2">/maas-api/v1/models&quot;</span>
+</code></pre></div>
+<p>With a valid API key (expected: <code>200</code>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nv">API_KEY</span><span class="o">=</span><span class="k">$(</span>curl<span class="w"> </span>-sSk<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="si">${</span><span class="nv">TOKEN</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span>-X<span class="w"> </span>POST<span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;name&quot;:&quot;test-key&quot;,&quot;subscription&quot;:&quot;my-subscription&quot;}&#39;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">  </span><span class="s2">&quot;https://</span><span class="si">${</span><span class="nv">GATEWAY_HOST</span><span class="si">}</span><span class="s2">/maas-api/v1/api-keys&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span>.key<span class="k">)</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>curl<span class="w"> </span>-sSk<span class="w"> </span>-w<span class="w"> </span><span class="s2">&quot;\nHTTP: %{http_code}\n&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="si">${</span><span class="nv">API_KEY</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">  </span><span class="s2">&quot;https://</span><span class="si">${</span><span class="nv">GATEWAY_HOST</span><span class="si">}</span><span class="s2">/maas-api/v1/models&quot;</span>
+</code></pre></div>
+<h2 id="8-test-tenant-isolation">8. Test Tenant Isolation</h2>
+<p>Verify that a token minted for one tenant cannot access another tenant's models:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Get default tenant gateway host</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nv">DEFAULT_HOST</span><span class="o">=</span><span class="k">$(</span>oc<span class="w"> </span>get<span class="w"> </span>gateway<span class="w"> </span>maas-default-gateway<span class="w"> </span>-n<span class="w"> </span>openshift-ingress<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.spec.listeners[0].hostname}&#39;</span><span class="k">)</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Try the additional tenant&#39;s API key against the default tenant (expected: 401 or 403)</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>curl<span class="w"> </span>-sSk<span class="w"> </span>-o<span class="w"> </span>/dev/null<span class="w"> </span>-w<span class="w"> </span><span class="s2">&quot;%{http_code}\n&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="si">${</span><span class="nv">API_KEY</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">  </span><span class="s2">&quot;https://</span><span class="si">${</span><span class="nv">DEFAULT_HOST</span><span class="si">}</span><span class="s2">/maas-api/v1/models&quot;</span>
+</code></pre></div>
+<p>Each tenant's maas-api instance serves only its own tenant's data. API keys are scoped to the tenant where they were created.</p>
+<h2 id="9-verify-all-components">9. Verify All Components</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;=== AITenant ===&quot;</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>oc<span class="w"> </span>get<span class="w"> </span>aitenant<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="w"> </span>-n<span class="w"> </span>ai-tenants
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;=== Tenant CR ===&quot;</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>oc<span class="w"> </span>get<span class="w"> </span>tenant<span class="w"> </span>default-tenant<span class="w"> </span>-n<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NS</span><span class="si">}</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;=== maas-api ===&quot;</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>oc<span class="w"> </span>get<span class="w"> </span>deployment<span class="w"> </span>maas-api-<span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="w"> </span>-n<span class="w"> </span><span class="si">${</span><span class="nv">INFRA_NS</span><span class="si">}</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;=== Gateway ===&quot;</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>oc<span class="w"> </span>get<span class="w"> </span>gateway<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="w"> </span>-n<span class="w"> </span>openshift-ingress
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;=== AuthPolicies ===&quot;</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>oc<span class="w"> </span>get<span class="w"> </span>authpolicy<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span>-maas-auth<span class="w"> </span>-n<span class="w"> </span>openshift-ingress
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;=== Subscriptions ===&quot;</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>oc<span class="w"> </span>get<span class="w"> </span>maassubscription<span class="w"> </span>-n<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NS</span><span class="si">}</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;=== Model Refs ===&quot;</span>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a>oc<span class="w"> </span>get<span class="w"> </span>maasmodelref<span class="w"> </span>-n<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NS</span><span class="si">}</span>
+</code></pre></div>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="aitenant-stuck-in-pending">AITenant stuck in Pending</h3>
+<p>Check the AITenant conditions for the specific reason:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>oc<span class="w"> </span>get<span class="w"> </span>aitenant<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="w"> </span>-n<span class="w"> </span>ai-tenants<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.conditions}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.
+</code></pre></div>
+<p>Common causes:</p>
+<ul>
+<li>Gateway not found or not Programmed</li>
+<li>Database secret (<code>maas-db-config</code>) missing in operator namespace</li>
+<li>Authorino not deployed or TLS not configured</li>
+</ul>
+<h3 id="webhook-rejects-aitenant-creation">Webhook rejects AITenant creation</h3>
+<p>AITenant must be created in the configured infrastructure namespace (default: <code>ai-tenants</code>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>AITenant ai-tenants/red-team must be created in the configured AITenant infrastructure namespace ai-tenants
+</code></pre></div>
+<h3 id="gateway-uniqueness-error">Gateway uniqueness error</h3>
+<p>Each AITenant requires its own Gateway:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>gateway openshift-ingress/red-team is already in use by AITenant ai-tenants/other-tenant
+</code></pre></div>
+<h3 id="maassubscription-rejected">MaaSSubscription rejected</h3>
+<p>MaaSSubscription and MaaSAuthPolicy must be created in a namespace that contains a <code>Tenant</code> CR. Wait for the AITenant controller to create the Tenant CR before creating these resources.</p>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="../multi-tenant-setup/">Multi-Tenant Setup</a></li>
+<li><a href="../validation/">Validation (Default Tenant)</a></li>
+<li><a href="../../configuration-and-management/tenant-rbac/">Tenant RBAC</a></li>
+<li><a href="../../reference/crds/ai-tenant/">AITenant CRD Reference</a></li>
+</ul>
+
+
+
+
+
+
+
+  
+    
+  
+  
+    
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 8, 2026 22:21:22 UTC">July 8, 2026</span>
+  </span>
+
+    
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Created">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 8, 2026 22:21:22 UTC">July 8, 2026</span>
+  </span>
+
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
               </article>
             </div>
           
@@ -3025,10 +3619,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "/models-as-a-service/dev", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "search.suggest", "search.boost", "navigation.instant"], "search": "/models-as-a-service/dev/assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "search.suggest", "search.boost", "navigation.instant"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="/models-as-a-service/dev/assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>
