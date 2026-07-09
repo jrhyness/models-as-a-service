@@ -328,6 +328,9 @@ class TestTenantModelInference:
             assert r.status_code in (200, 201), f"Failed to create key: {r.status_code}"
             orphaned_key = r.json()["key"]
 
+            # Allow API key to propagate before testing
+            _wait_reconcile()
+
             # Verify key works BEFORE deletion by calling /v1/models
             models_url = f"{gateway_url}/v1/models"
             r = requests.get(models_url, headers={"Authorization": f"Bearer {orphaned_key}"}, timeout=45, verify=TLS_VERIFY)
@@ -351,6 +354,9 @@ class TestTenantModelInference:
                 f"{model_name}-auth", case["tenant_ns"], model_ref=model_name, model_namespace=case["tenant_ns"]
             )
             wait_for_status_phase("maasmodelref", model_name, case["tenant_ns"], expected_phase="Ready", timeout=180)
+
+            # Allow AuthPolicy to propagate after tenant recreation
+            _wait_reconcile()
 
             # Step 5: Verify orphaned key does NOT work by calling /v1/models
             gateway_url = _get_tenant_gateway_url(case["gateway_name"])
