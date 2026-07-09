@@ -391,8 +391,8 @@ func convertToFQDNConnectionURL(rawURL, namespace string) string {
 func maskConnectionURL(rawURL string) string {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		// Invalid URL, return as-is
-		return rawURL
+		// Invalid URL, return placeholder to avoid leaking credentials (CWE-532)
+		return "<invalid-url>"
 	}
 
 	// Use url.URL.Redacted() which automatically masks the password
