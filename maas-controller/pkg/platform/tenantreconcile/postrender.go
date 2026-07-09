@@ -44,8 +44,8 @@ func PostRender(ctx context.Context, log logr.Logger, tenant *maasv1alpha1.Tenan
 				return nil, err
 			}
 		case gvk.Group == "apps" && gvk.Kind == "Deployment" && resource.GetName() == "maas-api":
-			// Update Deployment to mount tenant-specific TLS secret
-			if err := configureMaaSAPIDeployment(log, resource, tenantID); err != nil {
+			// Update Deployment to mount tenant-specific TLS secret and patch controller namespace
+			if err := configureMaaSAPIDeployment(log, resource, tenantID, params); err != nil {
 				return nil, err
 			}
 		case gvk == GVKHTTPRoute && resource.GetName() == "maas-api-route":
@@ -115,7 +115,7 @@ func configureMaaSAPIService(log logr.Logger, resource *unstructured.Unstructure
 	return nil
 }
 
-func configureMaaSAPIDeployment(log logr.Logger, resource *unstructured.Unstructured, tenantID string) error {
+func configureMaaSAPIDeployment(log logr.Logger, resource *unstructured.Unstructured, tenantID string, params PlatformParams) error {
 	// Update the Deployment to mount the correct tenant-specific TLS secret
 	secretName := "maas-api-serving-cert"
 	if tenantID != "" {
@@ -151,7 +151,51 @@ func configureMaaSAPIDeployment(log logr.Logger, resource *unstructured.Unstruct
 		return fmt.Errorf("failed to set volumes: %w", err)
 	}
 
-	log.V(4).Info("Configured maas-api Deployment TLS secret volume", "tenantID", tenantID, "secretName", secretName)
+	// Patch CONTROLLER_NAMESPACE env var to match the namespace where the controller is actually running.
+	// This is critical for RHOAI where the controller runs in redhat-ods-applications, not opendatahub.
+	// The maas-api needs the correct controller namespace to validate ServiceAccount tokens in Authorization headers.
+	containers, found, err := unstructured.NestedSlice(resource.Object, "spec", "template", "spec", "containers")
+	if err != nil {
+		return fmt.Errorf("failed to get containers: %w", err)
+	}
+	if !found {
+		return errors.New("no containers found in deployment")
+	}
+
+	for i, container := range containers {
+		containerMap, ok := container.(map[string]any)
+		if !ok {
+			continue
+		}
+		env, found, err := unstructured.NestedSlice(containerMap, "env")
+		if err != nil || !found {
+			continue
+		}
+		for j, envVar := range env {
+			envMap, ok := envVar.(map[string]any)
+			if !ok {
+				continue
+			}
+			name, _, _ := unstructured.NestedString(envMap, "name")
+			if name == "CONTROLLER_NAMESPACE" {
+				if err := unstructured.SetNestedField(envMap, params.AppNamespace, "value"); err != nil {
+					return fmt.Errorf("failed to set CONTROLLER_NAMESPACE: %w", err)
+				}
+				env[j] = envMap
+				break
+			}
+		}
+		if err := unstructured.SetNestedSlice(containerMap, env, "env"); err != nil {
+			return fmt.Errorf("failed to set env: %w", err)
+		}
+		containers[i] = containerMap
+	}
+
+	if err := unstructured.SetNestedSlice(resource.Object, containers, "spec", "template", "spec", "containers"); err != nil {
+		return fmt.Errorf("failed to set containers: %w", err)
+	}
+
+	log.V(4).Info("Configured maas-api Deployment", "tenantID", tenantID, "secretName", secretName, "controllerNamespace", params.AppNamespace)
 	return nil
 }
 

@@ -23,7 +23,7 @@ const (
 
 type Client struct {
 	httpClient *http.Client
-	token      string // Service account token for authentication
+	tokenPath  string // Path to service account token file (empty to skip auth)
 }
 
 // NewInClusterClient creates an HTTP client configured for in-cluster communication with TLS.
@@ -55,12 +55,6 @@ func NewInClusterClient(timeout time.Duration) (*Client, error) {
 		MinVersion: tls.VersionTLS12,
 	}
 
-	// Load service account token for authentication with maas-api internal endpoints
-	token, err := os.ReadFile(ServiceAccountTokenPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load service account token: %w", err)
-	}
-
 	return &Client{
 		httpClient: &http.Client{
 			Timeout: timeout,
@@ -68,7 +62,7 @@ func NewInClusterClient(timeout time.Duration) (*Client, error) {
 				TLSClientConfig: tlsConfig,
 			},
 		},
-		token: string(token),
+		tokenPath: ServiceAccountTokenPath,
 	}, nil
 }
 
@@ -86,9 +80,18 @@ func (c *Client) PostAndReadJSON(ctx context.Context, url string, reqBody any, r
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	// Add service account token for authentication with maas-api internal endpoints
-	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
+
+	// Read service account token fresh on every request to support projected/rotating tokens.
+	// The token file is updated by kubelet when it rotates, so we must read it each time.
+	// Skip auth if tokenPath is empty (for testing).
+	if c.tokenPath != "" {
+		token, err := os.ReadFile(c.tokenPath)
+		if err != nil {
+			return fmt.Errorf("failed to load service account token: %w", err)
+		}
+		if len(token) > 0 {
+			req.Header.Set("Authorization", "Bearer "+string(token))
+		}
 	}
 
 	resp, err := c.httpClient.Do(req)

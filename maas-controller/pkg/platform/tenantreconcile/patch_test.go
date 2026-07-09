@@ -214,3 +214,122 @@ func TestPatchMaaSAPIDeploymentTENANT_NAME(t *testing.T) {
 		})
 	}
 }
+
+func TestConfigureMaaSAPIDeployment(t *testing.T) {
+	tests := []struct {
+		name                        string
+		tenantID                    string
+		controllerNamespace         string
+		expectedSecretName          string
+		expectedControllerNamespace string
+	}{
+		{
+			name:                        "default tenant on ODH",
+			tenantID:                    "",
+			controllerNamespace:         "opendatahub",
+			expectedSecretName:          "maas-api-serving-cert",
+			expectedControllerNamespace: "opendatahub",
+		},
+		{
+			name:                        "redteam tenant on RHOAI",
+			tenantID:                    "redteam",
+			controllerNamespace:         "redhat-ods-applications",
+			expectedSecretName:          "maas-api-redteam-serving-cert",
+			expectedControllerNamespace: "redhat-ods-applications",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a deployment with hardcoded values
+			deployment := &unstructured.Unstructured{
+				Object: map[string]any{
+					"apiVersion": "apps/v1",
+					"kind":       "Deployment",
+					"metadata": map[string]any{
+						"name":      "maas-api",
+						"namespace": "odh-ai-gateway-infra",
+					},
+					"spec": map[string]any{
+						"template": map[string]any{
+							"spec": map[string]any{
+								"volumes": []any{
+									map[string]any{
+										"name": "maas-api-tls",
+										"secret": map[string]any{
+											"secretName": "maas-api-serving-cert",
+										},
+									},
+								},
+								"containers": []any{
+									map[string]any{
+										"name": "maas-api",
+										"env": []any{
+											map[string]any{
+												"name":  "NAMESPACE",
+												"value": "test-namespace",
+											},
+											map[string]any{
+												"name":  "CONTROLLER_NAMESPACE",
+												"value": "opendatahub",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			params := PlatformParams{
+				AppNamespace:     tt.controllerNamespace,
+				TenantIdentifier: tt.tenantID,
+			}
+
+			err := configureMaaSAPIDeployment(logr.Discard(), deployment, tt.tenantID, params)
+			require.NoError(t, err)
+
+			// Verify secret name was patched
+			volumes, found, err := unstructured.NestedSlice(deployment.Object,
+				"spec", "template", "spec", "volumes")
+			require.NoError(t, err)
+			require.True(t, found)
+			require.Len(t, volumes, 1)
+
+			volumeMap, ok := volumes[0].(map[string]any)
+			require.True(t, ok)
+			secretName, found, err := unstructured.NestedString(volumeMap, "secret", "secretName")
+			require.NoError(t, err)
+			require.True(t, found)
+			assert.Equal(t, tt.expectedSecretName, secretName)
+
+			// Verify CONTROLLER_NAMESPACE env var was patched
+			containers, found, err := unstructured.NestedSlice(deployment.Object,
+				"spec", "template", "spec", "containers")
+			require.NoError(t, err)
+			require.True(t, found)
+			require.Len(t, containers, 1)
+
+			containerMap, ok := containers[0].(map[string]any)
+			require.True(t, ok)
+			envVars, found, err := unstructured.NestedSlice(containerMap, "env")
+			require.NoError(t, err)
+			require.True(t, found)
+
+			var controllerNamespace string
+			for _, envVar := range envVars {
+				envMap, ok := envVar.(map[string]any)
+				require.True(t, ok)
+				name, _, _ := unstructured.NestedString(envMap, "name")
+				if name == "CONTROLLER_NAMESPACE" {
+					value, _, _ := unstructured.NestedString(envMap, "value")
+					controllerNamespace = value
+					break
+				}
+			}
+			assert.Equal(t, tt.expectedControllerNamespace, controllerNamespace,
+				"CONTROLLER_NAMESPACE should be patched to match controller's actual namespace")
+		})
+	}
+}
