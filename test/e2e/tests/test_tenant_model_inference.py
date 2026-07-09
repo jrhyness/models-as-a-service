@@ -15,6 +15,7 @@ Prerequisites:
 """
 
 import json
+
 import pytest
 import requests
 
@@ -314,6 +315,9 @@ class TestTenantModelInference:
             )
             wait_for_status_phase("maasmodelref", model_name, case["tenant_ns"], expected_phase="Ready", timeout=180)
 
+            # Allow AuthPolicy to sync with Authorino before creating API key
+            _wait_reconcile()
+
             # Step 2: Create API key
             gateway_url = _get_tenant_gateway_url(case["gateway_name"])
             oc_token = _get_cluster_token()
@@ -328,9 +332,6 @@ class TestTenantModelInference:
             assert r.status_code in (200, 201), f"Failed to create key: {r.status_code}"
             orphaned_key = r.json()["key"]
 
-            # Allow API key to propagate before testing
-            _wait_reconcile()
-
             # Verify key works BEFORE deletion by calling /v1/models
             models_url = f"{gateway_url}/v1/models"
             r = requests.get(models_url, headers={"Authorization": f"Bearer {orphaned_key}"}, timeout=45, verify=TLS_VERIFY)
@@ -343,8 +344,10 @@ class TestTenantModelInference:
             # Step 4: Recreate AITenant with same name
             bootstrap_aitenant_tenant(case)
             _create_llmis(model_name, case["tenant_ns"], case["gateway_name"], GATEWAY_NAMESPACE)
+
+            # Wait for HTTPRoute with extended timeout (tenant recreation can be slow)
             wait_for_httproute_accepted(
-                f"{model_name}-kserve-route", case["tenant_ns"], case["gateway_name"], timeout=180
+                f"{model_name}-kserve-route", case["tenant_ns"], case["gateway_name"], timeout=300
             )
             _create_maas_model_ref(model_name, case["tenant_ns"], model_name)
             apply_maas_subscription(
