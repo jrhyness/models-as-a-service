@@ -87,19 +87,88 @@ def test_tenant_discovery_requires_auth(maas_api_internal_url: str):
     url = maas_api_internal_url + "/v1/tenants"
     namespace = INFRA_NAMESPACE
 
-    # Debug: Check if Service exists before attempting request
+    # Comprehensive diagnostics for HTTP 0 connection failures
     import subprocess
+    print(f"\n{'='*60}")
+    print(f"[tenant] Pre-flight diagnostics for {namespace}/maas-api")
+    print(f"{'='*60}")
+
+    # 1. Service existence and ClusterIP
     svc_check = subprocess.run(
-        ["kubectl", "get", "service", "maas-api", "-n", namespace, "-o", "name"],
+        ["kubectl", "get", "service", "maas-api", "-n", namespace,
+         "-o", "jsonpath={.metadata.name} {.spec.clusterIP} {.spec.ports[0].port}"],
         capture_output=True, text=True, timeout=10
     )
     if svc_check.returncode != 0:
         log.error(f"[tenant] Service maas-api not found in namespace {namespace}")
-        log.error(f"[tenant] kubectl output: {svc_check.stderr}")
-        print(f"⚠️  WARNING: Service maas-api does not exist in {namespace}")
-        print(f"   This will cause HTTP 0 (connection refused) errors")
+        log.error(f"[tenant] kubectl stderr: {svc_check.stderr}")
+        print(f"❌ Service maas-api does NOT exist in {namespace}")
     else:
-        log.info(f"[tenant] Service maas-api exists in {namespace}")
+        svc_info = svc_check.stdout.strip().split()
+        if len(svc_info) >= 3:
+            print(f"✓ Service: {svc_info[0]}")
+            print(f"  ClusterIP: {svc_info[1]}")
+            print(f"  Port: {svc_info[2]}")
+        else:
+            print(f"✓ Service exists: {svc_check.stdout.strip()}")
+
+    # 2. Endpoints (ready Pods backing the Service)
+    ep_check = subprocess.run(
+        ["kubectl", "get", "endpoints", "maas-api", "-n", namespace,
+         "-o", "jsonpath={.subsets[*].addresses[*].ip}"],
+        capture_output=True, text=True, timeout=10
+    )
+    if ep_check.returncode == 0:
+        endpoints = ep_check.stdout.strip()
+        if endpoints:
+            ep_list = endpoints.split()
+            print(f"✓ Endpoints: {len(ep_list)} ready Pod(s)")
+            print(f"  IPs: {', '.join(ep_list)}")
+        else:
+            log.error(f"[tenant] Service has ZERO endpoints - no ready Pods!")
+            print(f"❌ Service has ZERO endpoints (no ready Pods backing the Service)")
+            print(f"   This is the likely cause of HTTP 0 connection refused errors")
+    else:
+        print(f"❌ Could not get endpoints: {ep_check.stderr}")
+
+    # 3. Pod status
+    pod_check = subprocess.run(
+        ["kubectl", "get", "pods", "-n", namespace, "-l", "app.kubernetes.io/name=maas-api",
+         "-o", "jsonpath={range .items[*]}{.metadata.name}{'\\t'}{.status.phase}{'\\t'}{.status.conditions[?(@.type=='Ready')].status}{'\\n'}{end}"],
+        capture_output=True, text=True, timeout=10
+    )
+    if pod_check.returncode == 0 and pod_check.stdout.strip():
+        print(f"✓ Pods:")
+        for line in pod_check.stdout.strip().split('\n'):
+            parts = line.split('\t')
+            if len(parts) >= 3:
+                pod_name, phase, ready = parts[0], parts[1], parts[2]
+                status_icon = "✓" if phase == "Running" and ready == "True" else "❌"
+                print(f"  {status_icon} {pod_name}: {phase}, Ready={ready}")
+            else:
+                print(f"  ? {line}")
+    else:
+        log.error(f"[tenant] No maas-api Pods found in {namespace}")
+        print(f"❌ No Pods found with label app.kubernetes.io/name=maas-api")
+
+    # 4. DNS resolution
+    dns_check = subprocess.run(
+        ["kubectl", "run", f"dns-test-{os.getpid()}", "--rm", "-i", "--restart=Never",
+         "--image=busybox:1.36", "-n", namespace, "--",
+         "nslookup", f"maas-api.{namespace}.svc.cluster.local"],
+        capture_output=True, text=True, timeout=15
+    )
+    if dns_check.returncode == 0:
+        # Extract just the IP address from nslookup output
+        if "Address" in dns_check.stdout:
+            print(f"✓ DNS resolves maas-api.{namespace}.svc.cluster.local")
+        else:
+            print(f"⚠ DNS test ran but output unclear: {dns_check.stdout[:100]}")
+    else:
+        log.error(f"[tenant] DNS resolution failed")
+        print(f"❌ DNS resolution failed for maas-api.{namespace}.svc.cluster.local")
+
+    print(f"{'='*60}\n")
 
     # Attempt without Authorization header
     status_code, body = _kubectl_curl(url, namespace=namespace)
@@ -108,10 +177,15 @@ def test_tenant_discovery_requires_auth(maas_api_internal_url: str):
     print(f"[tenant] GET /v1/tenants without auth: HTTP {status_code}")
 
     if status_code == 0:
-        log.error(f"[tenant] HTTP 0 indicates connection failure - Service likely doesn't exist or DNS failed")
-        print(f"❌ HTTP status 0 means connection failed (Service missing or unreachable)")
+        log.error(f"[tenant] HTTP 0 indicates connection failure")
+        print(f"\n❌ HTTP 0 = CONNECTION REFUSED")
+        print(f"   Check the diagnostics above for the root cause:")
+        print(f"   - If Service has ZERO endpoints → No ready Pods (most common)")
+        print(f"   - If Pods show Ready=False → Check Pod logs and events")
+        print(f"   - If DNS failed → Check CoreDNS and Service DNS records")
+        print(f"   - If NetworkPolicy issues → Check policies in {namespace}")
 
-    assert status_code == 401, f"Expected 401 without auth, got {status_code}"
+    assert status_code == 401, f"Expected 401 without auth, got {status_code}. Check diagnostics above for HTTP 0 root cause."
 
     # Verify error message structure if JSON
     try:

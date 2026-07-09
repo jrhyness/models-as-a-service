@@ -53,6 +53,24 @@ _find_root() {
 
 PROJECT_ROOT="$(_find_root)"
 DEPLOYMENT_NAMESPACE="${DEPLOYMENT_NAMESPACE:-opendatahub}"
+
+# Infrastructure namespace (PR #1051): where maas-api workloads run
+# AUTO-derives from DEPLOYMENT_NAMESPACE if not explicitly set
+_infra_ns_raw="${INFRA_NAMESPACE:-}"
+if [[ -z "$_infra_ns_raw" ]] || [[ "$_infra_ns_raw" == "AUTO" ]]; then
+  if [[ "$DEPLOYMENT_NAMESPACE" == "opendatahub" ]]; then
+    INFRA_NAMESPACE="odh-ai-gateway-infra"
+  elif [[ "$DEPLOYMENT_NAMESPACE" == "redhat-ods-applications" ]]; then
+    INFRA_NAMESPACE="redhat-ai-gateway-infra"
+  else
+    echo "⚠️  Unknown DEPLOYMENT_NAMESPACE='$DEPLOYMENT_NAMESPACE'. Expected 'opendatahub' or 'redhat-ods-applications'."
+    echo "   Set INFRA_NAMESPACE explicitly if using a custom deployment namespace."
+    INFRA_NAMESPACE="$DEPLOYMENT_NAMESPACE"  # Fallback to deployment namespace
+  fi
+else
+  INFRA_NAMESPACE="$_infra_ns_raw"
+fi
+
 MAAS_SUBSCRIPTION_NAMESPACE="${MAAS_SUBSCRIPTION_NAMESPACE:-models-as-a-service}"
 AUTHORINO_NAMESPACE="${AUTHORINO_NAMESPACE:-kuadrant-system}"
 OPERATOR_NAMESPACE="${OPERATOR_NAMESPACE:-redhat-ods-operator}"
@@ -301,13 +319,42 @@ run_auth_debug_report() {
   _run "Logged-in user" "oc whoami 2>/dev/null || echo 'Not logged in'"
   _run "Cluster domain" "oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}' 2>/dev/null || echo 'N/A'"
   _append "DEPLOYMENT_NAMESPACE: $DEPLOYMENT_NAMESPACE"
+  _append "INFRA_NAMESPACE: $INFRA_NAMESPACE"
   _append "MAAS_SUBSCRIPTION_NAMESPACE: $MAAS_SUBSCRIPTION_NAMESPACE"
   _append "AUTHORINO_NAMESPACE: $AUTHORINO_NAMESPACE"
   _append ""
 
   _section "MaaS API Deployment"
-  _run "maas-api pods" "kubectl get pods -n $DEPLOYMENT_NAMESPACE -l app.kubernetes.io/name=maas-api -o wide 2>/dev/null || true"
-  _run "maas-api service" "kubectl get svc maas-api -n $DEPLOYMENT_NAMESPACE -o wide 2>/dev/null || true"
+  _run "maas-api pods" "kubectl get pods -n $INFRA_NAMESPACE -l app.kubernetes.io/name=maas-api -o wide 2>/dev/null || true"
+  _run "maas-api service" "kubectl get svc maas-api -n $INFRA_NAMESPACE -o wide 2>/dev/null || true"
+  _run "maas-api endpoints" "kubectl get endpoints maas-api -n $INFRA_NAMESPACE -o wide 2>/dev/null || true"
+  
+  # Pod readiness details (if pods exist)
+  local pod_count
+  pod_count=$(kubectl get pods -n $INFRA_NAMESPACE -l app.kubernetes.io/name=maas-api --no-headers 2>/dev/null | wc -l || echo "0")
+  if [[ "$pod_count" -gt 0 ]]; then
+    _run "maas-api pod status" "kubectl get pods -n $INFRA_NAMESPACE -l app.kubernetes.io/name=maas-api -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.phase}{"\t"}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' 2>/dev/null || true"
+    _run "maas-api pod logs (last 20 lines)" "kubectl logs -n $INFRA_NAMESPACE -l app.kubernetes.io/name=maas-api --tail=20 --all-containers=true 2>/dev/null | head -40 || true"
+  fi
+  
+  # Network policies in infrastructure namespace
+  _run "NetworkPolicies in $INFRA_NAMESPACE" "kubectl get networkpolicies -n $INFRA_NAMESPACE -o wide 2>/dev/null || true"
+  
+  # DNS resolution test
+  _append "--- DNS resolution test (from cluster) ---"
+  local dns_test_ns="$INFRA_NAMESPACE"
+  if ! kubectl get namespace "$dns_test_ns" &>/dev/null; then
+    dns_test_ns="$DEPLOYMENT_NAMESPACE"
+  fi
+  _append "Testing: maas-api.$INFRA_NAMESPACE.svc.cluster.local"
+  local dns_out
+  dns_out=$(kubectl run "debug-dns-$(date +%s)" --rm --restart=Never --image=busybox:1.36 -n "$dns_test_ns" -- \
+    nslookup "maas-api.$INFRA_NAMESPACE.svc.cluster.local" 2>&1) || dns_out="nslookup failed: $?"
+  _append "$dns_out"
+  _append ""
+
+  # HTTP routes for maas-api
+  _run "HTTPRoute for maas-api" "kubectl get httproute -n $INFRA_NAMESPACE -l app.kubernetes.io/name=maas-api -o wide 2>/dev/null || true"
   _append ""
 
   _section "maas-controller"
@@ -405,7 +452,7 @@ EOF
 
   _section "Gateway / HTTPRoutes"
   _run "Gateway" "kubectl get gateway -n openshift-ingress maas-default-gateway -o wide 2>/dev/null || kubectl get gateway -A 2>/dev/null | head -10 || true"
-  _run "HTTPRoutes (maas-api)" "kubectl get httproute maas-api-route -n $DEPLOYMENT_NAMESPACE -o wide 2>/dev/null || true"
+  _run "HTTPRoutes (maas-api)" "kubectl get httproute maas-api-route -n $INFRA_NAMESPACE -o wide 2>/dev/null || true"
   _append ""
 
   _section "Authorino"
