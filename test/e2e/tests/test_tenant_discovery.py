@@ -18,9 +18,16 @@ import os
 import pytest
 import requests
 from conftest import TLS_VERIFY
-from test_helper import INFRA_NAMESPACE
+from test_helper import INFRA_NAMESPACE, DEPLOYMENT_NAMESPACE
 
 log = logging.getLogger(__name__)
+
+# Namespace where curl pods can run and reach maas-api (allowed by NetworkPolicy)
+# NetworkPolicies allow traffic from:
+# - openshift-ingress (Gateway)
+# - opendatahub / redhat-ods-applications (Dashboard and controller)
+# We use DEPLOYMENT_NAMESPACE so the test validates Dashboard access
+CURL_EXECUTION_NAMESPACE = DEPLOYMENT_NAMESPACE
 
 
 def _kubectl_curl(url: str, headers: dict = None, namespace: str = None) -> tuple[int, str]:
@@ -30,7 +37,7 @@ def _kubectl_curl(url: str, headers: dict = None, namespace: str = None) -> tupl
     Returns (status_code, response_body)
     """
     if namespace is None:
-        namespace = INFRA_NAMESPACE
+        namespace = CURL_EXECUTION_NAMESPACE
     curl_args = ["-sk", "-m", "10"]
 
     # Add headers
@@ -83,26 +90,28 @@ def test_tenant_discovery_requires_auth(maas_api_internal_url: str):
 
     Note: This endpoint is internal-only (not exposed through Gateway),
     so we use kubectl run with curl to access it from inside the cluster.
+    Curl pods run from the deployment namespace (opendatahub) to validate
+    that the Dashboard can reach this endpoint (allowed by NetworkPolicy).
     """
     url = maas_api_internal_url + "/v1/tenants"
-    namespace = INFRA_NAMESPACE
+    maas_api_namespace = INFRA_NAMESPACE
 
     # Comprehensive diagnostics for HTTP 0 connection failures
     import subprocess
     print(f"\n{'='*60}")
-    print(f"[tenant] Pre-flight diagnostics for {namespace}/maas-api")
+    print(f"[tenant] Pre-flight diagnostics for {maas_api_namespace}/maas-api")
     print(f"{'='*60}")
 
     # 1. Service existence and ClusterIP
     svc_check = subprocess.run(
-        ["kubectl", "get", "service", "maas-api", "-n", namespace,
+        ["kubectl", "get", "service", "maas-api", "-n", maas_api_namespace,
          "-o", "jsonpath={.metadata.name} {.spec.clusterIP} {.spec.ports[0].port}"],
         capture_output=True, text=True, timeout=10
     )
     if svc_check.returncode != 0:
-        log.error(f"[tenant] Service maas-api not found in namespace {namespace}")
+        log.error(f"[tenant] Service maas-api not found in namespace {maas_api_namespace}")
         log.error(f"[tenant] kubectl stderr: {svc_check.stderr}")
-        print(f"❌ Service maas-api does NOT exist in {namespace}")
+        print(f"❌ Service maas-api does NOT exist in {maas_api_namespace}")
     else:
         svc_info = svc_check.stdout.strip().split()
         if len(svc_info) >= 3:
@@ -114,7 +123,7 @@ def test_tenant_discovery_requires_auth(maas_api_internal_url: str):
 
     # 2. Endpoints (ready Pods backing the Service)
     ep_check = subprocess.run(
-        ["kubectl", "get", "endpoints", "maas-api", "-n", namespace,
+        ["kubectl", "get", "endpoints", "maas-api", "-n", maas_api_namespace,
          "-o", "jsonpath={.subsets[*].addresses[*].ip}"],
         capture_output=True, text=True, timeout=10
     )
@@ -133,7 +142,7 @@ def test_tenant_discovery_requires_auth(maas_api_internal_url: str):
 
     # 3. Pod status
     pod_check = subprocess.run(
-        ["kubectl", "get", "pods", "-n", namespace, "-l", "app.kubernetes.io/name=maas-api",
+        ["kubectl", "get", "pods", "-n", maas_api_namespace, "-l", "app.kubernetes.io/name=maas-api",
          "-o", "jsonpath={range .items[*]}{.metadata.name}{'\\t'}{.status.phase}{'\\t'}{.status.conditions[?(@.type=='Ready')].status}{'\\n'}{end}"],
         capture_output=True, text=True, timeout=10
     )
@@ -148,30 +157,30 @@ def test_tenant_discovery_requires_auth(maas_api_internal_url: str):
             else:
                 print(f"  ? {line}")
     else:
-        log.error(f"[tenant] No maas-api Pods found in {namespace}")
+        log.error(f"[tenant] No maas-api Pods found in {maas_api_namespace}")
         print(f"❌ No Pods found with label app.kubernetes.io/name=maas-api")
 
     # 4. DNS resolution
     dns_check = subprocess.run(
         ["kubectl", "run", f"dns-test-{os.getpid()}", "--rm", "-i", "--restart=Never",
-         "--image=busybox:1.36", "-n", namespace, "--",
-         "nslookup", f"maas-api.{namespace}.svc.cluster.local"],
+         "--image=busybox:1.36", "-n", CURL_EXECUTION_NAMESPACE, "--",
+         "nslookup", f"maas-api.{maas_api_namespace}.svc.cluster.local"],
         capture_output=True, text=True, timeout=15
     )
     if dns_check.returncode == 0:
         # Extract just the IP address from nslookup output
         if "Address" in dns_check.stdout:
-            print(f"✓ DNS resolves maas-api.{namespace}.svc.cluster.local")
+            print(f"✓ DNS resolves maas-api.{maas_api_namespace}.svc.cluster.local")
         else:
             print(f"⚠ DNS test ran but output unclear: {dns_check.stdout[:100]}")
     else:
         log.error(f"[tenant] DNS resolution failed")
-        print(f"❌ DNS resolution failed for maas-api.{namespace}.svc.cluster.local")
+        print(f"❌ DNS resolution failed for maas-api.{maas_api_namespace}.svc.cluster.local")
 
     print(f"{'='*60}\n")
 
-    # Attempt without Authorization header
-    status_code, body = _kubectl_curl(url, namespace=namespace)
+    # Attempt without Authorization header (runs from Gateway namespace allowed by NetworkPolicy)
+    status_code, body = _kubectl_curl(url)
 
     log.info(f"[tenant] GET {url} (no auth) -> HTTP {status_code}")
     print(f"[tenant] GET /v1/tenants without auth: HTTP {status_code}")
@@ -183,7 +192,7 @@ def test_tenant_discovery_requires_auth(maas_api_internal_url: str):
         print(f"   - If Service has ZERO endpoints → No ready Pods (most common)")
         print(f"   - If Pods show Ready=False → Check Pod logs and events")
         print(f"   - If DNS failed → Check CoreDNS and Service DNS records")
-        print(f"   - If NetworkPolicy issues → Check policies in {namespace}")
+        print(f"   - If NetworkPolicy issues → Check policies in {maas_api_namespace}")
 
     assert status_code == 401, f"Expected 401 without auth, got {status_code}. Check diagnostics above for HTTP 0 root cause."
 
