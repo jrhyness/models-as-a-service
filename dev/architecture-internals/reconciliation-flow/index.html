@@ -2507,22 +2507,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#tenant-reconciler" class="md-nav__link">
+  <a href="#maastenantconfig-reconciler" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Tenant reconciler
+        MaasTenantConfig reconciler
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Tenant reconciler">
+    <nav class="md-nav" aria-label="MaasTenantConfig reconciler">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#tenant-status" class="md-nav__link">
+  <a href="#maastenantconfig-status" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Tenant status
+        MaasTenantConfig status
       
     </span>
   </a>
@@ -2535,10 +2535,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tenant-resource-layout" class="md-nav__link">
+  <a href="#maastenantconfig-resource-layout" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Tenant resource layout
+        MaasTenantConfig resource layout
       
     </span>
   </a>
@@ -3100,7 +3100,7 @@
   <span class="md-ellipsis">
     
   
-    Tenant
+    MaasTenantConfig
   
 
     
@@ -3156,22 +3156,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#tenant-reconciler" class="md-nav__link">
+  <a href="#maastenantconfig-reconciler" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Tenant reconciler
+        MaasTenantConfig reconciler
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Tenant reconciler">
+    <nav class="md-nav" aria-label="MaasTenantConfig reconciler">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#tenant-status" class="md-nav__link">
+  <a href="#maastenantconfig-status" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Tenant status
+        MaasTenantConfig status
       
     </span>
   </a>
@@ -3184,10 +3184,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tenant-resource-layout" class="md-nav__link">
+  <a href="#maastenantconfig-resource-layout" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Tenant resource layout
+        MaasTenantConfig resource layout
       
     </span>
   </a>
@@ -3289,29 +3289,29 @@
 <h1 id="reconciliation-flow">Reconciliation Flow</h1>
 <p>This document describes how the MaaS Controller <strong>reconciles</strong> resources, <strong>ownership</strong>, and <strong>lifecycle</strong>.</p>
 <hr />
-<h2 id="tenant-reconciler">Tenant reconciler</h2>
-<p>The <strong>Tenant</strong> reconciler watches the singleton <strong><code>Tenant</code></strong> CR named <strong><code>default-tenant</code></strong> (<code>maas.opendatahub.io/v1alpha1</code>). It:</p>
+<h2 id="maastenantconfig-reconciler">MaasTenantConfig reconciler</h2>
+<p>The <strong>MaasTenantConfig</strong> reconciler watches <strong><code>MaasTenantConfig</code></strong> CRs named <strong><code>default-tenant</code></strong> (<code>maas.opendatahub.io/v1alpha1</code>) in tenant namespaces. It:</p>
 <ul>
-<li>Validates <strong>gateway</strong> reference (default <code>openshift-ingress</code> / <code>maas-default-gateway</code> when unset) and <strong>cluster dependencies</strong> (for example AuthConfig / Kuadrant CRDs).</li>
+<li>Resolves platform context from the owning <strong><code>AITenant</code></strong> (Gateway and OIDC) and validates <strong>cluster dependencies</strong> (for example AuthConfig / Kuadrant CRDs).</li>
 <li>Runs <strong>prerequisite checks</strong> in the application namespace before applying manifests.</li>
 <li><strong>Renders and applies</strong> embedded <strong>kustomize</strong> manifests with <strong>Server-Side Apply</strong>, then waits until the <strong>maas-api</strong> <code>Deployment</code> in the app namespace is available.</li>
 <li>Manages <strong>finalizers</strong> and teardown for <strong>Removed</strong> / <strong>Unmanaged</strong> management-state annotations.</li>
 </ul>
 <p>Cross-namespace and cluster-scoped platform pieces (gateway AuthPolicy, telemetry, cluster RBAC) are tracked with <strong>labels</strong> and cleaned up when needed; in-namespace workloads use <strong><code>ownerReference</code></strong> where appropriate (see diagram below).</p>
-<h3 id="tenant-status">Tenant status</h3>
-<p><code>Tenant.status</code> exposes a high-level <strong><code>phase</code></strong>: <strong><code>Pending</code></strong>, <strong><code>Active</code></strong>, <strong><code>Degraded</code></strong>, or <strong><code>Failed</code></strong>, plus <strong>conditions</strong> aligned with platform aggregation (for example <strong><code>Ready</code></strong>, <strong><code>DependenciesAvailable</code></strong>, <strong><code>MaaSPrerequisitesAvailable</code></strong>, <strong><code>DeploymentsAvailable</code></strong>, <strong><code>Degraded</code></strong>). Typical outcomes:</p>
+<h3 id="maastenantconfig-status">MaasTenantConfig status</h3>
+<p><code>MaasTenantConfig.status</code> exposes a high-level <strong><code>phase</code></strong>: <strong><code>Pending</code></strong>, <strong><code>Active</code></strong>, <strong><code>Degraded</code></strong>, or <strong><code>Failed</code></strong>, plus <strong>conditions</strong> aligned with platform aggregation (for example <strong><code>Ready</code></strong>, <strong><code>DependenciesAvailable</code></strong>, <strong><code>MaaSPrerequisitesAvailable</code></strong>, <strong><code>DeploymentsAvailable</code></strong>, <strong><code>Degraded</code></strong>). Typical outcomes:</p>
 <ul>
 <li><strong><code>Failed</code></strong> — blocking prerequisites missing, gateway invalid, or platform apply failed.</li>
 <li><strong><code>Pending</code></strong> — manifests applied but <strong>maas-api</strong> not ready yet.</li>
 <li><strong><code>Active</code></strong> — platform applied and <strong>maas-api</strong> deployment available; may still be <strong><code>Degraded</code></strong> if non-blocking warnings exist.</li>
 </ul>
-<p>For <code>spec</code> fields (gateway, API keys, telemetry, external OIDC), see <a href="../../install/maas-setup/#tenant-cr">Tenant CR</a>.</p>
+<p>For <code>spec</code> fields (API keys and telemetry), see <a href="../../install/maas-setup/#maastenantconfig-cr">MaasTenantConfig CR</a>. Gateway and OIDC platform context belongs to <a href="../../reference/crds/ai-tenant/">AITenant</a>.</p>
 <hr />
-<h2 id="tenant-resource-layout">Tenant resource layout</h2>
-<p>The <code>Tenant</code> CR is namespace-scoped and lives in the <strong>application namespace</strong> for MaaS platform configuration (default <strong><code>models-as-a-service</code></strong>; configurable via install). It owns resources across three scopes — same-namespace children use standard <strong><code>ownerReference</code></strong>, while cluster-scoped and cross-namespace children use <strong>tracking labels</strong>.</p>
+<h2 id="maastenantconfig-resource-layout">MaasTenantConfig resource layout</h2>
+<p>The <code>MaasTenantConfig</code> CR is namespace-scoped and lives in the <strong>tenant namespace</strong> for MaaS platform configuration. The default AITenant uses <strong><code>models-as-a-service</code></strong> as its tenant namespace; non-default AITenants use their derived tenant namespaces. It owns resources across three scopes — same-namespace children use standard <strong><code>ownerReference</code></strong>, while cluster-scoped and cross-namespace children use <strong>tracking labels</strong>.</p>
 <pre class="mermaid"><code>graph TB
-    subgraph "models-as-a-service namespace"
-        Tenant["Tenant CR&lt;br/&gt;default-tenant"]
+    subgraph "tenant namespace (for example models-as-a-service)"
+        Tenant["MaasTenantConfig CR&lt;br/&gt;default-tenant"]
         API["maas-api Deployment"]
         CM["ConfigMaps"]
         SVC["Services"]
@@ -3457,7 +3457,7 @@ An opted-out policy (<code>opendatahub.io/managed: "false"</code>) can become pe
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="May 6, 2026 15:15:25 UTC">May 6, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 10, 2026 21:37:28 UTC">July 10, 2026</span>
   </span>
 
     

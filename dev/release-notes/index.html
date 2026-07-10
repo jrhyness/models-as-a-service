@@ -3189,7 +3189,7 @@
   <span class="md-ellipsis">
     
   
-    Tenant
+    MaasTenantConfig
   
 
     
@@ -3516,7 +3516,7 @@
 - The <code>maas-controller</code> now creates a single <code>AuthPolicy/maas-gateway-auth</code> in the gateway namespace (<code>openshift-ingress</code>) instead of one per-model <code>AuthPolicy</code> in each model namespace.
 - Per-model <code>AuthPolicy</code> objects managed by the controller are deleted on the first reconcile after upgrade.
 - <code>status.authPolicies</code> now references <code>maas-gateway-auth / openshift-ingress</code> instead of per-model policy names.
-- New admission webhooks (<code>failurePolicy=Ignore</code>) validate that <code>MaaSAuthPolicy</code> and <code>MaaSSubscription</code> are created in namespaces that contain a <code>Tenant</code> CR.
+- New admission webhooks (<code>failurePolicy=Ignore</code>) validate that <code>MaaSAuthPolicy</code> and <code>MaaSSubscription</code> are created in namespaces that contain a <code>MaasTenantConfig</code> CR.
 - <code>AITenant</code> created outside the configured <code>--aitenant-namespace</code> are now rejected at admission instead of being accepted and later marked <code>Failed/InvalidPlacement</code> by the controller.
 - <code>AITenant.spec.rbac</code> is deprecated and ignored. Existing manifests that still include it remain schema-valid, but the controller no longer creates RoleBindings from it. The controller still creates tenant-admin Roles, and platform administrators must create standard Kubernetes RoleBindings to grant access. See <a href="../configuration-and-management/tenant-rbac/">Tenant RBAC</a>.
 - <strong>Minimum Kuadrant version:</strong> v1.4.2 or later required for <code>spec.defaults.rules</code> support.
@@ -3543,11 +3543,11 @@
 - Tenant.Spec remains optional
 - <strong>Migration:</strong> Add a <code>spec</code> field to existing <code>MaaSAuthPolicy</code>, <code>MaaSSubscription</code>, and <code>MaaSModelRef</code> CRs that lack one (e.g., add <code>spec: {}</code> if needed)</p>
 <h3 id="new-features_1">New Features</h3>
-<p><strong>Tenant CR</strong>
-- Platform-level configuration centralized in the <code>Tenant</code> CR (<code>maas.opendatahub.io/v1alpha1</code>)
+<p><strong>MaasTenantConfig CR</strong>
+- MaaS runtime configuration centralized in the <code>MaasTenantConfig</code> CR (<code>maas.opendatahub.io/v1alpha1</code>)
 - Auto-bootstrapped as <code>default-tenant</code> in <code>models-as-a-service</code> namespace
-- Configurable gateway, API key lifetime, telemetry, and external OIDC via <code>spec</code> fields
-- See <a href="../install/maas-setup/#tenant-cr">Tenant CR Configuration</a></p>
+- Configurable API key lifetime and telemetry via <code>spec</code> fields
+- See <a href="../install/maas-setup/#maastenantconfig-cr">MaasTenantConfig CR Configuration</a></p>
 <p><strong>Observability</strong>
 - Perses dashboards for model usage visualization
 - Admin usage dashboard for token consumption tracking
@@ -3654,7 +3654,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 6, 2026 19:11:16 UTC">July 6, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 10, 2026 21:37:28 UTC">July 10, 2026</span>
   </span>
 
     

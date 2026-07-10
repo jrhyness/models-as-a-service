@@ -23,7 +23,7 @@
     
     
       
-        <title>Tenant - ODH Models-as-a-Service Documentation</title>
+        <title>MaasTenantConfig - ODH Models-as-a-Service Documentation</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tenant" class="md-skip">
+        <a href="#maastenantconfig" class="md-skip">
           Skip to content
         </a>
       
@@ -111,7 +111,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Tenant
+              MaasTenantConfig
             
           </span>
         </div>
@@ -2949,7 +2949,7 @@
   <span class="md-ellipsis">
     
   
-    Tenant
+    MaasTenantConfig
   
 
     
@@ -2967,7 +2967,7 @@
   <span class="md-ellipsis">
     
   
-    Tenant
+    MaasTenantConfig
   
 
     
@@ -3016,10 +3016,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#tenantspec" class="md-nav__link">
+  <a href="#maastenantconfigspec" class="md-nav__link">
     <span class="md-ellipsis">
       
-        TenantSpec
+        MaasTenantConfigSpec
       
     </span>
   </a>
@@ -3032,32 +3032,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tenantgatewayref" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TenantGatewayRef
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#tenantapikeysconfig" class="md-nav__link">
     <span class="md-ellipsis">
       
         TenantAPIKeysConfig
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tenantexternaloidcconfig" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TenantExternalOIDCConfig
       
     </span>
   </a>
@@ -3105,10 +3083,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#tenantstatus" class="md-nav__link">
+  <a href="#maastenantconfigstatus" class="md-nav__link">
     <span class="md-ellipsis">
       
-        TenantStatus
+        MaasTenantConfigStatus
       
     </span>
   </a>
@@ -3136,6 +3114,17 @@
     <span class="md-ellipsis">
       
         Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration Notes
       
     </span>
   </a>
@@ -3227,10 +3216,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#tenantspec" class="md-nav__link">
+  <a href="#maastenantconfigspec" class="md-nav__link">
     <span class="md-ellipsis">
       
-        TenantSpec
+        MaasTenantConfigSpec
       
     </span>
   </a>
@@ -3243,32 +3232,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tenantgatewayref" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TenantGatewayRef
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#tenantapikeysconfig" class="md-nav__link">
     <span class="md-ellipsis">
       
         TenantAPIKeysConfig
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tenantexternaloidcconfig" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TenantExternalOIDCConfig
       
     </span>
   </a>
@@ -3316,10 +3283,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#tenantstatus" class="md-nav__link">
+  <a href="#maastenantconfigstatus" class="md-nav__link">
     <span class="md-ellipsis">
       
-        TenantStatus
+        MaasTenantConfigStatus
       
     </span>
   </a>
@@ -3347,6 +3314,17 @@
     <span class="md-ellipsis">
       
         Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration Notes
       
     </span>
   </a>
@@ -3384,30 +3362,31 @@
   
 
 
-<h1 id="tenant">Tenant</h1>
-<p>Configures MaaS-specific tenant settings. The Tenant CRD is a namespace-scoped singleton — the resource name must be <code>default-tenant</code> (enforced by CEL validation). For AITenant-managed tenants, platform-derived context such as Gateway and external OIDC is owned by <code>AITenant</code>; <code>Tenant</code> owns MaaS-specific user configuration such as API key policies and telemetry settings.</p>
+<h1 id="maastenantconfig">MaasTenantConfig</h1>
+<p>Configures MaaS-specific tenant settings. <code>MaasTenantConfig</code> is a namespace-scoped singleton; the resource name must be <code>default-tenant</code> (enforced by CEL validation).</p>
+<p>Platform context such as Gateway and external OIDC belongs to <a href="../ai-tenant/"><code>AITenant</code></a>. <code>MaasTenantConfig</code> owns MaaS runtime configuration such as API key policy and telemetry settings. The legacy <code>Tenant</code> CRD remains installed during the migration window so existing <code>Tenant/default-tenant</code> objects can be adopted and copied into <code>MaasTenantConfig/default-tenant</code>.</p>
 <h2 id="multi-tenant-deployment">Multi-Tenant Deployment</h2>
-<p>In multi-tenant deployments, each tenant has its own Tenant CR in a dedicated namespace:</p>
+<p>In multi-tenant deployments, each tenant has one <code>MaasTenantConfig</code> in its tenant namespace:</p>
 <table>
 <thead>
 <tr>
 <th>Tenant Type</th>
-<th>Tenant CR Namespace</th>
-<th>Tenant CR Name</th>
+<th>Config Namespace</th>
+<th>Config Name</th>
 <th>maas-api Service (in operator namespace)</th>
 <th>Created By</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Default</strong></td>
+<td>Default</td>
 <td><code>models-as-a-service</code></td>
 <td><code>default-tenant</code></td>
 <td><code>maas-api</code></td>
 <td>Default AITenant bootstrap</td>
 </tr>
 <tr>
-<td><strong>Additional</strong></td>
+<td>Additional</td>
 <td><code>ai-tenant-{tenantID}</code></td>
 <td><code>default-tenant</code></td>
 <td><code>maas-api-{tenantID}</code></td>
@@ -3415,21 +3394,20 @@
 </tr>
 </tbody>
 </table>
-<p><strong>Key points:</strong>
-- All Tenant CRs are named <code>default-tenant</code> within their respective namespace
-- The default <code>Tenant/default-tenant</code> is created or adopted by <code>AITenant/models-as-a-service</code>
-- Additional tenants are created by the AITenant reconciler, which provisions the tenant namespace and Tenant CR
-- All maas-api Services deploy to the operator namespace (opendatahub for ODH, redhat-ods-applications for RHOAI), not to tenant namespaces
-- Each tenant has an isolated maas-api instance for API key and subscription management
-- Tenant CRs for additional tenants have the finalizer <code>maas.opendatahub.io/tenant-cleanup</code>
-- For AITenant-managed tenants, <code>Tenant.spec.gatewayRef</code> and <code>Tenant.spec.externalOIDC</code> are ignored. Gateway comes from the owning <code>AITenant.status.gatewayRef</code>; OIDC comes from <code>AITenant.spec.oidc</code>.</p>
-<p><strong>Naming conventions:</strong>
-- <code>TenantIdentifier</code>: Used for Kubernetes resource naming (empty string for default, <code>{tenantID}</code> for additional tenants)
-- <code>TenantName</code>: Used for database queries and HTTP headers (always <code>models-as-a-service</code> for default, <code>{tenantID}</code> for additional tenants)</p>
+<p>Key points:</p>
+<ul>
+<li>All <code>MaasTenantConfig</code> resources are named <code>default-tenant</code> within their namespace.</li>
+<li>The default <code>MaasTenantConfig/default-tenant</code> is created or adopted by <code>AITenant/models-as-a-service</code>.</li>
+<li>Additional tenant configs are created by the AITenant reconciler, which provisions the tenant namespace and config object.</li>
+<li>All maas-api Services deploy to the operator namespace (opendatahub for ODH, redhat-ods-applications for RHOAI), not to tenant namespaces.</li>
+<li>Each tenant has an isolated maas-api instance for API key and subscription management.</li>
+<li><code>MaasTenantConfig</code> resources for additional tenants have the finalizer <code>maas.opendatahub.io/tenant-cleanup</code>.</li>
+<li>For AITenant-managed tenants, Gateway comes from <code>AITenant.status.gatewayRef</code>; OIDC comes from <code>AITenant.spec.oidc</code>.</li>
+</ul>
 <p>See <a href="../ai-tenant/">AITenant CRD</a> for creating additional tenants.</p>
 <hr />
 <h2 id="spec">Spec</h2>
-<h3 id="tenantspec">TenantSpec</h3>
+<h3 id="maastenantconfigspec">MaasTenantConfigSpec</h3>
 <table>
 <thead>
 <tr>
@@ -3440,12 +3418,6 @@
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>gatewayRef</td>
-<td>TenantGatewayRef</td>
-<td>No</td>
-<td>Legacy/unmanaged Tenant reference to the Gateway (Gateway API) used for exposing model endpoints. Ignored for AITenant-managed tenants.</td>
-</tr>
 <tr>
 <td>apiKeys</td>
 <td>TenantAPIKeysConfig</td>
@@ -3453,46 +3425,10 @@
 <td>Configuration for API key management</td>
 </tr>
 <tr>
-<td>externalOIDC</td>
-<td>TenantExternalOIDCConfig</td>
-<td>No</td>
-<td>Legacy/unmanaged Tenant external OIDC identity provider settings for the maas-api AuthPolicy. Ignored for AITenant-managed tenants; use <code>AITenant.spec.oidc</code>.</td>
-</tr>
-<tr>
 <td>telemetry</td>
 <td>TenantTelemetryConfig</td>
 <td>No</td>
 <td>Telemetry and metrics collection configuration</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="tenantgatewayref">TenantGatewayRef</h2>
-<p><code>spec.gatewayRef</code> identifies the Gateway API Gateway resource that the controller uses for model endpoint routing only for legacy/unmanaged Tenant resources. For AITenant-managed tenants, this value comes from the owning <code>AITenant.status.gatewayRef</code>.</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Default</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>namespace</td>
-<td>string</td>
-<td>No</td>
-<td><code>openshift-ingress</code></td>
-<td>Namespace of the Gateway resource. Max length: 63 characters.</td>
-</tr>
-<tr>
-<td>name</td>
-<td>string</td>
-<td>No</td>
-<td><code>maas-default-gateway</code></td>
-<td>Name of the Gateway resource. Max length: 63 characters.</td>
 </tr>
 </tbody>
 </table>
@@ -3514,43 +3450,6 @@
 <td>int32</td>
 <td>No</td>
 <td>Maximum number of days an API key can be valid. Must be at least 1.</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="tenantexternaloidcconfig">TenantExternalOIDCConfig</h2>
-<p><code>spec.externalOIDC</code> configures an external OIDC identity provider for token-based authentication only for legacy/unmanaged Tenant resources. For AITenant-managed tenants, configure <code>AITenant.spec.oidc</code>.</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Default</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>issuerUrl</td>
-<td>string</td>
-<td>Yes</td>
-<td>—</td>
-<td>OIDC issuer URL. Must start with <code>https://</code>. Max length: 2048 characters.</td>
-</tr>
-<tr>
-<td>clientId</td>
-<td>string</td>
-<td>Yes</td>
-<td>—</td>
-<td>OAuth2 client ID. Max length: 256 characters.</td>
-</tr>
-<tr>
-<td>ttl</td>
-<td>int</td>
-<td>No</td>
-<td><code>300</code></td>
-<td>JWKS cache duration in seconds. Minimum: 30.</td>
 </tr>
 </tbody>
 </table>
@@ -3579,7 +3478,7 @@
 <td>metrics</td>
 <td>TenantMetricsConfig</td>
 <td>No</td>
-<td>—</td>
+<td>-</td>
 <td>Fine-grained control over metric dimensions</td>
 </tr>
 </tbody>
@@ -3608,7 +3507,7 @@
 <td>bool</td>
 <td>No</td>
 <td><code>false</code></td>
-<td>Add a "user" dimension containing the authenticated user ID. May have GDPR / privacy implications — ensure compliance before enabling.</td>
+<td>Add a "user" dimension containing the authenticated user ID. May have privacy implications; ensure compliance before enabling.</td>
 </tr>
 <tr>
 <td>captureGroup</td>
@@ -3628,7 +3527,7 @@
 </table>
 <hr />
 <h2 id="status">Status</h2>
-<h3 id="tenantstatus">TenantStatus</h3>
+<h3 id="maastenantconfigstatus">MaasTenantConfigStatus</h3>
 <table>
 <thead>
 <tr>
@@ -3651,7 +3550,7 @@
 </tbody>
 </table>
 <h3 id="print-columns">Print Columns</h3>
-<p><code>kubectl get tenant</code> displays:</p>
+<p><code>kubectl get maastenantconfig</code> displays:</p>
 <table>
 <thead>
 <tr>
@@ -3677,7 +3576,7 @@
 <hr />
 <h2 id="example">Example</h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maas.opendatahub.io/v1alpha1</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Tenant</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MaasTenantConfig</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default-tenant</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">models-as-a-service</span>
@@ -3693,8 +3592,13 @@
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">      </span><span class="nt">captureModelUsage</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div>
 <hr />
+<h2 id="migration-notes">Migration Notes</h2>
+<p>Existing <code>Tenant/default-tenant</code> resources are not deleted immediately. During reconciliation, the controller copies <code>Tenant.spec.apiKeys</code> and <code>Tenant.spec.telemetry</code> into <code>MaasTenantConfig/default-tenant</code> when those fields are not already set. Legacy <code>Tenant.spec.gatewayRef</code> and <code>Tenant.spec.externalOIDC</code> are migrated to the owning <code>AITenant</code> where possible, because Gateway and OIDC are platform context rather than MaaS runtime configuration.</p>
+<p>The copy is fill-only: if <code>MaasTenantConfig/default-tenant</code> already has <code>spec.apiKeys</code> or <code>spec.telemetry</code>, the controller does not overwrite those fields from the legacy <code>Tenant</code>. Treat <code>MaasTenantConfig</code> as the source of truth after it exists.</p>
+<p>A namespace that only has the legacy <code>Tenant/default-tenant</code> object is unsupported after this migration. Admission compatibility may still allow older tenant-scoped resources during the grace window, but platform workload reconciliation runs from <code>MaasTenantConfig/default-tenant</code>; restore the owning <code>AITenant</code> bootstrap or create the <code>MaasTenantConfig</code> singleton before relying on that namespace.</p>
 <h2 id="related-documentation">Related Documentation</h2>
 <ul>
+<li><a href="../ai-tenant/">AITenant CRD</a> - Tenant namespace, Gateway, OIDC, and tenant-admin RBAC</li>
 <li><a href="../maas-model-ref/">MaaSModelRef CRD</a> - Model endpoint references</li>
 <li><a href="../maas-auth-policy/">MaaSAuthPolicy CRD</a> - Access control policies</li>
 <li><a href="../maas-subscription/">MaaSSubscription CRD</a> - Subscription and rate limiting</li>
@@ -3721,7 +3625,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="June 29, 2026 18:40:07 UTC">June 29, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 10, 2026 21:37:28 UTC">July 10, 2026</span>
   </span>
 
     
