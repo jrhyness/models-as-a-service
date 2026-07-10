@@ -137,7 +137,7 @@ func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 			expectError:         false,
 			expectSecretInDst:   true,
 			expectFQDN:          true,
-			expectSourceDeleted: true, // Source should be deleted after successful migration
+			expectSourceDeleted: false, // Source is intentionally left in place (copy, not move)
 		},
 		{
 			name: "already migrated - no-op",

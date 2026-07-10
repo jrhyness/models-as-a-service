@@ -199,8 +199,20 @@ func ensureManagedNamespaceWithClient(ctx context.Context, namespace, purpose st
 	})
 }
 
-func ensureSubscriptionNamespaceWithClient(ctx context.Context, namespace string, clientset kubernetes.Interface) error {
-	return ensureManagedNamespaceWithClient(ctx, namespace, "subscription", clientset)
+func subscriptionNamespaceExists(ctx context.Context, namespace string, clientset kubernetes.Interface) (bool, error) {
+	ns, err := clientset.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+	if err == nil {
+		return ns.Status.Phase != corev1.NamespaceTerminating, nil
+	}
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	if errors.IsForbidden(err) {
+		setupLog.Info("insufficient permissions to check subscription namespace existence, assuming it exists",
+			"namespace", namespace, "error", err)
+		return true, nil
+	}
+	return false, fmt.Errorf("unable to check if subscription namespace %q exists: %w", namespace, err)
 }
 
 func ensureAITenantNamespaceWithClient(ctx context.Context, namespace string, clientset kubernetes.Interface) error {
@@ -769,10 +781,6 @@ func main() {
 		setupLog.Error(err, "unable to create Kubernetes client for managed namespace setup")
 		os.Exit(1)
 	}
-	if err := ensureSubscriptionNamespaceWithClient(context.Background(), maasSubscriptionNamespace, clientset); err != nil {
-		setupLog.Error(err, "unable to ensure subscription namespace exists", "namespace", maasSubscriptionNamespace)
-		os.Exit(1)
-	}
 	if err := ensureAITenantNamespaceWithClient(context.Background(), aitenantNamespace, clientset); err != nil {
 		setupLog.Error(err, "unable to ensure AITenant namespace exists", "namespace", aitenantNamespace)
 		os.Exit(1)
@@ -795,6 +803,11 @@ func main() {
 		}
 	}
 
+	defaultSubscriptionNamespaceExists, err := subscriptionNamespaceExists(context.Background(), maasSubscriptionNamespace, clientset)
+	if err != nil {
+		setupLog.Error(err, "unable to inspect subscription namespace", "namespace", maasSubscriptionNamespace)
+		os.Exit(1)
+	}
 	nsCfg := map[string]cache.Config{maasSubscriptionNamespace: {}}
 	cacheOpts := cache.Options{
 		ByObject: map[client.Object]cache.ByObject{
@@ -806,7 +819,7 @@ func main() {
 		},
 	}
 	setupLog.Info("watching namespace for MaaS CRs", "namespace", maasSubscriptionNamespace)
-	if enableTenantNamespaceDiscovery {
+	if enableTenantNamespaceDiscovery || !defaultSubscriptionNamespaceExists {
 		allNamespacesCfg := map[string]cache.Config{cache.AllNamespaces: {}}
 		cacheOpts = cache.Options{
 			ByObject: map[client.Object]cache.ByObject{
@@ -815,8 +828,9 @@ func main() {
 				&maasv1alpha1.MaaSSubscription{}: {Namespaces: allNamespacesCfg},
 			},
 		}
-		setupLog.Info("watching MaaS CRs across all namespaces for tenant discovery",
+		setupLog.Info("watching MaaS CRs across all namespaces",
 			"defaultNamespace", maasSubscriptionNamespace,
+			"defaultNamespaceExists", defaultSubscriptionNamespaceExists,
 			"tenantNamespaceLabel", tenantreconcile.LabelAIGatewayTenant,
 			"compatTenantNamespaceLabel", tenantreconcile.LabelManagedByAITenant)
 	}
@@ -905,16 +919,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := mgr.Add(&managedNamespaceMonitor{
-		clientset:          clientset,
-		namespace:          maasSubscriptionNamespace,
-		purpose:            "subscription",
-		interval:           subscriptionNamespaceMaintainInterval,
-		needLeaderElection: enableLeaderElection,
-	}); err != nil {
-		setupLog.Error(err, "unable to add subscription namespace monitor")
-		os.Exit(1)
-	}
 	if err := mgr.Add(&managedNamespaceMonitor{
 		clientset:          clientset,
 		namespace:          aitenantNamespace,
@@ -1019,8 +1023,7 @@ func main() {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
 	}
-	// readyz: uncached Namespace GET each probe — see subscriptionNamespaceReadiness.
-	if err := mgr.AddReadyzCheck("readyz", subscriptionNamespaceReadiness(clientset, maasSubscriptionNamespace)); err != nil {
+	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
