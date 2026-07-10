@@ -117,6 +117,8 @@ func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 		expectSecretInDst   bool
 		expectFQDN          bool
 		expectSourceDeleted bool // Expect source secret to be deleted after migration
+		expectLabels        bool // Expect migrated secret to have labels/annotations
+		hasSourceSecret     bool // Whether setup created a source secret
 	}{
 		{
 			name: "upgrade scenario - migrate secret with FQDN",
@@ -138,6 +140,8 @@ func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 			expectSecretInDst:   true,
 			expectFQDN:          true,
 			expectSourceDeleted: false, // Source is intentionally left in place (copy, not move)
+			expectLabels:        true,  // Newly migrated secret gets labels/annotations
+			hasSourceSecret:     true,
 		},
 		{
 			name: "already migrated - no-op",
@@ -168,6 +172,8 @@ func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 			expectSecretInDst:   true,
 			expectFQDN:          true,  // Should preserve existing FQDN
 			expectSourceDeleted: false, // No migration happened, source untouched
+			expectLabels:        false, // No new secret created
+			hasSourceSecret:     true,
 		},
 		{
 			name: "fresh install - no secret anywhere",
@@ -179,6 +185,8 @@ func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 			expectError:         false,
 			expectSecretInDst:   false,
 			expectSourceDeleted: false, // No source to delete
+			expectLabels:        false,
+			hasSourceSecret:     false, // No source secret
 		},
 		{
 			name: "same namespace - no migration",
@@ -198,6 +206,8 @@ func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 			expectError:         false,
 			expectSecretInDst:   false, // No migration should happen
 			expectSourceDeleted: false, // No migration happened
+			expectLabels:        false,
+			hasSourceSecret:     true,
 		},
 		{
 			name: "error - missing DB_CONNECTION_URL key",
@@ -218,6 +228,8 @@ func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 			expectError:         true, // Should fail - missing key
 			expectSecretInDst:   false,
 			expectSourceDeleted: false,
+			expectLabels:        false,
+			hasSourceSecret:     true,
 		},
 		{
 			name: "error - empty DB_CONNECTION_URL value",
@@ -238,6 +250,8 @@ func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 			expectError:         true, // Should fail - empty value
 			expectSecretInDst:   false,
 			expectSourceDeleted: false,
+			expectLabels:        false,
+			hasSourceSecret:     true,
 		},
 	}
 
@@ -268,7 +282,7 @@ func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 				}
 
 				// Verify labels and annotations (only for newly migrated secrets)
-				if tt.name == "upgrade scenario - migrate secret with FQDN" {
+				if tt.expectLabels {
 					if secret.Labels["app.kubernetes.io/managed-by"] != "maas-controller" {
 						t.Errorf("expected managed-by label, got: %v", secret.Labels)
 					}
@@ -291,13 +305,11 @@ func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 				} else if !errors.IsNotFound(err) {
 					t.Errorf("unexpected error checking source secret deletion: %v", err)
 				}
-			} else if !tt.expectSourceDeleted && tt.controllerNs != tt.infraNs {
-				// If we don't expect deletion and namespaces differ, source should still exist (unless fresh install)
-				if tt.name != "fresh install - no secret anywhere" {
-					_, err := clientset.CoreV1().Secrets(tt.controllerNs).Get(context.Background(), secretName, metav1.GetOptions{})
-					if errors.IsNotFound(err) {
-						t.Errorf("expected source secret in %s to still exist but it was deleted", tt.controllerNs)
-					}
+			} else if !tt.expectSourceDeleted && tt.controllerNs != tt.infraNs && tt.hasSourceSecret {
+				// If we don't expect deletion, namespaces differ, and we created a source secret, it should still exist
+				_, err := clientset.CoreV1().Secrets(tt.controllerNs).Get(context.Background(), secretName, metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					t.Errorf("expected source secret in %s to still exist but it was deleted", tt.controllerNs)
 				}
 			}
 		})
