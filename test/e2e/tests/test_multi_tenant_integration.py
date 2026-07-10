@@ -28,6 +28,7 @@ from multitenancy_helpers import (
     MODEL_NAMESPACE,
     MODEL_REF,
     TENANT_CR_NAME,
+    TENANT_CONFIG_KIND,
     apply_discovery_labels,
     apply_maas_auth_policy,
     apply_maas_subscription,
@@ -73,7 +74,7 @@ class TestMultiTenantIntegration:
         try:
             bootstrap_aitenant_tenant(case)
 
-            tenant = wait_for_json("tenant", TENANT_CR_NAME, case["tenant_ns"], timeout=180)
+            tenant = wait_for_json(TENANT_CONFIG_KIND, TENANT_CR_NAME, case["tenant_ns"], timeout=180)
             tenant_labels = tenant["metadata"].get("labels") or {}
             tenant_annotations = tenant["metadata"].get("annotations") or {}
             assert tenant_labels[LABEL_MANAGED_BY_AITENANT] == "true"
@@ -110,7 +111,7 @@ class TestMultiTenantIntegration:
             wait_for_aitenant_cleanup_resources(case)
 
             delete_best_effort(AITENANT_KIND, case["tenant_label_name"], AITENANT_NAMESPACE, timeout="180s")
-            wait_for_not_found("tenant", TENANT_CR_NAME, case["tenant_ns"], timeout=180)
+            wait_for_not_found(TENANT_CONFIG_KIND, TENANT_CR_NAME, case["tenant_ns"], timeout=180)
             wait_for_not_found("role", role_name, case["tenant_ns"], timeout=180)
             wait_for_not_found("namespace", case["tenant_ns"], timeout=180)
             wait_for_aitenant_cleanup_resources_deleted(case)

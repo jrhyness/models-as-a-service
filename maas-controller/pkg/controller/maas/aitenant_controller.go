@@ -52,8 +52,8 @@ import (
 const (
 	aitenantFinalizer = "maas.opendatahub.io/aitenant-cleanup"
 
-	aitenantManagedLabel = "maas.opendatahub.io/managed-by-aitenant"
-	aiGatewayTenantLabel = "ai-gateway.opendatahub.io/tenant"
+	aitenantManagedLabel = tenantreconcile.LabelManagedByAITenant
+	aiGatewayTenantLabel = tenantreconcile.LabelAIGatewayTenant
 
 	aitenantNameAnnotation      = tenantreconcile.AnnotationAITenantName
 	aitenantNamespaceAnnotation = tenantreconcile.AnnotationAITenantNamespace
@@ -61,6 +61,7 @@ const (
 
 	aitenantTenantAdminRoleSuffix = "tenant-admin"
 	aitenantAccessRoleSuffix      = "object-admin"
+	legacyDefaultGatewayName      = "maas-default-gateway"
 
 	aitenantAPIKeysRevokedAnnotation = "maas.opendatahub.io/api-keys-revoked" //nolint:gosec // Annotation name, not a credential.
 
@@ -86,6 +87,8 @@ type AITenantReconciler struct {
 	TenantNamespace string
 	// AITenantNamespace is the infrastructure namespace where AITenant CRs are accepted.
 	AITenantNamespace string
+	// GatewayName is the legacy/default Gateway name used by single-tenant installs.
+	GatewayName string
 	// GatewayNamespace is where tenant Gateway resources are expected to exist.
 	GatewayNamespace string
 }
@@ -93,7 +96,8 @@ type AITenantReconciler struct {
 // +kubebuilder:rbac:groups=maas.opendatahub.io,resources=aitenants,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=maas.opendatahub.io,resources=aitenants/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=maas.opendatahub.io,resources=aitenants/finalizers,verbs=update
-// +kubebuilder:rbac:groups=maas.opendatahub.io,resources=tenants,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=maas.opendatahub.io,resources=maastenantconfigs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=maas.opendatahub.io,resources=tenants,verbs=get;list;watch;update;patch;delete
 // +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;delete
@@ -130,6 +134,13 @@ func (r *AITenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	tenantNamespace := r.tenantNamespaceName(&aitenant)
 	aitenant.Status.TenantNamespace = tenantNamespace
+
+	if migrated, err := r.migrateLegacyTenantPlatformContext(ctx, &aitenant, tenantNamespace); err != nil {
+		setAITenantPhase(&aitenant, "Failed", "LegacyTenantMigrationFailed", err.Error())
+		return ctrl.Result{}, r.updateAITenantStatus(ctx, &aitenant, statusSnapshot)
+	} else if migrated {
+		return ctrl.Result{RequeueAfter: time.Second}, nil
+	}
 
 	gatewayRef, err := r.validateTenantGateway(ctx, &aitenant)
 	aitenant.Status.GatewayRef = gatewayRef
@@ -309,26 +320,110 @@ func (r *AITenantReconciler) gatewayRefFor(aitenant *maasv1alpha1.AITenant) maas
 	return ref
 }
 
+func (r *AITenantReconciler) migrateLegacyTenantPlatformContext(ctx context.Context, aitenant *maasv1alpha1.AITenant, tenantNamespace string) (bool, error) {
+	var legacy maasv1alpha1.Tenant
+	key := client.ObjectKey{Name: maasv1alpha1.TenantInstanceName, Namespace: tenantNamespace}
+	if err := r.get(ctx, key, &legacy); err != nil {
+		return false, client.IgnoreNotFound(err)
+	}
+
+	base := aitenant.DeepCopy()
+	if aitenant.Spec.OIDC == nil && legacy.Spec.ExternalOIDC != nil {
+		aitenant.Spec.OIDC = legacy.Spec.ExternalOIDC.DeepCopy()
+	}
+	if legacy.Spec.GatewayRef.Namespace != "" && legacy.Spec.GatewayRef.Namespace != r.GatewayNamespace {
+		return false, fmt.Errorf(
+			"legacy Tenant %s/%s spec.gatewayRef.namespace=%q does not match configured gateway namespace %q; "+
+				"AITenant supports gateway name migration only, so update --gateway-namespace or clear the legacy namespace before migration",
+			legacy.Namespace, legacy.Name, legacy.Spec.GatewayRef.Namespace, r.GatewayNamespace)
+	}
+	shouldCopyLegacyGateway := legacy.Spec.GatewayRef.Name != "" &&
+		(aitenant.Spec.Gateway == nil || aitenant.Spec.Gateway.Name == "") &&
+		!r.legacyGatewayNameIsSharedDefault(aitenant, legacy.Spec.GatewayRef.Name)
+	if shouldCopyLegacyGateway {
+		if aitenant.Spec.Gateway == nil {
+			aitenant.Spec.Gateway = &maasv1alpha1.AITenantGatewayRef{}
+		}
+		aitenant.Spec.Gateway.Name = legacy.Spec.GatewayRef.Name
+	}
+	if equality.Semantic.DeepEqual(base.Spec, aitenant.Spec) {
+		return false, nil
+	}
+	if err := r.Patch(ctx, aitenant, client.MergeFrom(base)); err != nil {
+		return false, fmt.Errorf("patch AITenant with legacy Tenant platform context: %w", err)
+	}
+	return true, nil
+}
+
+func (r *AITenantReconciler) legacyGatewayNameIsSharedDefault(aitenant *maasv1alpha1.AITenant, gatewayName string) bool {
+	defaultGatewayName := r.GatewayName
+	if defaultGatewayName == "" {
+		defaultGatewayName = legacyDefaultGatewayName
+	}
+	return aitenant.Name != tenantreconcile.DefaultAITenantName && gatewayName == defaultGatewayName
+}
+
 func (r *AITenantReconciler) ensureTenantConfig(ctx context.Context, aitenant *maasv1alpha1.AITenant) error {
 	tenantNamespace := r.tenantNamespaceName(aitenant)
-	tenant := &maasv1alpha1.Tenant{
+	config := &maasv1alpha1.MaasTenantConfig{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: maasv1alpha1.GroupVersion.String(),
-			Kind:       maasv1alpha1.TenantKind,
+			Kind:       maasv1alpha1.MaasTenantConfigKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      maasv1alpha1.TenantInstanceName,
+			Name:      maasv1alpha1.MaasTenantConfigInstanceName,
 			Namespace: tenantNamespace,
 		},
 	}
-	return r.upsert(ctx, tenant, aitenant, func(obj client.Object) error {
-		t, ok := obj.(*maasv1alpha1.Tenant)
+	if err := r.upsert(ctx, config, aitenant, func(obj client.Object) error {
+		t, ok := obj.(*maasv1alpha1.MaasTenantConfig)
 		if !ok {
-			return fmt.Errorf("expected Tenant, got %T", obj)
+			return fmt.Errorf("expected MaasTenantConfig, got %T", obj)
 		}
 		applyAITenantMetadata(t, aitenant, tenantNamespace)
+		if err := r.copyLegacyTenantConfig(ctx, t); err != nil {
+			return err
+		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	return r.markLegacyTenantDeprecated(ctx, tenantNamespace)
+}
+
+func (r *AITenantReconciler) copyLegacyTenantConfig(ctx context.Context, config *maasv1alpha1.MaasTenantConfig) error {
+	var legacy maasv1alpha1.Tenant
+	key := client.ObjectKey{Name: maasv1alpha1.TenantInstanceName, Namespace: config.Namespace}
+	if err := r.get(ctx, key, &legacy); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+	if config.Spec.APIKeys == nil && legacy.Spec.APIKeys != nil {
+		config.Spec.APIKeys = legacy.Spec.APIKeys.DeepCopy()
+	}
+	if config.Spec.Telemetry == nil && legacy.Spec.Telemetry != nil {
+		config.Spec.Telemetry = legacy.Spec.Telemetry.DeepCopy()
+	}
+	return nil
+}
+
+func (r *AITenantReconciler) markLegacyTenantDeprecated(ctx context.Context, tenantNamespace string) error {
+	var legacy maasv1alpha1.Tenant
+	key := client.ObjectKey{Name: maasv1alpha1.TenantInstanceName, Namespace: tenantNamespace}
+	if err := r.get(ctx, key, &legacy); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+	base := legacy.DeepCopy()
+	annotations := legacy.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations["maas.opendatahub.io/deprecated-by"] = maasv1alpha1.MaasTenantConfigKind
+	annotations["maas.opendatahub.io/migrated-to"] = maasv1alpha1.MaasTenantConfigInstanceName
+	legacy.SetAnnotations(annotations)
+	if equality.Semantic.DeepEqual(base, &legacy) {
+		return nil
+	}
+	return r.Patch(ctx, &legacy, client.MergeFrom(base))
 }
 
 func (r *AITenantReconciler) ensureTenantAdminRBAC(ctx context.Context, aitenant *maasv1alpha1.AITenant) error {
@@ -363,8 +458,8 @@ func (r *AITenantReconciler) ensureTenantNamespaceRole(ctx context.Context, aite
 			},
 			{
 				APIGroups:     []string{maasv1alpha1.GroupVersion.Group},
-				Resources:     []string{"tenants"},
-				ResourceNames: []string{maasv1alpha1.TenantInstanceName},
+				Resources:     []string{"maastenantconfigs"},
+				ResourceNames: []string{maasv1alpha1.MaasTenantConfigInstanceName},
 				Verbs:         []string{"get", "update", "patch"},
 			},
 			{
@@ -483,13 +578,13 @@ func (r *AITenantReconciler) reconcileAITenantDelete(ctx context.Context, aitena
 func (r *AITenantReconciler) deleteTenantConfig(ctx context.Context, aitenant *maasv1alpha1.AITenant) (bool, error) {
 	tenantNamespace := r.tenantNamespaceName(aitenant)
 
-	var tenant maasv1alpha1.Tenant
-	key := client.ObjectKey{Namespace: tenantNamespace, Name: maasv1alpha1.TenantInstanceName}
+	var tenant maasv1alpha1.MaasTenantConfig
+	key := client.ObjectKey{Namespace: tenantNamespace, Name: maasv1alpha1.MaasTenantConfigInstanceName}
 	if err := r.get(ctx, key, &tenant); err != nil {
 		if isNotFoundError(err) {
 			return true, nil
 		}
-		return false, fmt.Errorf("get Tenant %s/%s during AITenant deletion: %w", key.Namespace, key.Name, err)
+		return false, fmt.Errorf("get MaasTenantConfig %s/%s during AITenant deletion: %w", key.Namespace, key.Name, err)
 	}
 	if !ownedByAITenant(&tenant, aitenant) {
 		return true, nil
@@ -501,12 +596,12 @@ func (r *AITenantReconciler) deleteTenantConfig(ctx context.Context, aitenant *m
 		base := tenant.DeepCopy()
 		controllerutil.AddFinalizer(&tenant, tenantFinalizer)
 		if err := r.Patch(ctx, &tenant, client.MergeFrom(base)); err != nil {
-			return false, fmt.Errorf("add cleanup finalizer to Tenant %s/%s: %w", key.Namespace, key.Name, err)
+			return false, fmt.Errorf("add cleanup finalizer to MaasTenantConfig %s/%s: %w", key.Namespace, key.Name, err)
 		}
 		return false, nil
 	}
 	if err := r.Delete(ctx, &tenant); client.IgnoreNotFound(err) != nil {
-		return false, fmt.Errorf("delete Tenant %s/%s: %w", key.Namespace, key.Name, err)
+		return false, fmt.Errorf("delete MaasTenantConfig %s/%s: %w", key.Namespace, key.Name, err)
 	}
 	return false, nil
 }
