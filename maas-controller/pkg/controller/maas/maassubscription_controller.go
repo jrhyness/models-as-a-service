@@ -855,10 +855,12 @@ func (r *MaaSSubscriptionReconciler) deleteModelTRLP(ctx context.Context, log lo
 
 func (r *MaaSSubscriptionReconciler) handleDeletion(ctx context.Context, log logr.Logger, subscription *maasv1alpha1.MaaSSubscription) (ctrl.Result, error) {
 	if controllerutil.ContainsFinalizer(subscription, maasSubscriptionFinalizer) {
-		// Step 1: Revoke API keys FIRST (soft delete per ADR-MS-0003)
+		// Step 1: Revoke API keys (soft delete per ADR-MS-0003).
+		// This is best-effort security cleanup - log failures but don't block TRLP rebuild,
+		// since TRLP cleanup is critical for other subscriptions to continue working.
 		if err := r.revokeAPIKeysForSubscription(ctx, subscription); err != nil {
-			log.Error(err, "failed to revoke API keys for subscription, will retry")
-			return ctrl.Result{}, err
+			log.Error(err, "failed to revoke API keys for subscription - continuing with TRLP cleanup")
+			// Don't return here - TRLP cleanup must proceed
 		}
 
 		// Step 2: Rebuild TokenRateLimitPolicies (existing code)
