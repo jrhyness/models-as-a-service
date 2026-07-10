@@ -411,10 +411,21 @@ func (r *AITenantReconciler) reconcileAITenantDelete(ctx context.Context, aitena
 
 func (r *AITenantReconciler) deleteAITenantChildren(ctx context.Context, aitenant *maasv1alpha1.AITenant) error {
 	tenantNamespace := r.tenantNamespaceName(aitenant)
+	log := ctrl.LoggerFrom(ctx)
 
-	// Step 1: Revoke API keys FIRST (soft delete per ADR-MS-0003)
-	if err := r.revokeAPIKeysForTenant(ctx, aitenant); err != nil {
-		return fmt.Errorf("failed to revoke API keys for tenant: %w", err)
+	// Step 1: Best-effort API key revocation (soft delete per ADR-MS-0003).
+	// Use a short timeout (10s total including retries) to avoid blocking tenant deletion
+	// if maas-api is slow or unavailable. If revocation fails, log the error but continue
+	// with deletion to avoid circular dependency deadlock (tenant can't delete because
+	// maas-api is unhealthy, but maas-api won't be deleted until we delete Tenant CR).
+	// Security note: If revocation fails, keys remain valid until maas-api is restored
+	// and can be manually revoked. Document this as a known limitation.
+	revocationCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	if err := r.revokeAPIKeysForTenant(revocationCtx, aitenant); err != nil {
+		log.Error(err, "failed to revoke API keys for tenant - continuing with deletion to avoid deadlock")
+		// Don't return - tenant deletion must proceed to avoid blocking cluster cleanup
 	}
 
 	// Step 2: Existing cleanup (gateway claim, Tenant CR, RBAC, etc.)
@@ -945,10 +956,11 @@ func (r *AITenantReconciler) revokeAPIKeysForTenant(ctx context.Context, aitenan
 		Message      string `json:"message"`
 	}
 
-	// Call maas-api with retry (3 attempts, exponential backoff)
-	err := httpclient.WithRetry(ctx, httpclient.DefaultRetryConfig(), func() error {
-		return r.MaaSAPIClient.PostAndReadJSON(ctx, maasAPIURL, reqBody, &respBody)
-	})
+	// Call maas-api with a single attempt and short timeout.
+	// Tenant deletion uses a 10s context timeout (set in deleteAITenantChildren),
+	// so we don't retry here to fail fast if maas-api is unavailable.
+	// The HTTP client has a 10s timeout which will be the limiting factor.
+	err := r.MaaSAPIClient.PostAndReadJSON(ctx, maasAPIURL, reqBody, &respBody)
 
 	if err != nil {
 		// If maas-api service is not found (DNS lookup failure or connection refused),
