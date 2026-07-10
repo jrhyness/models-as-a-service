@@ -199,6 +199,46 @@ func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 			expectSecretInDst:   false, // No migration should happen
 			expectSourceDeleted: false, // No migration happened
 		},
+		{
+			name: "error - missing DB_CONNECTION_URL key",
+			setupSecrets: func(cs *fake.Clientset) {
+				// Secret exists but lacks the required key
+				_, _ = cs.CoreV1().Secrets(controllerNs).Create(context.Background(), &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      secretName,
+						Namespace: controllerNs,
+					},
+					Data: map[string][]byte{
+						"SOME_OTHER_KEY": []byte("value"),
+					},
+				}, metav1.CreateOptions{})
+			},
+			controllerNs:        controllerNs,
+			infraNs:             infraNs,
+			expectError:         true, // Should fail - missing key
+			expectSecretInDst:   false,
+			expectSourceDeleted: false,
+		},
+		{
+			name: "error - empty DB_CONNECTION_URL value",
+			setupSecrets: func(cs *fake.Clientset) {
+				// Secret exists with key but empty value
+				_, _ = cs.CoreV1().Secrets(controllerNs).Create(context.Background(), &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      secretName,
+						Namespace: controllerNs,
+					},
+					Data: map[string][]byte{
+						secretKey: []byte(""), // Empty value
+					},
+				}, metav1.CreateOptions{})
+			},
+			controllerNs:        controllerNs,
+			infraNs:             infraNs,
+			expectError:         true, // Should fail - empty value
+			expectSecretInDst:   false,
+			expectSourceDeleted: false,
+		},
 	}
 
 	for _, tt := range tests {

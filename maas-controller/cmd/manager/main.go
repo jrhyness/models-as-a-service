@@ -268,8 +268,9 @@ func resolveNamespaceAfterTerminationWait(namespace string, finalNs *corev1.Name
 //   - Already migrated: Secret exists in infra namespace → no-op
 //   - External DB: setup-database.sh or deploy.sh already created the secret → no-op
 func migrateMaaSDBSecretToInfraNamespace(ctx context.Context, controllerNs, infraNs string, clientset kubernetes.Interface) error {
-	const secretName = "maas-db-config" //nolint:gosec // secret name reference, not a credential
-	const secretKey = "DB_CONNECTION_URL"
+	// Use canonical constants from tenantreconcile package to stay aligned with Tenant reconciler
+	secretName := tenantreconcile.MaaSDBSecretName
+	secretKey := tenantreconcile.MaaSDBSecretKey
 
 	// Skip if namespaces are the same (no separation enabled)
 	if infraNs == controllerNs || infraNs == "" {
