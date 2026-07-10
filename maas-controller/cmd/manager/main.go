@@ -796,10 +796,21 @@ func main() {
 		// Migrate maas-db-config secret from controller namespace to infrastructure namespace
 		// during upgrades (maintains backward compatibility for operator-managed deployments)
 		if err := migrateMaaSDBSecretToInfraNamespace(context.Background(), controllerNamespace, infraNamespace, clientset); err != nil {
-			setupLog.Error(err, "failed to migrate maas-db-config secret to infrastructure namespace",
-				"controllerNamespace", controllerNamespace,
-				"infraNamespace", infraNamespace)
-			os.Exit(1)
+			// Treat Forbidden as a transient RBAC gap (operator deployment in progress,
+			// RBAC not yet applied). Log a warning and continue - the next restart will retry.
+			// This matches the pattern used in ensureManagedNamespaceWithClient.
+			if errors.IsForbidden(err) {
+				setupLog.Info("insufficient RBAC to migrate maas-db-config secret — "+
+					"ensure secret-migrate Roles and RoleBindings are applied; skipping migration for now",
+					"controllerNamespace", controllerNamespace,
+					"infraNamespace", infraNamespace,
+					"error", err)
+			} else {
+				setupLog.Error(err, "failed to migrate maas-db-config secret to infrastructure namespace",
+					"controllerNamespace", controllerNamespace,
+					"infraNamespace", infraNamespace)
+				os.Exit(1)
+			}
 		}
 	}
 
