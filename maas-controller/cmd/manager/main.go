@@ -285,7 +285,7 @@ func migrateMaaSDBSecretToInfraNamespace(ctx context.Context, controllerNs, infr
 		return fmt.Errorf("failed to read secret from controller namespace: %w", err)
 	}
 
-	log.Info("detected upgrade scenario: migrating maas-db-config secret to infrastructure namespace with FQDN connection string")
+	log.Info("detected upgrade scenario: copying maas-db-config secret to infrastructure namespace with FQDN connection string")
 
 	// Extract and update connection URL to use FQDN for cross-namespace access
 	existingURL, ok := sourceSecret.Data[secretKey]
@@ -326,26 +326,13 @@ func migrateMaaSDBSecretToInfraNamespace(ctx context.Context, controllerNs, infr
 		return fmt.Errorf("failed to create secret in infrastructure namespace: %w", err)
 	}
 
-	log.Info("successfully migrated maas-db-config secret to infrastructure namespace",
+	log.Info("successfully copied maas-db-config secret to infrastructure namespace",
 		"sourceNamespace", controllerNs,
 		"targetNamespace", infraNs,
 		"connectionURL", maskConnectionURL(fqdnURL))
 
-	// Delete the old secret from controller namespace (move, not copy)
-	// This is safe because maas-api now runs in infrastructure namespace and uses the new secret
-	if err := clientset.CoreV1().Secrets(controllerNs).Delete(ctx, secretName, metav1.DeleteOptions{}); err != nil {
-		if errors.IsNotFound(err) {
-			// Already deleted, ignore
-			log.V(1).Info("source secret already deleted", "namespace", controllerNs)
-		} else {
-			// Log warning but don't fail - migration succeeded, cleanup failed
-			log.Error(err, "failed to delete source secret after migration (non-fatal)",
-				"namespace", controllerNs,
-				"secret", secretName)
-		}
-	} else {
-		log.Info("deleted source secret after successful migration", "namespace", controllerNs)
-	}
+	// Note: We intentionally leave the original secret in the controller namespace.
+	// This is safer than deleting it and doesn't require additional RBAC delete permissions.
 
 	return nil
 }
