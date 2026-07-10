@@ -319,17 +319,22 @@ class TestTenantModelInference:
             # Allow AuthPolicy to sync with Authorino before creating API key
             _wait_reconcile()
 
-            # Step 2: Create API key
+            # Step 2: Create API key (retry for maas-api readiness)
             gateway_url = _get_tenant_gateway_url(case["gateway_name"])
             oc_token = _get_cluster_token()
 
-            r = requests.post(
-                f"{gateway_url}/maas-api/v1/api-keys",
-                headers={"Authorization": f"Bearer {oc_token}", "Content-Type": "application/json"},
-                json={"name": "e2e-orphaned-key", "subscription": f"{model_name}-sub"},
-                timeout=45,
-                verify=TLS_VERIFY,
-            )
+            for attempt in range(3):
+                r = requests.post(
+                    f"{gateway_url}/maas-api/v1/api-keys",
+                    headers={"Authorization": f"Bearer {oc_token}", "Content-Type": "application/json"},
+                    json={"name": "e2e-orphaned-key", "subscription": f"{model_name}-sub"},
+                    timeout=45,
+                    verify=TLS_VERIFY,
+                )
+                if r.status_code in (200, 201):
+                    break
+                if attempt < 2:
+                    time.sleep(5)
             assert r.status_code in (200, 201), f"Failed to create key: {r.status_code}"
             orphaned_key = r.json()["key"]
 
