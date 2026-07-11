@@ -94,7 +94,7 @@ func TestMaskConnectionURL(t *testing.T) {
 
 func TestMigrateMaaSDBSecretToInfraNamespace(t *testing.T) {
 	const (
-		secretName      = "maas-db-config"
+		secretName      = "maas-db-config" //nolint:gosec // Kubernetes Secret resource name, not a credential
 		secretKey       = "DB_CONNECTION_URL"
 		controllerNs    = "opendatahub"
 		infraNs         = "odh-ai-gateway-infra"
