@@ -45,6 +45,7 @@ func RunPlatform(
 	platformContext PlatformContext,
 	manifestPath string,
 	appNs string,
+	controllerNs string,
 	clusterAudience string,
 	mcfg *maasv1alpha1.Config,
 ) (*RunResult, error) {
@@ -68,7 +69,7 @@ func RunPlatform(
 		return nil, fmt.Errorf("gateway lookup: %w", err)
 	}
 
-	params, err := BuildPlatformParams(tenant, platformContext, appNs, clusterAudience, log)
+	params, err := BuildPlatformParams(tenant, platformContext, appNs, controllerNs, clusterAudience, log)
 	if err != nil {
 		return nil, fmt.Errorf("build params: %w", err)
 	}
@@ -111,6 +112,7 @@ func Run(
 	tenant client.Object,
 	fallbackGatewayRef maasv1alpha1.TenantGatewayRef,
 	manifestPath string,
+	controllerNs string,
 	clusterAudience string,
 	mcfg *maasv1alpha1.Config,
 ) (*RunResult, error) {
@@ -137,7 +139,7 @@ func Run(
 		return nil, err
 	}
 
-	return RunPlatform(ctx, log, c, scheme, tenant, platformContext, manifestPath, appNs, clusterAudience, mcfg)
+	return RunPlatform(ctx, log, c, scheme, tenant, platformContext, manifestPath, appNs, controllerNs, clusterAudience, mcfg)
 }
 
 // MaasAPIDeploymentReady mirrors ODH deployments action for maas-api.

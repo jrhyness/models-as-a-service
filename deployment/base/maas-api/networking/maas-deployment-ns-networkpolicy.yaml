@@ -4,7 +4,8 @@
 #
 # Security constraints:
 # - podSelector: Restricted to maas-api pods only (component=api)
-# - from: Only pods in known deployment namespaces
+# - from: Only pods in the controller's deployment namespace (patched at
+#   render time by patchResource to the actual namespace)
 #
 # Background:
 # - ODH creates a default NetworkPolicy that blocks ingress from unlabeled namespaces
@@ -34,12 +35,8 @@ spec:
     # used by maas-api-allow-gateway for openshift-ingress.
     - from:
         - namespaceSelector:
-            matchExpressions:
-              - key: kubernetes.io/metadata.name
-                operator: In
-                values:
-                  - opendatahub
-                  - redhat-ods-applications
+            matchLabels:
+              kubernetes.io/metadata.name: opendatahub
       ports:
         - protocol: TCP
           port: 8443
