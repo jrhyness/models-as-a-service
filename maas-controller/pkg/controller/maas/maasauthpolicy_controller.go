@@ -338,12 +338,10 @@ const (
 		celPathParts + `[0] != "v1" && ` +
 		celPathParts + `[0] != "maas-api"`
 	celModelIdentityAvailable = `(` + celPathModelIdentityAvailable + ` || "x-gateway-model-name" in request.headers)`
-	celModelIdentity          = `(` + celPathModelIdentityAvailable +
+	celModelIdentity = `(` + celPathModelIdentityAvailable +
 		` ? ` + celPathParts + `[0] + "/" + ` + celPathParts + `[1]` +
 		` : ("x-gateway-model-name" in request.headers` +
-		`   ? (request.headers["x-gateway-model-name"].startsWith("publishers/")` +
-		`     ? request.headers["x-gateway-model-name"].split("/")[1] + "/" + request.headers["x-gateway-model-name"].split("/")[3]` +
-		`     : request.headers["x-gateway-model-name"])` +
+		`   ? request.headers["x-gateway-model-name"]` +
 		`   : ""))`
 )
 
@@ -733,11 +731,7 @@ path_model_identity := sprintf("%%s/%%s", [path_parts[0], path_parts[1]]) {
 	path_parts[0] != "maas-api"
 }
 
-raw_header_model_identity := object.get(request_headers, "x-gateway-model-name", "")
-
-header_model_identity := sprintf("%%s/%%s", [split(raw_header_model_identity, "/")[1], split(raw_header_model_identity, "/")[3]]) {
-	startswith(raw_header_model_identity, "publishers/")
-} else := raw_header_model_identity
+header_model_identity := object.get(request_headers, "x-gateway-model-name", "")
 
 model_identity := path_model_identity {
 	path_model_identity != ""
@@ -1300,10 +1294,29 @@ func (r *MaaSAuthPolicyReconciler) aggregateModelSubjectAllowlists(ctx context.C
 			entry.Groups = deduplicateAndSort(entry.Groups)
 			entry.Users = deduplicateAndSort(entry.Users)
 			aggregate[key] = entry
+
+			for _, altKey := range r.resolveHeaderModelKeys(ctx, ref) {
+				aggregate[altKey] = entry
+			}
 		}
 	}
 
 	return aggregate, nil
+}
+
+// resolveHeaderModelKeys returns alternate model_access keys that match the value
+// ipp-pre sets in the X-Gateway-Model-Name header for body-based routing.
+// Reads MaaSModelRef.status.resolvedModelAlias, which the modelref controller
+// populates from the backing CRD (publisher ID for LLMISvc, targetModel for ExternalModel).
+func (r *MaaSAuthPolicyReconciler) resolveHeaderModelKeys(ctx context.Context, ref maasv1alpha1.ModelRef) []string {
+	modelRef := &maasv1alpha1.MaaSModelRef{}
+	if err := r.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ref.Namespace}, modelRef); err != nil {
+		return nil
+	}
+	if modelRef.Status.ResolvedModelAlias == "" {
+		return nil
+	}
+	return []string{modelRef.Status.ResolvedModelAlias}
 }
 
 func (r *MaaSAuthPolicyReconciler) modelAuthPolicyExists(ctx context.Context, modelNamespace, modelName string) (bool, error) {
