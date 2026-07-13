@@ -1,0 +1,41 @@
+# NetworkPolicy to allow pods in the deployment namespace (where the UI and
+# maas-controller run) to communicate with maas-api in the infrastructure
+# namespace (e.g., for /v1/tenants discovery).
+#
+# Security constraints:
+# - podSelector: Restricted to maas-api pods only (component=api)
+# - from: Only pods in known deployment namespaces
+#
+# Background:
+# - ODH creates a default NetworkPolicy that blocks ingress from unlabeled namespaces
+# - maas-api runs in the infrastructure namespace (odh-ai-gateway-infra /
+#   redhat-ai-gateway-infra), separate from the deployment namespace
+# - This policy adds an exception for the deployment namespace to reach maas-api
+#   on port 8443
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: maas-api-allow-deployment-ns
+  labels:
+    app.opendatahub.io/modelsasservice: "true"
+    app.kubernetes.io/part-of: maas
+    app.kubernetes.io/component: networking
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: api
+      app.kubernetes.io/part-of: models-as-a-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: In
+                values:
+                  - opendatahub
+                  - redhat-ods-applications
+      ports:
+        - protocol: TCP
+          port: 8443
