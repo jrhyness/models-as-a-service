@@ -28,6 +28,10 @@ spec:
   policyTypes:
     - Ingress
   ingress:
+    # Allows all pods from the namespace rather than specific callers.
+    # The deployment namespace hosts the UI/Dashboard and controller, both of
+    # which may call maas-api. This matches the namespace-wide trust pattern
+    # used by maas-api-allow-gateway for openshift-ingress.
     - from:
         - namespaceSelector:
             matchExpressions:
