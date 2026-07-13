@@ -8,31 +8,31 @@
       
       
       
-        <link rel="canonical" href="https://opendatahub-io.github.io/models-as-a-service/dev/reference/crds/external-model/">
+        <link rel="canonical" href="https://opendatahub-io.github.io/models-as-a-service/dev/migration/upgrade-to-3.5/">
       
       
-        <link rel="prev" href="../maas-model-ref/">
+        <link rel="prev" href="../upgrade-to-3.4/">
       
       
-        <link rel="next" href="../maas-auth-policy/">
+        <link rel="next" href="../../concepts/architecture/">
       
       
         
       
       
-      <link rel="icon" href="../../../assets/favicon.ico">
+      <link rel="icon" href="../../assets/favicon.ico">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>ExternalModel - ODH Models-as-a-Service Documentation</title>
+        <title>Upgrade to 3.5 - ODH Models-as-a-Service Documentation</title>
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -51,7 +51,7 @@
       
     
     
-    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#externalmodel" class="md-skip">
+        <a href="#upgrade-to-35" class="md-skip">
           Skip to content
         </a>
       
@@ -94,9 +94,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../../.." title="ODH Models-as-a-Service Documentation" class="md-header__button md-logo" aria-label="ODH Models-as-a-Service Documentation" data-md-component="logo">
+    <a href="../.." title="ODH Models-as-a-Service Documentation" class="md-header__button md-logo" aria-label="ODH Models-as-a-Service Documentation" data-md-component="logo">
       
-  <img src="../../../assets/favicon.ico" alt="logo">
+  <img src="../../assets/favicon.ico" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ExternalModel
+              Upgrade to 3.5
             
           </span>
         </div>
@@ -229,11 +229,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../.." class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../.." class="md-tabs__link">
           
   
   
@@ -253,7 +255,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../concepts/architecture/" class="md-tabs__link">
+        <a href="../../concepts/architecture/" class="md-tabs__link">
           
   
   
@@ -273,7 +275,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../quickstart/" class="md-tabs__link">
+        <a href="../../quickstart/" class="md-tabs__link">
           
   
   
@@ -300,7 +302,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../configuration-and-management/quota-and-access-configuration/" class="md-tabs__link">
+        <a href="../../configuration-and-management/quota-and-access-configuration/" class="md-tabs__link">
           
   
   
@@ -323,7 +325,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../observability/" class="md-tabs__link">
+        <a href="../../observability/" class="md-tabs__link">
           
   
   
@@ -343,7 +345,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../user-guide/api-key-management/" class="md-tabs__link">
+        <a href="../../user-guide/api-key-management/" class="md-tabs__link">
           
   
   
@@ -363,7 +365,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../architecture-internals/controller-architecture/" class="md-tabs__link">
+        <a href="../../architecture-internals/controller-architecture/" class="md-tabs__link">
           
   
   
@@ -379,13 +381,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../maas-api-overview/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../reference/maas-api-overview/" class="md-tabs__link">
           
   
   
@@ -419,9 +419,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../../.." title="ODH Models-as-a-Service Documentation" class="md-nav__button md-logo" aria-label="ODH Models-as-a-Service Documentation" data-md-component="logo">
+    <a href="../.." title="ODH Models-as-a-Service Documentation" class="md-nav__button md-logo" aria-label="ODH Models-as-a-Service Documentation" data-md-component="logo">
       
-  <img src="../../../assets/favicon.ico" alt="logo">
+  <img src="../../assets/favicon.ico" alt="logo">
 
     </a>
     ODH Models-as-a-Service Documentation
@@ -445,28 +445,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_1" >
-        
-          
-          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="">
             
   
   
@@ -484,7 +487,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_1">
             <span class="md-nav__icon md-icon"></span>
             
@@ -502,7 +505,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../.." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -530,7 +533,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../release-notes/" class="md-nav__link">
+      <a href="../../release-notes/" class="md-nav__link">
         
   
   
@@ -555,28 +558,31 @@
                 
   
   
+    
   
   
+  
     
     
     
     
       
       
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
         
           
+          
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_1_3" >
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_1_3" id="__nav_1_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_1_3" id="__nav_1_3_label" tabindex="">
             
   
   
@@ -594,7 +600,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_1_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_1_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_1_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -612,7 +618,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../migration/tier-to-subscription/" class="md-nav__link">
+      <a href="../tier-to-subscription/" class="md-nav__link">
         
   
   
@@ -640,7 +646,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../migration/upgrade-to-3.4/" class="md-nav__link">
+      <a href="../upgrade-to-3.4/" class="md-nav__link">
         
   
   
@@ -665,10 +671,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../../migration/upgrade-to-3.5/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrade to 3.5
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -684,6 +717,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Changed
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backward-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migrating-to-the-new-field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migrating to the New Field
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dsc-field-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DSC Field Reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -765,7 +873,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/architecture/" class="md-nav__link">
+      <a href="../../concepts/architecture/" class="md-nav__link">
         
   
   
@@ -793,7 +901,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/personas/" class="md-nav__link">
+      <a href="../../concepts/personas/" class="md-nav__link">
         
   
   
@@ -821,7 +929,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/subscription-overview/" class="md-nav__link">
+      <a href="../../concepts/subscription-overview/" class="md-nav__link">
         
   
   
@@ -849,7 +957,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/model-reference/" class="md-nav__link">
+      <a href="../../concepts/model-reference/" class="md-nav__link">
         
   
   
@@ -877,7 +985,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/auth-modes/" class="md-nav__link">
+      <a href="../../concepts/auth-modes/" class="md-nav__link">
         
   
   
@@ -905,7 +1013,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/api-key-authentication/" class="md-nav__link">
+      <a href="../../concepts/api-key-authentication/" class="md-nav__link">
         
   
   
@@ -933,7 +1041,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/model-access-control/" class="md-nav__link">
+      <a href="../../concepts/model-access-control/" class="md-nav__link">
         
   
   
@@ -1022,7 +1130,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../quickstart/" class="md-nav__link">
+      <a href="../../quickstart/" class="md-nav__link">
         
   
   
@@ -1104,7 +1212,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/prerequisites/" class="md-nav__link">
+      <a href="../../install/prerequisites/" class="md-nav__link">
         
   
   
@@ -1132,7 +1240,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/platform-setup/" class="md-nav__link">
+      <a href="../../install/platform-setup/" class="md-nav__link">
         
   
   
@@ -1222,7 +1330,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/maas-setup/" class="md-nav__link">
+      <a href="../../install/maas-setup/" class="md-nav__link">
         
   
   
@@ -1250,7 +1358,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/model-setup/" class="md-nav__link">
+      <a href="../../install/model-setup/" class="md-nav__link">
         
   
   
@@ -1278,7 +1386,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/external-model-setup/" class="md-nav__link">
+      <a href="../../install/external-model-setup/" class="md-nav__link">
         
   
   
@@ -1306,7 +1414,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/validation/" class="md-nav__link">
+      <a href="../../install/validation/" class="md-nav__link">
         
   
   
@@ -1334,7 +1442,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/multi-tenant-setup/" class="md-nav__link">
+      <a href="../../install/multi-tenant-setup/" class="md-nav__link">
         
   
   
@@ -1362,7 +1470,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/multi-tenant-validation/" class="md-nav__link">
+      <a href="../../install/multi-tenant-validation/" class="md-nav__link">
         
   
   
@@ -1390,7 +1498,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/troubleshooting/" class="md-nav__link">
+      <a href="../../install/troubleshooting/" class="md-nav__link">
         
   
   
@@ -1541,7 +1649,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/quota-and-access-configuration/" class="md-nav__link">
+      <a href="../../configuration-and-management/quota-and-access-configuration/" class="md-nav__link">
         
   
   
@@ -1569,7 +1677,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/api-key-administration/" class="md-nav__link">
+      <a href="../../configuration-and-management/api-key-administration/" class="md-nav__link">
         
   
   
@@ -1597,7 +1705,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/infra-namespace-migration/" class="md-nav__link">
+      <a href="../../configuration-and-management/infra-namespace-migration/" class="md-nav__link">
         
   
   
@@ -1625,7 +1733,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/namespace-rbac/" class="md-nav__link">
+      <a href="../../configuration-and-management/namespace-rbac/" class="md-nav__link">
         
   
   
@@ -1653,7 +1761,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/tenant-rbac/" class="md-nav__link">
+      <a href="../../configuration-and-management/tenant-rbac/" class="md-nav__link">
         
   
   
@@ -1681,7 +1789,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/troubleshooting-external-model-rbac/" class="md-nav__link">
+      <a href="../../configuration-and-management/troubleshooting-external-model-rbac/" class="md-nav__link">
         
   
   
@@ -1709,7 +1817,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/tls-configuration/" class="md-nav__link">
+      <a href="../../configuration-and-management/tls-configuration/" class="md-nav__link">
         
   
   
@@ -1737,7 +1845,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/gateway-patterns/" class="md-nav__link">
+      <a href="../../configuration-and-management/gateway-patterns/" class="md-nav__link">
         
   
   
@@ -1827,7 +1935,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/model-setup/" class="md-nav__link">
+      <a href="../../configuration-and-management/model-setup/" class="md-nav__link">
         
   
   
@@ -1855,7 +1963,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/model-listing-flow/" class="md-nav__link">
+      <a href="../../configuration-and-management/model-listing-flow/" class="md-nav__link">
         
   
   
@@ -1945,7 +2053,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../advanced-administration/subscription-cardinality/" class="md-nav__link">
+      <a href="../../advanced-administration/subscription-cardinality/" class="md-nav__link">
         
   
   
@@ -1973,7 +2081,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../advanced-administration/limitador-persistence/" class="md-nav__link">
+      <a href="../../advanced-administration/limitador-persistence/" class="md-nav__link">
         
   
   
@@ -2001,7 +2109,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/authorino-caching/" class="md-nav__link">
+      <a href="../../configuration-and-management/authorino-caching/" class="md-nav__link">
         
   
   
@@ -2029,7 +2137,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../advanced-administration/external-oidc/" class="md-nav__link">
+      <a href="../../advanced-administration/external-oidc/" class="md-nav__link">
         
   
   
@@ -2126,7 +2234,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../observability/" class="md-nav__link">
+      <a href="../../observability/" class="md-nav__link">
         
   
   
@@ -2154,7 +2262,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../observability/setup/" class="md-nav__link">
+      <a href="../../observability/setup/" class="md-nav__link">
         
   
   
@@ -2182,7 +2290,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../observability/metrics-and-dashboards/" class="md-nav__link">
+      <a href="../../observability/metrics-and-dashboards/" class="md-nav__link">
         
   
   
@@ -2210,7 +2318,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../observability/operations/" class="md-nav__link">
+      <a href="../../observability/operations/" class="md-nav__link">
         
   
   
@@ -2299,7 +2407,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../user-guide/api-key-management/" class="md-nav__link">
+      <a href="../../user-guide/api-key-management/" class="md-nav__link">
         
   
   
@@ -2327,7 +2435,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../user-guide/model-discovery/" class="md-nav__link">
+      <a href="../../user-guide/model-discovery/" class="md-nav__link">
         
   
   
@@ -2355,7 +2463,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../user-guide/inference/" class="md-nav__link">
+      <a href="../../user-guide/inference/" class="md-nav__link">
         
   
   
@@ -2444,7 +2552,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture-internals/controller-architecture/" class="md-nav__link">
+      <a href="../../architecture-internals/controller-architecture/" class="md-nav__link">
         
   
   
@@ -2472,7 +2580,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture-internals/reconciliation-flow/" class="md-nav__link">
+      <a href="../../architecture-internals/reconciliation-flow/" class="md-nav__link">
         
   
   
@@ -2500,7 +2608,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture-internals/authentication-internals/" class="md-nav__link">
+      <a href="../../architecture-internals/authentication-internals/" class="md-nav__link">
         
   
   
@@ -2582,7 +2690,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/testing-guide/" class="md-nav__link">
+      <a href="../../contributing/testing-guide/" class="md-nav__link">
         
   
   
@@ -2610,7 +2718,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/release-strategy/" class="md-nav__link">
+      <a href="../../contributing/release-strategy/" class="md-nav__link">
         
   
   
@@ -2650,31 +2758,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
         
           
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
             
   
   
@@ -2692,7 +2797,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2710,7 +2815,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../maas-api-overview/" class="md-nav__link">
+      <a href="../../reference/maas-api-overview/" class="md-nav__link">
         
   
   
@@ -2738,7 +2843,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api-reference/" class="md-nav__link">
+      <a href="../../reference/api-reference/" class="md-nav__link">
         
   
   
@@ -2763,31 +2868,28 @@
                 
   
   
-    
   
   
-  
     
     
     
     
       
       
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
         
           
-          
         
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_3" >
         
           
-          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
             
   
   
@@ -2805,7 +2907,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_8_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2823,7 +2925,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../maas-model-ref/" class="md-nav__link">
+      <a href="../../reference/crds/maas-model-ref/" class="md-nav__link">
         
   
   
@@ -2848,37 +2950,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ExternalModel
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../reference/crds/external-model/" class="md-nav__link">
         
   
   
@@ -2894,81 +2969,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#externalmodelspec" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        ExternalModelSpec
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#credentialreference" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CredentialReference
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#externalmodelstatus" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        ExternalModelStatus
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Example
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#relationship-with-maasmodelref" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Relationship with MaaSModelRef
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2981,7 +2981,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../maas-auth-policy/" class="md-nav__link">
+      <a href="../../reference/crds/maas-auth-policy/" class="md-nav__link">
         
   
   
@@ -3009,7 +3009,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../maas-subscription/" class="md-nav__link">
+      <a href="../../reference/crds/maas-subscription/" class="md-nav__link">
         
   
   
@@ -3037,7 +3037,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../ai-tenant/" class="md-nav__link">
+      <a href="../../reference/crds/ai-tenant/" class="md-nav__link">
         
   
   
@@ -3065,7 +3065,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../tenant/" class="md-nav__link">
+      <a href="../../reference/crds/tenant/" class="md-nav__link">
         
   
   
@@ -3128,10 +3128,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#externalmodelspec" class="md-nav__link">
+  <a href="#what-changed" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ExternalModelSpec
+        What Changed
       
     </span>
   </a>
@@ -3139,10 +3139,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#credentialreference" class="md-nav__link">
+  <a href="#backward-compatibility" class="md-nav__link">
     <span class="md-ellipsis">
       
-        CredentialReference
+        Backward Compatibility
       
     </span>
   </a>
@@ -3150,10 +3150,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#externalmodelstatus" class="md-nav__link">
+  <a href="#migrating-to-the-new-field" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ExternalModelStatus
+        Migrating to the New Field
       
     </span>
   </a>
@@ -3161,10 +3161,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
+  <a href="#verify" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Example
+        Verify
       
     </span>
   </a>
@@ -3172,10 +3172,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#relationship-with-maasmodelref" class="md-nav__link">
+  <a href="#dsc-field-reference" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Relationship with MaaSModelRef
+        DSC Field Reference
       
     </span>
   </a>
@@ -3202,125 +3202,46 @@
   
 
 
-<h1 id="externalmodel">ExternalModel</h1>
-<p>Defines an external AI/ML model hosted outside the cluster (e.g., OpenAI, Anthropic, Azure OpenAI). The ExternalModel CRD contains provider details, endpoint URL, and credential references that were previously inlined in MaaSModelRef.</p>
-<h2 id="externalmodelspec">ExternalModelSpec</h2>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>provider</td>
-<td>string</td>
-<td>Yes</td>
-<td>Provider identifier. Allowed values: <code>openai</code>, <code>anthropic</code>, <code>azure-openai</code>, <code>vertex</code>, <code>bedrock-openai</code>. Max length: 63 characters.</td>
-</tr>
-<tr>
-<td>endpoint</td>
-<td>string</td>
-<td>Yes</td>
-<td>FQDN of the external provider (no scheme or path), e.g., <code>api.openai.com</code>. This is metadata for downstream consumers. Max length: 253 characters.</td>
-</tr>
-<tr>
-<td>credentialRef</td>
-<td>CredentialReference</td>
-<td>Yes</td>
-<td>Reference to the Secret containing API credentials. Must exist in the same namespace as the ExternalModel.</td>
-</tr>
-<tr>
-<td>targetModel</td>
-<td>string</td>
-<td>Yes</td>
-<td>Upstream model name at the external provider (e.g., <code>gpt-4o</code>, <code>claude-sonnet-4-5-20241022</code>). Max length: 253 characters.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="credentialreference">CredentialReference</h2>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>name</td>
-<td>string</td>
-<td>Yes</td>
-<td>Name of the Secret containing the credentials. Must be in the same namespace as the ExternalModel. Max length: 253 characters.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="externalmodelstatus">ExternalModelStatus</h2>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>phase</td>
-<td>string</td>
-<td>One of: <code>Pending</code>, <code>Ready</code>, <code>Failed</code></td>
-</tr>
-<tr>
-<td>conditions</td>
-<td>[]Condition</td>
-<td>Latest observations of the external model's state</td>
-</tr>
-</tbody>
-</table>
-<h2 id="example">Example</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maas.opendatahub.io/v1alpha1</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ExternalModel</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gpt4</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">models</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">openai</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nt">endpoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">api.openai.com</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="nt">targetModel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gpt-4o</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">  </span><span class="nt">credentialRef</span><span class="p">:</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">openai-credentials</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nn">---</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Secret</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">openai-credentials</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">models</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Opaque</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="nt">stringData</span><span class="p">:</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">  </span><span class="nt">api-key</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;sk-...&quot;</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="nn">---</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="c1"># MaaSModelRef referencing the ExternalModel</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maas.opendatahub.io/v1alpha1</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MaaSModelRef</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gpt4-model</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">models</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="w">  </span><span class="nt">modelRef</span><span class="p">:</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ExternalModel</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gpt4</span>
+<h1 id="upgrade-to-35">Upgrade to 3.5</h1>
+<h2 id="what-changed">What Changed</h2>
+<p>MaaS moved from <code>kserve.modelsAsService</code> to <code>aigateway.modelsAsAService</code>. KServe is no longer a prerequisite for MaaS.</p>
+<h2 id="backward-compatibility">Backward Compatibility</h2>
+<p><strong>No action required on upgrade.</strong> If your DSC has <code>kserve.modelsAsService: Managed</code>, the operator continues to deploy MaaS automatically through 3.6.</p>
+<p>The old field is read-only once set (<code>self == oldSelf</code>) and will be removed in 3.7.</p>
+<h2 id="migrating-to-the-new-field">Migrating to the New Field</h2>
+<p>When you are ready, update your DSC:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">components</span><span class="p">:</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">aigateway</span><span class="p">:</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">      </span><span class="nt">managementState</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Managed</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">      </span><span class="nt">modelsAsAService</span><span class="p">:</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">        </span><span class="nt">managementState</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Managed</span>
 </code></pre></div>
-<h2 id="relationship-with-maasmodelref">Relationship with MaaSModelRef</h2>
-<p>ExternalModel is a dedicated CRD for external model configuration. MaaSModelRef references ExternalModel by name using <code>spec.modelRef.kind: ExternalModel</code> and <code>spec.modelRef.name: &lt;external-model-name&gt;</code>.</p>
-<p>This separation allows:
-- <strong>Reusability</strong>: One ExternalModel can be referenced by multiple MaaSModelRefs
-- <strong>Clean separation</strong>: Provider-specific configuration lives in ExternalModel; MaaSModelRef handles listing and access control
-- <strong>Extensibility</strong>: Adding new external providers requires no MaaSModelRef schema changes</p>
+<p>GitOps users: update your manifest and sync. The old <code>kserve.modelsAsService</code> field cannot be cleared until 3.7 — leave it as-is.</p>
+<h2 id="verify">Verify</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>oc<span class="w"> </span>get<span class="w"> </span>aigateway<span class="w"> </span>default-aigateway
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>oc<span class="w"> </span>get<span class="w"> </span>deployment<span class="w"> </span>-n<span class="w"> </span>opendatahub<span class="w"> </span>ai-gateway-operator
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>oc<span class="w"> </span>get<span class="w"> </span>datasciencecluster<span class="w"> </span>default-dsc<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.spec.components.aigateway.modelsAsAService}&#39;</span>
+</code></pre></div>
+<h2 id="dsc-field-reference">DSC Field Reference</h2>
+<table>
+<thead>
+<tr>
+<th>3.4</th>
+<th>3.5+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kserve.managementState: Managed</code></td>
+<td>Not required for MaaS</td>
+</tr>
+<tr>
+<td><code>kserve.modelsAsService.managementState: Managed</code></td>
+<td><code>aigateway.modelsAsAService.managementState: Managed</code></td>
+</tr>
+</tbody>
+</table>
 
 
 
@@ -3343,7 +3264,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="April 9, 2026 11:50:25 UTC">April 9, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 13, 2026 18:53:59 UTC">July 13, 2026</span>
   </span>
 
     
@@ -3353,7 +3274,7 @@
     <span class="md-icon" title="Created">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 25, 2026 18:44:17 UTC">March 25, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 13, 2026 18:53:59 UTC">July 13, 2026</span>
   </span>
 
     
@@ -3408,10 +3329,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "search.suggest", "search.boost", "navigation.instant"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "search.suggest", "search.boost", "navigation.instant"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>

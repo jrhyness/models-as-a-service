@@ -661,6 +661,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/upgrade-to-3.5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrade to 3.5
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -3338,7 +3366,7 @@
 <p><strong>Installation flow:</strong></p>
 <ol>
 <li><a href="#database-setup">Database Setup</a> — Create the PostgreSQL connection Secret</li>
-<li><a href="#create-gateway">Create Gateway</a> — Deploy maas-default-gateway (required before modelsAsService)</li>
+<li><a href="#create-gateway">Create Gateway</a> — Deploy maas-default-gateway (required before modelsAsAService)</li>
 <li><a href="#configure-datasciencecluster">Configure DataScienceCluster</a> — Enable modelsAsAService in your DataScienceCluster</li>
 <li><a href="../model-setup/">Model Setup</a> — Deploy sample models</li>
 <li><a href="../validation/">Validation</a> — Verify the deployment</li>
@@ -3375,13 +3403,13 @@
 </div>
 <div class="admonition note">
 <p class="admonition-title">Restarting maas-api</p>
-<p>If you add or update the Secret after the DataScienceCluster already has modelsAsService in managed state, restart the maas-api deployment to pick up the config:</p>
+<p>If you add or update the Secret after the DataScienceCluster already has modelsAsAService in managed state, restart the maas-api deployment to pick up the config:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>restart<span class="w"> </span>deployment/maas-api<span class="w"> </span>-n<span class="w"> </span>opendatahub
 </code></pre></div>
-<p>This is not required when the Secret exists before enabling modelsAsService in your DataScienceCluster.</p>
+<p>This is not required when the Secret exists before enabling modelsAsAService in your DataScienceCluster.</p>
 </div>
 <h2 id="create-gateway">Create Gateway</h2>
-<p>Create <code>maas-default-gateway</code> in <code>openshift-ingress</code> <strong>before</strong> enabling <code>modelsAsService</code> in your DataScienceCluster.</p>
+<p>Create <code>maas-default-gateway</code> in <code>openshift-ingress</code> <strong>before</strong> enabling <code>aigateway.modelsAsAService</code> in your DataScienceCluster.</p>
 <p><code>scripts/deploy.sh</code> runs this step automatically in <strong>route</strong> mode. Run the script yourself when installing via DataScienceCluster first, using <strong>clusterip</strong> mode, or on disconnected clusters.</p>
 <table>
 <thead>
@@ -3693,7 +3721,7 @@ defaults if it is deleted, but does not overwrite user changes to existing field
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 10, 2026 21:37:28 UTC">July 10, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 13, 2026 18:53:59 UTC">July 13, 2026</span>
   </span>
 
     
