@@ -36,7 +36,7 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: opendatahub
+              kubernetes.io/metadata.name: REPLACE_CONTROLLER_NAMESPACE
       ports:
         - protocol: TCP
           port: 8443
