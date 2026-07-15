@@ -73,7 +73,7 @@ func init() {
 	utilruntime.Must(maasv1alpha1.AddToScheme(scheme))
 }
 
-//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;create;update
+//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;create;patch
 
 // ensureManagedNamespaceWithClient checks whether a controller-managed namespace exists
 // and creates it if missing. It checks for existence first so that the controller can
@@ -219,13 +219,10 @@ func ensureManagedNamespaceLabels(ctx context.Context, ns *corev1.Namespace, nam
 	if ns.Labels != nil && ns.Labels[networkPolicyRequiredLabel] == "true" {
 		return nil
 	}
-	if ns.Labels == nil {
-		ns.Labels = make(map[string]string)
-	}
-	ns.Labels[networkPolicyRequiredLabel] = "true"
-	_, err := clientset.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{})
+	patchData := []byte(`{"metadata":{"labels":{"` + networkPolicyRequiredLabel + `":"true"}}}`)
+	_, err := clientset.CoreV1().Namespaces().Patch(ctx, namespace, types.MergePatchType, patchData, metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to add %s label to existing namespace %q: %w", networkPolicyRequiredLabel, namespace, err)
+		return fmt.Errorf("failed to patch %s label on existing namespace %q: %w", networkPolicyRequiredLabel, namespace, err)
 	}
 	setupLog.Info("added NetworkPolicy-required label to existing managed namespace",
 		"namespace", namespace, "purpose", purpose)
