@@ -791,6 +791,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../concepts/multi-tenancy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../concepts/personas/" class="md-nav__link">
         
   
@@ -3401,7 +3429,7 @@
 <th>Tenant Type</th>
 <th>Config Namespace</th>
 <th>Config Name</th>
-<th>maas-api Service (in operator namespace)</th>
+<th>maas-api Deployment</th>
 <th>Created By</th>
 </tr>
 </thead>
@@ -3410,14 +3438,14 @@
 <td>Default</td>
 <td><code>models-as-a-service</code></td>
 <td><code>default-tenant</code></td>
-<td><code>maas-api</code></td>
+<td><code>maas-api</code> (infra namespace)</td>
 <td>Default AITenant bootstrap</td>
 </tr>
 <tr>
 <td>Additional</td>
 <td><code>ai-tenant-{tenantID}</code></td>
 <td><code>default-tenant</code></td>
-<td><code>maas-api-{tenantID}</code></td>
+<td><code>maas-api-{tenantID}</code> (infra namespace)</td>
 <td>AITenant reconciler</td>
 </tr>
 </tbody>
@@ -3427,7 +3455,7 @@
 <li>All <code>MaasTenantConfig</code> resources are named <code>default-tenant</code> within their namespace.</li>
 <li>The default <code>MaasTenantConfig/default-tenant</code> is created or adopted by <code>AITenant/models-as-a-service</code>.</li>
 <li>Additional tenant configs are created by the AITenant reconciler, which provisions the tenant namespace and config object.</li>
-<li>All maas-api Services deploy to the operator namespace (opendatahub for ODH, redhat-ods-applications for RHOAI), not to tenant namespaces.</li>
+<li>maas-api Deployments are created in the infrastructure namespace (AUTO-derived by default: <code>odh-ai-gateway-infra</code> for ODH or <code>redhat-ai-gateway-infra</code> for RHOAI). See <a href="../../../configuration-and-management/infra-namespace-migration/">Infrastructure Namespace Migration</a> for details.</li>
 <li>Each tenant has an isolated maas-api instance for API key and subscription management.</li>
 <li><code>MaasTenantConfig</code> resources for additional tenants have the finalizer <code>maas.opendatahub.io/tenant-cleanup</code>.</li>
 <li>For AITenant-managed tenants, Gateway comes from <code>AITenant.status.gatewayRef</code>; OIDC comes from <code>AITenant.spec.oidc</code>.</li>
@@ -3653,7 +3681,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 10, 2026 21:37:28 UTC">July 10, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 14, 2026 16:14:48 UTC">July 14, 2026</span>
   </span>
 
     

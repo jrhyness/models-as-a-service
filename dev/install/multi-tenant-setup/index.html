@@ -793,6 +793,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../concepts/multi-tenancy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../concepts/personas/" class="md-nav__link">
         
   
@@ -3569,7 +3597,7 @@
 <td><code>ai-tenant-${TENANT_NAME}</code></td>
 </tr>
 <tr>
-<td>Tenant CR</td>
+<td>MaasTenantConfig CR</td>
 <td><code>ai-tenant-${TENANT_NAME}</code></td>
 <td><code>default-tenant</code></td>
 </tr>
@@ -3716,7 +3744,7 @@
 <tr>
 <td><code>--aitenant-namespace</code></td>
 <td><code>ai-tenants</code></td>
-<td>Infrastructure namespace for AITenant CRs</td>
+<td>Namespace for AITenant CRs</td>
 </tr>
 <tr>
 <td><code>--enable-tenant-namespace-discovery</code></td>
@@ -3732,6 +3760,11 @@
 <td><code>--gateway-name</code></td>
 <td><code>maas-default-gateway</code></td>
 <td>Default Gateway name for the default tenant</td>
+</tr>
+<tr>
+<td><code>--infra-namespace</code></td>
+<td><code>AUTO</code></td>
+<td>Infrastructure namespace for maas-api and maas-db-config. See <a href="../../configuration-and-management/infra-namespace-migration/">Infrastructure Namespace Migration</a></td>
 </tr>
 </tbody>
 </table>
@@ -3785,7 +3818,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 8, 2026 22:21:22 UTC">July 8, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 14, 2026 16:14:48 UTC">July 14, 2026</span>
   </span>
 
     
