@@ -305,6 +305,10 @@ func TestLifecycleReconciler_NormalReconcileDoesNotSetDeploymentOwnerReference(t
 		},
 	}
 
+	_, testFile, _, ok := goruntime.Caller(0)
+	g.Expect(ok).To(BeTrue())
+	usageLogsPath := filepath.Join(filepath.Dir(testFile), "../../../../deployment/components/observability/usage-logs")
+
 	cl := fake.NewClientBuilder().WithScheme(s).WithObjects(dep, cfg).Build()
 	r := &LifecycleReconciler{
 		Client:                      cl,
@@ -312,6 +316,7 @@ func TestLifecycleReconciler_NormalReconcileDoesNotSetDeploymentOwnerReference(t
 		DeploymentName:              "maas-controller",
 		DeploymentNS:                depNS,
 		TenantSubscriptionNamespace: "",
+		UsageLogsManifestPath:       usageLogsPath,
 	}
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
@@ -366,12 +371,17 @@ func TestLifecycleReconciler_StripsLegacyDeploymentConfigOwnerReferenceOnNormalR
 		},
 	}
 
+	_, testFile, _, ok := goruntime.Caller(0)
+	g.Expect(ok).To(BeTrue())
+	usageLogsPath := filepath.Join(filepath.Dir(testFile), "../../../../deployment/components/observability/usage-logs")
+
 	cl := fake.NewClientBuilder().WithScheme(s).WithObjects(dep, cfg).Build()
 	r := &LifecycleReconciler{
-		Client:         cl,
-		Scheme:         s,
-		DeploymentName: "maas-controller",
-		DeploymentNS:   depNS,
+		Client:                cl,
+		Scheme:                s,
+		DeploymentName:        "maas-controller",
+		DeploymentNS:          depNS,
+		UsageLogsManifestPath: usageLogsPath,
 	}
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
