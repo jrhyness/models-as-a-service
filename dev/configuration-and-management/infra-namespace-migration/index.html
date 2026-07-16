@@ -3491,26 +3491,37 @@
 <li><strong>Controller automatically deletes old maas-api</strong> from controller namespace</li>
 <li>Services use FQDN for cross-namespace communication</li>
 </ol>
+<div class="admonition warning">
+<p class="admonition-title">Credential Rotation After Migration</p>
+<p>After migration, the <code>maas-db-config</code> secret in the <strong>infrastructure namespace</strong> is the
+source of truth. If you rotate database credentials, you must update the secret in the
+infrastructure namespace (e.g., <code>odh-ai-gateway-infra</code> or <code>redhat-ai-gateway-infra</code>).</p>
+<p>The original secret in the controller namespace is <strong>not</strong> synced. Updating only the
+controller-namespace copy will cause maas-api to crash-loop with authentication failures.</p>
+<p>To check which namespace is active for a tenant:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>maastenantconfig<span class="w"> </span>default-tenant<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.infraNamespace}&#39;</span>
+</code></pre></div>
+</div>
 <h2 id="verification">Verification</h2>
 <h3 id="with-namespace-separation-default">With Namespace Separation (Default)</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Check infrastructure namespace has maas-api</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>odh-ai-gateway-infra<span class="w">  </span><span class="c1"># Should show maas-api (and postgres if using built-in)</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Controller namespace should NOT have maas-api</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>opendatahub<span class="w">  </span><span class="c1"># Should only show maas-controller</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Validate everything works</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>./scripts/validate-deployment.sh
-</code></pre></div>
-<h3 id="without-namespace-separation-rosa">Without Namespace Separation (ROSA)</h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Check controller namespace has both controller and maas-api</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>opendatahub<span class="w">  </span><span class="c1"># Should show both maas-controller and maas-api</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Check infrastructure namespace has maas-api</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>odh-ai-gateway-infra<span class="w">  </span><span class="c1"># Should show maas-api (and postgres if using built-in)</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># No separate infrastructure namespace</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>kubectl<span class="w"> </span>get<span class="w"> </span>namespace<span class="w"> </span>odh-ai-gateway-infra<span class="w">  </span><span class="c1"># Should not exist (or be empty)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Controller namespace should NOT have maas-api</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>opendatahub<span class="w">  </span><span class="c1"># Should only show maas-controller</span>
 <a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Validate everything works</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="nv">INFRA_NAMESPACE</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="w"> </span>./scripts/validate-deployment.sh
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>./scripts/validate-deployment.sh
+</code></pre></div>
+<h3 id="without-namespace-separation-rosa">Without Namespace Separation (ROSA)</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Check controller namespace has both controller and maas-api</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>opendatahub<span class="w">  </span><span class="c1"># Should show both maas-controller and maas-api</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># No separate infrastructure namespace</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>kubectl<span class="w"> </span>get<span class="w"> </span>namespace<span class="w"> </span>odh-ai-gateway-infra<span class="w">  </span><span class="c1"># Should not exist (or be empty)</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Validate everything works</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="nv">INFRA_NAMESPACE</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="w"> </span>./scripts/validate-deployment.sh
 </code></pre></div>
 <h2 id="references">References</h2>
 <ul>
@@ -3539,7 +3550,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 14, 2026 16:14:48 UTC">July 14, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 16, 2026 18:08:50 UTC">July 16, 2026</span>
   </span>
 
     
