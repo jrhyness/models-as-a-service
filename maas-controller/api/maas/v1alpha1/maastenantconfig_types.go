@@ -68,6 +68,8 @@ type MaasTenantConfigStatus struct {
 	// When credential rotation is needed, update the maas-db-config secret
 	// in this namespace.
 	// +optional
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	InfraNamespace string `json:"infraNamespace,omitempty"`
 
 	// Conditions represent the latest available observations.
