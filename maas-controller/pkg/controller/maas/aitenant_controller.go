@@ -748,7 +748,10 @@ func (r *AITenantReconciler) ensureTenantAPIKeysRevoked(ctx context.Context, ait
 		}
 
 		log := ctrl.LoggerFrom(ctx)
-		attempts := r.incrementRevocationAttempts(ctx, aitenant)
+		attempts, err := r.incrementRevocationAttempts(ctx, aitenant)
+		if err != nil {
+			return false, err
+		}
 		if attempts >= maxRevocationAttempts {
 			log.Error(errTenantAPIKeyRevocationJobFailed,
 				"API key revocation failed after max attempts, proceeding with deletion",
@@ -779,7 +782,7 @@ func (r *AITenantReconciler) markTenantAPIKeysRevoked(ctx context.Context, aiten
 	return nil
 }
 
-func (r *AITenantReconciler) incrementRevocationAttempts(ctx context.Context, aitenant *maasv1alpha1.AITenant) int {
+func (r *AITenantReconciler) incrementRevocationAttempts(ctx context.Context, aitenant *maasv1alpha1.AITenant) (int, error) {
 	current := 0
 	if v, ok := aitenant.Annotations[aitenantRevocationAttemptsAnnotation]; ok {
 		current, _ = strconv.Atoi(v)
@@ -788,9 +791,9 @@ func (r *AITenantReconciler) incrementRevocationAttempts(ctx context.Context, ai
 	base := aitenant.DeepCopy()
 	setMapValue(&aitenant.Annotations, aitenantRevocationAttemptsAnnotation, strconv.Itoa(current))
 	if err := r.Patch(ctx, aitenant, client.MergeFrom(base)); err != nil {
-		ctrl.LoggerFrom(ctx).Error(err, "failed to update revocation attempt counter")
+		return 0, fmt.Errorf("update revocation attempt counter: %w", err)
 	}
-	return current
+	return current, nil
 }
 
 func (r *AITenantReconciler) annotateNamespaceRevocationWarning(ctx context.Context, aitenant *maasv1alpha1.AITenant, attempts int) {
