@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -29,7 +29,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -3729,7 +3729,7 @@ defaults if it is deleted, but does not overwrite user changes to existing field
 </div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>aitenant<span class="w"> </span>team-red<span class="w"> </span>-n<span class="w"> </span>ai-tenants
 </code></pre></div>
-<p>Deletion revokes active API keys, removes per-tenant maas-api resources and MaaS CRs, and deletes the tenant namespace. The <code>AITenant</code> can remain in <code>Terminating</code> phase while cleanup is in progress, or report <code>Ready=False</code> with reason <code>DeletionBlocked</code> if namespace content or finalizers block deletion. The shared Gateway object and user model workloads in other namespaces are preserved, but workloads inside the deleted tenant namespace are removed by Kubernetes namespace deletion.</p>
+<p>Deletion revokes active API keys and removes per-tenant maas-api resources, MaaS CRs (<code>MaaSSubscription</code>, <code>MaaSAuthPolicy</code>), and AITenant-owned RBAC. The tenant namespace is kept so non-MaaS user objects and workloads there survive; AITenant ownership metadata (labels and annotations) is cleared from the namespace. The <code>AITenant</code> can remain in <code>Terminating</code> phase while cleanup is in progress, or report <code>Ready=False</code> with reason <code>DeletionBlocked</code> if a cleanup step fails. The shared Gateway object and user model workloads outside the tenant namespace are also preserved.</p>
 <h2 id="next-steps">Next steps</h2>
 <ul>
 <li><strong>Deploy models.</strong> See <a href="../model-setup/">Model Setup</a> for sample model deployments.</li>
@@ -3758,7 +3758,7 @@ defaults if it is deleted, but does not overwrite user changes to existing field
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 16, 2026 18:08:50 UTC">July 16, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 17, 2026 22:22:28 UTC">July 17, 2026</span>
   </span>
 
     
@@ -3826,7 +3826,7 @@ defaults if it is deleted, but does not overwrite user changes to existing field
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "search.suggest", "search.boost", "navigation.instant"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
