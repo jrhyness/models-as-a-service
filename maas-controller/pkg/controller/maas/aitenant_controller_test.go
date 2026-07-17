@@ -2000,6 +2000,9 @@ func TestAITenantReconcile_FailedAPIKeyRevocationJobSetsDeletionBlockedAndRequeu
 	g.Expect(ready).NotTo(BeNil())
 	g.Expect(ready.Reason).To(Equal("DeletionBlocked"))
 	g.Expect(ready.Message).To(ContainSubstring("API key revocation Job"))
+	g.Expect(ready.Message).To(ContainSubstring("attempt 1/3"))
+
+	g.Expect(updated.Annotations).To(HaveKeyWithValue(aitenantRevocationAttemptsAnnotation, "1"))
 
 	err = cl.Get(ctx, client.ObjectKeyFromObject(job), &batcv1.Job{})
 	g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
@@ -2012,6 +2015,88 @@ func TestAITenantReconcile_FailedAPIKeyRevocationJobSetsDeletionBlockedAndRequeu
 	var remainingNS corev1.Namespace
 	g.Expect(cl.Get(ctx, client.ObjectKey{Name: tenantNamespace}, &remainingNS)).To(Succeed())
 	g.Expect(remainingNS.DeletionTimestamp.IsZero()).To(BeTrue())
+}
+
+func TestAITenantReconcile_RevocationGivesUpAfterMaxAttempts(t *testing.T) {
+	g := NewWithT(t)
+	s := aitenantTestScheme(t)
+	ctx := context.Background()
+
+	aitenant := &maasv1alpha1.AITenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "team-revoke-giveup",
+			Namespace:  tenantreconcile.DefaultAITenantNamespace,
+			Finalizers: []string{aitenantFinalizer},
+			Annotations: map[string]string{
+				aitenantRevocationAttemptsAnnotation: "2",
+			},
+		},
+	}
+	tenantNamespace := tenantreconcile.TenantNamespaceForAITenant(aitenant.Name, "models-as-a-service")
+	tenant := &maasv1alpha1.MaasTenantConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      maasv1alpha1.MaasTenantConfigInstanceName,
+			Namespace: tenantNamespace,
+			Annotations: map[string]string{
+				aitenantNameAnnotation:      aitenant.Name,
+				aitenantNamespaceAnnotation: aitenant.Namespace,
+			},
+		},
+	}
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: tenantNamespace,
+			Annotations: map[string]string{
+				aitenantNameAnnotation:      aitenant.Name,
+				aitenantNamespaceAnnotation: aitenant.Namespace,
+			},
+		},
+	}
+	job := tenantAPIKeyRevocationJob(aitenant, "odh-ai-gateway-infra")
+	job.Status.Conditions = []batcv1.JobCondition{
+		{
+			Type:               batcv1.JobFailed,
+			Status:             corev1.ConditionTrue,
+			Reason:             "BackoffLimitExceeded",
+			Message:            "pod failed",
+			LastProbeTime:      metav1.Now(),
+			LastTransitionTime: metav1.Now(),
+		},
+	}
+	cl := fake.NewClientBuilder().
+		WithScheme(s).
+		WithStatusSubresource(&maasv1alpha1.AITenant{}).
+		WithObjects(aitenant, tenant, ns, job).
+		Build()
+	r := &AITenantReconciler{
+		Client:           cl,
+		Scheme:           s,
+		APIReader:        cl,
+		AppNamespace:     "odh-ai-gateway-infra",
+		TenantNamespace:  "models-as-a-service",
+		GatewayNamespace: "openshift-ingress",
+	}
+
+	key := types.NamespacedName{Name: aitenant.Name, Namespace: aitenant.Namespace}
+	g.Expect(cl.Delete(ctx, aitenant)).To(Succeed())
+
+	res, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: key})
+	g.Expect(err).NotTo(HaveOccurred())
+	// Should not requeue with 30s — revocation gave up, deletion proceeds.
+	g.Expect(res.RequeueAfter).NotTo(Equal(30 * time.Second))
+
+	var updated maasv1alpha1.AITenant
+	g.Expect(cl.Get(ctx, key, &updated)).To(Succeed())
+	g.Expect(updated.Annotations).To(HaveKeyWithValue(aitenantAPIKeysRevokedAnnotation, "true"))
+	g.Expect(updated.Annotations).To(HaveKeyWithValue(aitenantRevocationAttemptsAnnotation, "3"))
+
+	err = cl.Get(ctx, client.ObjectKeyFromObject(job), &batcv1.Job{})
+	g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+
+	var warningNS corev1.Namespace
+	g.Expect(cl.Get(ctx, client.ObjectKey{Name: tenantNamespace}, &warningNS)).To(Succeed())
+	g.Expect(warningNS.Annotations).To(HaveKey(aitenantAPIKeysRevocationWarning))
+	g.Expect(warningNS.Annotations[aitenantAPIKeysRevocationWarning]).To(ContainSubstring("failed after 3 attempts"))
 }
 
 func TestAITenantReconcile_DeletionAddsTenantFinalizerBeforeDelete(t *testing.T) {

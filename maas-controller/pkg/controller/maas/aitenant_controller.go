@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -65,6 +67,10 @@ const (
 
 	aitenantAPIKeysRevokedAnnotation = "maas.opendatahub.io/api-keys-revoked" //nolint:gosec // Annotation name, not a credential.
 
+	aitenantRevocationAttemptsAnnotation = "maas.opendatahub.io/api-key-revocation-attempts"
+	aitenantAPIKeysRevocationWarning     = "maas.opendatahub.io/api-keys-revocation-warning" //nolint:gosec // Annotation name, not a credential.
+	maxRevocationAttempts                = 3
+
 	aitenantAPIKeyCleanupServiceAccountName = "maas-api-cleanup"
 	aitenantAPIKeyCleanupCABundleName       = "openshift-service-ca.crt"         //nolint:gosec // ConfigMap name for a public CA bundle, not a credential.
 	aitenantAPIKeyCleanupCABundlePath       = "/etc/pki/maas-api/service-ca.crt" //nolint:gosec // Public CA bundle mount path, not a credential.
@@ -75,7 +81,8 @@ var errTenantAPIKeyRevocationJobFailed = errors.New("API key revocation Job fail
 // AITenantReconciler reconciles AITenant tenant bootstrap resources.
 type AITenantReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 	// APIReader is used for reads that must bypass the Tenant namespace cache scope.
 	APIReader client.Reader
 
@@ -104,6 +111,7 @@ type AITenantReconciler struct {
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;create;delete
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // Reconcile drives AITenant bootstrap lifecycle.
 func (r *AITenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -197,6 +205,9 @@ func (r *AITenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 // SetupWithManager registers the AITenant controller.
 func (r *AITenantReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.Recorder == nil {
+		r.Recorder = mgr.GetEventRecorderFor("aitenant-controller")
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&maasv1alpha1.AITenant{}, builder.WithPredicates(
 			predicate.Or(predicate.GenerationChangedPredicate{}, predicate.Funcs{UpdateFunc: deletionTimestampSet}),
@@ -732,10 +743,29 @@ func (r *AITenantReconciler) ensureTenantAPIKeysRevoked(ctx context.Context, ait
 		return true, nil
 	}
 	if jobFailed(&existing) {
-		if err := r.Delete(ctx, &existing); client.IgnoreNotFound(err) != nil {
+		if err := r.Delete(ctx, &existing, client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
 			return false, fmt.Errorf("delete failed API key revocation Job %s/%s: %w", existing.Namespace, existing.Name, err)
 		}
-		return false, fmt.Errorf("%w: %s/%s", errTenantAPIKeyRevocationJobFailed, existing.Namespace, existing.Name)
+
+		log := ctrl.LoggerFrom(ctx)
+		attempts := r.incrementRevocationAttempts(ctx, aitenant)
+		if attempts >= maxRevocationAttempts {
+			log.Error(errTenantAPIKeyRevocationJobFailed,
+				"API key revocation failed after max attempts, proceeding with deletion",
+				"attempts", attempts, "tenant", aitenant.Name)
+			if r.Recorder != nil {
+				r.Recorder.Eventf(aitenant, "Warning", "APIKeyRevocationFailed",
+					"API key revocation failed after %d attempts; proceeding with tenant deletion. Keys may still be active.", attempts)
+			}
+			r.annotateNamespaceRevocationWarning(ctx, aitenant, attempts)
+			if err := r.markTenantAPIKeysRevoked(ctx, aitenant); err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+
+		return false, fmt.Errorf("%w: %s/%s (attempt %d/%d)",
+			errTenantAPIKeyRevocationJobFailed, existing.Namespace, existing.Name, attempts, maxRevocationAttempts)
 	}
 	return false, nil
 }
@@ -747,6 +777,35 @@ func (r *AITenantReconciler) markTenantAPIKeysRevoked(ctx context.Context, aiten
 		return fmt.Errorf("mark tenant API keys revoked on AITenant %s/%s: %w", aitenant.Namespace, aitenant.Name, err)
 	}
 	return nil
+}
+
+func (r *AITenantReconciler) incrementRevocationAttempts(ctx context.Context, aitenant *maasv1alpha1.AITenant) int {
+	current := 0
+	if v, ok := aitenant.Annotations[aitenantRevocationAttemptsAnnotation]; ok {
+		current, _ = strconv.Atoi(v)
+	}
+	current++
+	base := aitenant.DeepCopy()
+	setMapValue(&aitenant.Annotations, aitenantRevocationAttemptsAnnotation, strconv.Itoa(current))
+	if err := r.Patch(ctx, aitenant, client.MergeFrom(base)); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "failed to update revocation attempt counter")
+	}
+	return current
+}
+
+func (r *AITenantReconciler) annotateNamespaceRevocationWarning(ctx context.Context, aitenant *maasv1alpha1.AITenant, attempts int) {
+	nsName := r.tenantNamespaceName(aitenant)
+	var ns corev1.Namespace
+	if err := r.get(ctx, client.ObjectKey{Name: nsName}, &ns); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "failed to get tenant namespace for revocation warning", "namespace", nsName)
+		return
+	}
+	base := ns.DeepCopy()
+	setMapValue(&ns.Annotations, aitenantAPIKeysRevocationWarning,
+		fmt.Sprintf("API key revocation failed after %d attempts. Keys may still be active.", attempts))
+	if err := r.Patch(ctx, &ns, client.MergeFrom(base)); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "failed to annotate tenant namespace with revocation warning", "namespace", nsName)
+	}
 }
 
 func tenantAPIKeyRevocationJob(aitenant *maasv1alpha1.AITenant, namespace string) *batcv1.Job {
