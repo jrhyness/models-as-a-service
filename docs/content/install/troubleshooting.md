@@ -179,6 +179,7 @@ This guide helps you diagnose and resolve common issues with MaaS Platform deplo
 
       - [ ] If the error is `no endpoints available for service "maas-controller-webhook-service"`, follow the same webhook health checks as issue 14 above.
 
+<a id="16-management-endpoints-return-auth_failure-on-rhcl-v140"></a>
 16. **Management endpoints return `AUTH_FAILURE` on RHCL v1.4.0**: All management endpoints (`/v1/models`, `/v1/subscriptions`, `/v1/api-keys`) return `AUTH_FAILURE` while inference endpoints work. RHCL v1.4.0 contains a Wasm shim bug that prevents auth calls from reaching Authorino. Upstream Kuadrant (ODH) is not affected.
 
       - [ ] Confirm you are on RHCL v1.4.0:
