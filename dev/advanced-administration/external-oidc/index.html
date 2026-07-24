@@ -2131,6 +2131,56 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#configure-oidc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configure OIDC
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configure OIDC">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#multi-tenant-oidc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-tenant OIDC
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authentication-evaluation-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication evaluation order
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify configuration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#jwks-cache-ttl" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2147,17 +2197,6 @@
     <span class="md-ellipsis">
       
         IdP Outage Behavior
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#multi-tenant-ttl" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Multi-Tenant TTL
       
     </span>
   </a>
@@ -2205,6 +2244,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
   
 </li>
       
@@ -3187,6 +3237,56 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#configure-oidc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configure OIDC
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configure OIDC">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#multi-tenant-oidc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-tenant OIDC
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authentication-evaluation-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication evaluation order
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify configuration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#jwks-cache-ttl" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3203,17 +3303,6 @@
     <span class="md-ellipsis">
       
         IdP Outage Behavior
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#multi-tenant-ttl" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Multi-Tenant TTL
       
     </span>
   </a>
@@ -3264,6 +3353,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3290,18 +3390,114 @@
 <p class="admonition-title">Tech Preview</p>
 <p>OIDC JWT validation is optional alongside <code>kubernetesTokenReview</code>. Model routes rely on API-key auth; the typical flow is authenticate at <code>maas-api</code>, mint an API key, then use that key for discovery and inference.</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Dashboard limitation</p>
+<p>External OIDC users create API keys through the MaaS API (<code>curl</code> or other HTTP clients), not through the RHOAI Dashboard. The Dashboard path uses OpenShift OAuth (see <a href="../../concepts/auth-modes/">Authentication Modes</a>).</p>
+</div>
+<h2 id="configure-oidc">Configure OIDC</h2>
+<p>For <strong>AITenant-managed tenants</strong> (including the default tenant), set OIDC on the <code>AITenant</code> CR in the infrastructure namespace (<code>ai-tenants</code> by default):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maas.opendatahub.io/v1alpha1</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">AITenant</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">models-as-a-service</span><span class="w">   </span><span class="c1"># or your tenant name for additional tenants</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ai-tenants</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">oidc</span><span class="p">:</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">issuerUrl</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;https://keycloak.example.com/realms/maas&quot;</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="nt">clientId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maas-api</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="nt">ttl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span><span class="w">  </span><span class="c1"># optional: JWKS cache TTL in seconds (default 300, minimum 30)</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>issuerUrl</code></td>
+<td>Yes</td>
+<td>OIDC issuer URL (must be HTTPS). Must serve <code>/.well-known/openid-configuration</code>.</td>
+</tr>
+<tr>
+<td><code>clientId</code></td>
+<td>Yes</td>
+<td>OAuth2 client ID. Incoming tokens must carry an <code>azp</code> claim matching this value.</td>
+</tr>
+<tr>
+<td><code>ttl</code></td>
+<td>No</td>
+<td>JWKS cache duration in seconds (default <code>300</code>, minimum <code>30</code>).</td>
+</tr>
+</tbody>
+</table>
+<p>The controller propagates this configuration to the tenant's gateway-level <code>maas-gateway-auth</code> AuthPolicy in the gateway namespace. OIDC is <strong>not</strong> configured by patching route-level auth policies.</p>
+<p>For <strong>legacy unmanaged tenants</strong> (not backed by an <code>AITenant</code>), configure <code>Tenant.spec.externalOIDC</code> with the same field semantics. During upgrade, existing <code>Tenant/default-tenant.spec.externalOIDC</code> values are migrated to <code>AITenant/models-as-a-service.spec.oidc</code> automatically.</p>
+<p>See <a href="../../concepts/auth-modes/">Authentication Modes</a> for the full field alignment between <code>AITenant.spec.oidc</code> and <code>Tenant.spec.externalOIDC</code>, and <a href="../../reference/crds/ai-tenant/">AITenant CRD</a> for the authoritative schema.</p>
+<h3 id="multi-tenant-oidc">Multi-tenant OIDC</h3>
+<p>Each <code>AITenant</code> can reference its own Gateway and OIDC provider. Tokens from one tenant's IdP are validated only against that tenant's gateway AuthPolicy — a token issued by tenant A's provider must not authenticate on tenant B's gateway.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maas.opendatahub.io/v1alpha1</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">AITenant</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">team-a</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ai-tenants</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">gateway</span><span class="p">:</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">team-a</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="nt">oidc</span><span class="p">:</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">issuerUrl</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;https://keycloak.example.com/realms/team-a&quot;</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="nt">clientId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">team-a-client</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="nt">ttl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span><span class="w">  </span><span class="c1"># team-a uses aggressive JWKS refresh</span>
+</code></pre></div>
+<p>Group names in <code>MaaSSubscription</code> and <code>MaaSAuthPolicy</code> resources must match the group claims in that tenant's OIDC tokens exactly.</p>
+<p>See <a href="../../install/multi-tenant-setup/">Multi-Tenant Setup</a> and <a href="../../concepts/multi-tenancy/">Multi-Tenancy</a>.</p>
+<h2 id="authentication-evaluation-order">Authentication evaluation order</h2>
+<p>The gateway-level <code>maas-gateway-auth</code> AuthPolicy evaluates authenticators in priority order. A request succeeds when <strong>any</strong> matching authenticator validates the token:</p>
+<table>
+<thead>
+<tr>
+<th>Priority</th>
+<th>Authenticator</th>
+<th>Token pattern</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>API keys</td>
+<td><code>Bearer sk-oai-*</code></td>
+</tr>
+<tr>
+<td>1</td>
+<td>OIDC JWT</td>
+<td><code>Bearer</code> JWT (when OIDC is configured)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>OpenShift TokenReview</td>
+<td>Other <code>Bearer</code> tokens</td>
+</tr>
+</tbody>
+</table>
+<p>OIDC is evaluated <strong>before</strong> OpenShift TokenReview so external IdP JWTs are validated against JWKS rather than being sent to the Kubernetes API server TokenReview endpoint (which would fail for Keycloak tokens).</p>
+<h2 id="verify-configuration">Verify configuration</h2>
+<ol>
+<li>
+<p>Obtain a <strong>user access token</strong> from your IdP (authorization code, device, or password grant in lab environments). Do <strong>not</strong> use the OAuth2 client credentials grant — see <a href="#oauth2-client-credentials-out-of-scope">OAuth2 Client Credentials — out of scope</a> below.</p>
+</li>
+<li>
+<p>Call the MaaS management API:</p>
+</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer &lt;user-access-token&gt;&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>https://&lt;maas-gateway-url&gt;/maas-api/v1/models
+</code></pre></div>
+<p>If authentication succeeds, the API returns models available to the groups in your token. An empty list usually means the token is valid but the user has no matching subscription groups.</p>
+<p>For Keycloak-specific IdP setup and token generation examples, see <a href="../../samples/install/keycloak/README.md">Keycloak Configuration</a>.</p>
 <h2 id="jwks-cache-ttl">JWKS Cache TTL</h2>
 <p>Authorino validates OIDC tokens by fetching the IdP's JWKS (JSON Web Key Set). The <code>ttl</code> field controls how long Authorino caches the key set before re-fetching.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maas.opendatahub.io/v1alpha1</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Tenant</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default-tenant</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">externalOIDC</span><span class="p">:</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="nt">issuerUrl</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;https://keycloak.example.com/realms/maas&quot;</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">clientId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maas-api</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="nt">ttl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span><span class="w">  </span><span class="c1"># seconds (default)</span>
-</code></pre></div>
 <table>
 <thead>
 <tr>
@@ -3316,7 +3512,7 @@
 <td><code>ttl</code></td>
 <td>300</td>
 <td>30</td>
-<td>JWKS cache duration in seconds. CRD validation enforces the minimum.</td>
+<td>JWKS cache duration in seconds. CRD validation enforces the minimum; the controller also rejects values below 30 at reconcile time.</td>
 </tr>
 </tbody>
 </table>
@@ -3333,21 +3529,7 @@
 <li>The <code>ttl</code> controls refresh frequency, not cache expiration. Authorino does not evict cached keys on TTL expiry if the refresh fails.</li>
 <li>Tokens signed with keys that were <strong>never cached</strong> (e.g., a key added to the IdP after the last successful fetch) will fail validation until the IdP is reachable again.</li>
 </ul>
-<h3 id="multi-tenant-ttl">Multi-Tenant TTL</h3>
-<p>In multi-tenant deployments, each tenant configures TTL independently via its own Tenant CR. The controller applies the per-tenant TTL to that tenant's gateway-level AuthPolicy:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Tenant in ai-tenant-team-a namespace</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maas.opendatahub.io/v1alpha1</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Tenant</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default-tenant</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ai-tenant-team-a</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">externalOIDC</span><span class="p">:</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="nt">issuerUrl</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;https://keycloak.example.com/realms/team-a&quot;</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">clientId</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">team-a-client</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="nt">ttl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span><span class="w">  </span><span class="c1"># team-a uses aggressive refresh</span>
-</code></pre></div>
-<p>See <a href="../../reference/crds/tenant/">Tenant CRD reference</a> for all fields.</p>
+<p>In multi-tenant deployments, each tenant configures <code>ttl</code> independently on its owning <code>AITenant</code>. The controller applies the per-tenant TTL to that tenant's gateway-level AuthPolicy.</p>
 <h2 id="monitoring">Monitoring</h2>
 <p>Two PrometheusRule alerts monitor gateway authentication health. They cover all auth methods (OIDC/JWT, API key, TokenReview) because Authorino's <code>auth_server_authconfig_response_status</code> does not carry evaluator-level labels. They are deployed by <code>scripts/observability/install-observability.sh</code> (not by the kustomize base).</p>
 <table>
@@ -3376,7 +3558,8 @@
 <li>IdP (Keycloak/OIDC provider) is down or unreachable</li>
 <li>JWKS endpoint unreachable (network policy, DNS)</li>
 <li>Expired or revoked tokens in client applications</li>
-<li>Incorrect <code>clientId</code> in the Tenant CR</li>
+<li>Incorrect <code>clientId</code> in the <code>AITenant</code> CR</li>
+<li>Token <code>azp</code> claim does not match configured <code>clientId</code></li>
 </ul>
 <p><strong>Common causes of high latency:</strong></p>
 <ul>
@@ -3399,17 +3582,22 @@
 <tr>
 <td><strong>JWKS cache policy</strong></td>
 <td>MaaS controller + Authorino</td>
-<td><code>ttl</code> is propagated from the Tenant CR to Authorino's <code>jwt.ttl</code> field. Minimum 30 s enforced server-side in the controller (independent of CRD admission validation). See <a href="#jwks-cache-ttl">JWKS Cache TTL</a> above.</td>
+<td><code>ttl</code> is propagated from the <code>AITenant</code> (or legacy <code>Tenant</code>) CR to Authorino's <code>jwt.ttl</code> field. Minimum 30 s enforced server-side in the controller (independent of CRD admission validation). See <a href="#jwks-cache-ttl">JWKS Cache TTL</a> above.</td>
 </tr>
 <tr>
 <td><strong>Client secret handling</strong></td>
 <td>Not applicable</td>
-<td>MaaS external OIDC uses <strong>JWT bearer validation only</strong>. Tokens are validated against the IdP's public JWKS. No <code>client_secret</code> is required or stored at runtime. The <code>clientId</code> field in the Tenant CR is configuration, not a credential.</td>
+<td>MaaS external OIDC uses <strong>JWT bearer validation only</strong>. Tokens are validated against the IdP's public JWKS. No <code>client_secret</code> is required or stored at runtime. The <code>clientId</code> field is configuration, not a credential.</td>
 </tr>
 <tr>
 <td><strong>OAuth client binding (<code>azp</code> claim)</strong></td>
 <td>MaaS controller (gateway AuthPolicy)</td>
 <td>The generated <code>maas-gateway-auth</code> AuthPolicy includes an <code>oidc-client-bound</code> rule that checks <code>auth.identity.azp == clientId</code>. Tokens issued to a different OAuth client are rejected with 403, even if they share the same issuer. An <code>has(auth.identity.azp)</code> guard ensures OpenShift TokenReview identities (which carry no <code>azp</code> claim) are unaffected.</td>
+</tr>
+<tr>
+<td><strong>OIDC group claim sanitization</strong></td>
+<td>MaaS controller (gateway AuthPolicy)</td>
+<td>The <code>oidc-groups-safe</code> authorization rule rejects OIDC tokens whose <code>groups</code> claim contains characters outside <code>[A-Za-z0-9:._/-]</code>. This prevents malformed group names from reaching subscription selection or being serialized into identity headers. Ensure IdP group names match this pattern and your <code>MaaSSubscription</code> / <code>MaaSAuthPolicy</code> group entries.</td>
 </tr>
 <tr>
 <td><strong>SSRF on issuer URL</strong></td>
@@ -3430,6 +3618,13 @@
 </table>
 <h3 id="oauth2-client-credentials-out-of-scope">OAuth2 Client Credentials — out of scope</h3>
 <p>The <strong>OAuth2 Client Credentials</strong> (<code>grant_type=client_credentials</code>) flow is <strong>not supported</strong> in this GA release. MaaS external OIDC targets interactive/bearer JWT flows where end users authenticate against their corporate IdP and present access tokens. Machine-to-machine use cases should use <a href="../../concepts/api-key-authentication/">API keys</a> or a broker IdP that exchanges client credentials for bearer tokens compatible with the OIDC JWT path.</p>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="../../concepts/auth-modes/">Authentication Modes</a> — Dashboard vs standalone OIDC paths</li>
+<li><a href="../../samples/install/keycloak/README.md">Keycloak Configuration</a> — IdP setup and token generation</li>
+<li><a href="../../reference/crds/ai-tenant/">AITenant CRD</a> — Platform context including OIDC</li>
+<li><a href="../../user-guide/api-key-management/">API Key Management</a> — Minting keys after OIDC authentication</li>
+</ul>
 
 
 
@@ -3452,7 +3647,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 7, 2026 23:25:30 UTC">July 7, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 24, 2026 14:35:38 UTC">July 24, 2026</span>
   </span>
 
     
