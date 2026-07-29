@@ -600,12 +600,13 @@ func (r *MaaSAuthPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	if _, reconcileErr := r.reconcileGatewayAuthPolicy(ctx, log, string(modelAllowlistsJSON), oidc, xAPIKeyEnabled, tenantID, gatewayNs, gatewayName); reconcileErr != nil {
+	gwChanged, reconcileErr := r.reconcileGatewayAuthPolicy(ctx, log, string(modelAllowlistsJSON), oidc, xAPIKeyEnabled, tenantID, gatewayNs, gatewayName)
+	if reconcileErr != nil {
 		log.Error(reconcileErr, "failed to reconcile gateway AuthPolicy")
 		r.updateStatus(ctx, policy, maasv1alpha1.PhaseFailed, fmt.Sprintf("Failed to reconcile gateway AuthPolicy: %v", reconcileErr), statusSnapshot)
 		return ctrl.Result{}, reconcileErr
 	}
-	{
+	if gwChanged || legacyPolicyExists || policy.Status.Phase != maasv1alpha1.PhaseActive {
 		gatewayPolicyReady, readinessMessage, readinessErr := r.gatewayAuthPolicyReady(ctx, gatewayNs, gatewayName)
 		if readinessErr != nil {
 			log.Error(readinessErr, "failed to check gateway AuthPolicy readiness")
