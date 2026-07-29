@@ -1211,10 +1211,9 @@ allow {
 
 	return map[string]any{
 		"targetRef": map[string]any{
-			"group":     "gateway.networking.k8s.io",
-			"kind":      "Gateway",
-			"name":      gatewayName,
-			"namespace": gatewayNamespace,
+			"group": "gateway.networking.k8s.io",
+			"kind":  "Gateway",
+			"name":  gatewayName,
 		},
 		// "when" must live inside "defaults" (not at spec level) because Kuadrant treats
 		// top-level "when" as implicit defaults, which conflicts with explicit "defaults".
@@ -1280,6 +1279,69 @@ func (r *MaaSAuthPolicyReconciler) gatewayAuthPolicyReady(ctx context.Context, g
 		message = "Accepted and Enforced conditions are not both True"
 	}
 	return ready, message, nil
+}
+
+// specMatchesDesired reports whether the current spec (from the API server)
+// contains all fields present in the desired spec with equal values. Fields
+// added by the API server or its controllers (e.g. Kuadrant defaults like
+// "allValues", "strategy") are ignored — only the fields we explicitly set
+// are compared. Both sides are JSON-round-tripped first so Go type
+// differences (int64 vs float64) are normalised.
+func specMatchesDesired(desired, current map[string]any) bool {
+	desiredJSON, err := json.Marshal(desired)
+	if err != nil {
+		return false
+	}
+	currentJSON, err := json.Marshal(current)
+	if err != nil {
+		return false
+	}
+	var desiredNorm, currentNorm map[string]any
+	if err := json.Unmarshal(desiredJSON, &desiredNorm); err != nil {
+		return false
+	}
+	if err := json.Unmarshal(currentJSON, &currentNorm); err != nil {
+		return false
+	}
+	stripExtraFields(currentNorm, desiredNorm)
+	return reflect.DeepEqual(desiredNorm, currentNorm)
+}
+
+// stripExtraFields recursively removes keys from current that do not exist
+// in desired, so that server-added defaults do not cause false mismatches.
+func stripExtraFields(current, desired map[string]any) {
+	for k, cv := range current {
+		dv, exists := desired[k]
+		if !exists {
+			delete(current, k)
+			continue
+		}
+		if dMap, ok := dv.(map[string]any); ok {
+			if cMap, ok := cv.(map[string]any); ok {
+				stripExtraFields(cMap, dMap)
+			}
+		}
+		if dSlice, ok := dv.([]any); ok {
+			if cSlice, ok := cv.([]any); ok {
+				stripExtraFieldsSlice(cSlice, dSlice)
+			}
+		}
+	}
+}
+
+func stripExtraFieldsSlice(current, desired []any) {
+	for i := 0; i < len(current) && i < len(desired); i++ {
+		if dMap, ok := desired[i].(map[string]any); ok {
+			if cMap, ok := current[i].(map[string]any); ok {
+				stripExtraFields(cMap, dMap)
+			}
+		}
+		if dSlice, ok := desired[i].([]any); ok {
+			if cSlice, ok := current[i].([]any); ok {
+				stripExtraFieldsSlice(cSlice, dSlice)
+			}
+		}
+	}
 }
 
 // reconcileGatewayAuthPolicy creates or updates the singleton Gateway-level AuthPolicy in
@@ -1370,7 +1432,7 @@ func (r *MaaSAuthPolicyReconciler) reconcileGatewayAuthPolicy(
 		return false, nil
 	}
 
-	snapshot := existing.DeepCopy()
+	currentSpec, _, _ := unstructured.NestedMap(existing.Object, "spec")
 	if err := unstructured.SetNestedMap(existing.Object, spec, "spec"); err != nil {
 		return false, fmt.Errorf("failed to set gateway AuthPolicy spec for update: %w", err)
 	}
@@ -1379,7 +1441,7 @@ func (r *MaaSAuthPolicyReconciler) reconcileGatewayAuthPolicy(
 	if isTenantGateway {
 		setGatewayOwnerReference(gateway, existing)
 	}
-	if equality.Semantic.DeepEqual(snapshot.Object, existing.Object) {
+	if specMatchesDesired(spec, currentSpec) {
 		log.Info("gateway AuthPolicy unchanged, skipping update", "name", authPolicyName)
 		r.deleteGatewayDefaultAuthPolicy(ctx, log)
 		return false, nil
