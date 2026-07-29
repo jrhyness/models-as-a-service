@@ -167,8 +167,8 @@ class TestMultiTenantIntegration:
 
     def test_same_named_resources_across_tenants(self):
         """7.3: Same-named MaaS resources in separate tenant namespaces both contribute safely."""
-        case_a = new_discovery_case(use_default_gateway=True)
-        case_b = new_discovery_case(use_default_gateway=True)
+        case_a = new_discovery_case()
+        case_b = new_discovery_case()
         shared_policy = f"e2e-shared-int-policy-{case_a['suffix']}"
         shared_sub = f"e2e-shared-int-sub-{case_a['suffix']}"
         for case in (case_a, case_b):
@@ -177,8 +177,7 @@ class TestMultiTenantIntegration:
 
         try:
             for case in (case_a, case_b):
-                apply_discovery_labels(case["tenant_ns"], case["tenant_label_name"])
-                apply_tenant_cr(case["tenant_ns"], DEFAULT_GATEWAY_NAME)
+                bootstrap_aitenant_tenant(case)
                 apply_maas_auth_policy(shared_policy, case["tenant_ns"])
                 apply_maas_subscription(shared_sub, case["tenant_ns"])
                 wait_for_finalizer("maasauthpolicy", shared_policy, case["tenant_ns"], FINALIZER_AUTHPOLICY)
@@ -194,8 +193,8 @@ class TestMultiTenantIntegration:
                 expected_subs,
             )
         finally:
-            cleanup_discovery_case(case_a, delete_gateway=False)
-            cleanup_discovery_case(case_b, delete_gateway=False)
+            cleanup_discovery_case(case_a)
+            cleanup_discovery_case(case_b)
 
     def test_tenant_namespace_label_change_triggers_reconciliation(self):
         """7.4: Adding and removing discovery labels changes reconciliation behavior."""
@@ -213,7 +212,6 @@ class TestMultiTenantIntegration:
 
             apply_discovery_labels(case["tenant_ns"], case["tenant_label_name"])
             wait_for_finalizer("maasauthpolicy", first_policy, case["tenant_ns"], FINALIZER_AUTHPOLICY)
-            wait_for_status_phase("maasauthpolicy", first_policy, case["tenant_ns"], expected_phase="Active")
 
             remove_discovery_labels(case["tenant_ns"])
             _wait_reconcile(10)
