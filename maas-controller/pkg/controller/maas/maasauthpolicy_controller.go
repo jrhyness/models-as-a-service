@@ -600,12 +600,12 @@ func (r *MaaSAuthPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	if err := r.reconcileGatewayAuthPolicy(ctx, log, string(modelAllowlistsJSON), oidc, xAPIKeyEnabled, tenantID, gatewayNs, gatewayName); err != nil {
-		log.Error(err, "failed to reconcile gateway AuthPolicy")
-		r.updateStatus(ctx, policy, maasv1alpha1.PhaseFailed, fmt.Sprintf("Failed to reconcile gateway AuthPolicy: %v", err), statusSnapshot)
-		return ctrl.Result{}, err
+	if _, reconcileErr := r.reconcileGatewayAuthPolicy(ctx, log, string(modelAllowlistsJSON), oidc, xAPIKeyEnabled, tenantID, gatewayNs, gatewayName); reconcileErr != nil {
+		log.Error(reconcileErr, "failed to reconcile gateway AuthPolicy")
+		r.updateStatus(ctx, policy, maasv1alpha1.PhaseFailed, fmt.Sprintf("Failed to reconcile gateway AuthPolicy: %v", reconcileErr), statusSnapshot)
+		return ctrl.Result{}, reconcileErr
 	}
-	if legacyPolicyExists {
+	{
 		gatewayPolicyReady, readinessMessage, readinessErr := r.gatewayAuthPolicyReady(ctx, gatewayNs, gatewayName)
 		if readinessErr != nil {
 			log.Error(readinessErr, "failed to check gateway AuthPolicy readiness")
@@ -614,7 +614,7 @@ func (r *MaaSAuthPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 		if !gatewayPolicyReady {
 			message := fmt.Sprintf(
-				"Waiting for gateway AuthPolicy %s/%s to be accepted and enforced before removing the working legacy AuthPolicy: %s",
+				"Waiting for gateway AuthPolicy %s/%s to be accepted and enforced: %s",
 				gatewayNs,
 				r.gatewayAuthPolicyName(gatewayNs, gatewayName),
 				readinessMessage,
@@ -1283,7 +1283,10 @@ func (r *MaaSAuthPolicyReconciler) gatewayAuthPolicyReady(ctx context.Context, g
 
 // reconcileGatewayAuthPolicy creates or updates the singleton Gateway-level AuthPolicy in
 // the gateway namespace. All MaaSAuthPolicy reconciliations converge on this one resource.
-func (r *MaaSAuthPolicyReconciler) reconcileGatewayAuthPolicy(ctx context.Context, log logr.Logger, modelAccessJSON string, oidc *oidcConfig, xAPIKeyEnabled bool, tenantID, gatewayNamespace, gatewayName string) error {
+func (r *MaaSAuthPolicyReconciler) reconcileGatewayAuthPolicy(
+	ctx context.Context, log logr.Logger, modelAccessJSON string,
+	oidc *oidcConfig, xAPIKeyEnabled bool, tenantID, gatewayNamespace, gatewayName string,
+) (bool, error) {
 	log.Info("reconcileGatewayAuthPolicy entered", "gatewayNamespace", gatewayNamespace, "gatewayName", gatewayName, "tenantID", tenantID, "xAPIKeyEnabled", xAPIKeyEnabled)
 
 	// Calculate tenantName from tenantID
@@ -1316,7 +1319,7 @@ func (r *MaaSAuthPolicyReconciler) reconcileGatewayAuthPolicy(ctx context.Contex
 	existing.SetGroupVersionKind(gwPolicy.GroupVersionKind())
 	err := r.Get(ctx, client.ObjectKeyFromObject(gwPolicy), existing)
 	if err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to get gateway AuthPolicy: %w", err)
+		return false, fmt.Errorf("failed to get gateway AuthPolicy: %w", err)
 	}
 	existingFound := err == nil
 
@@ -1334,14 +1337,14 @@ func (r *MaaSAuthPolicyReconciler) reconcileGatewayAuthPolicy(ctx context.Contex
 				// delete it to prevent orphaned resources.
 				if existingFound && isManaged(existing) {
 					if delErr := r.Delete(ctx, existing); delErr != nil {
-						return fmt.Errorf("failed to delete stale tenant gateway AuthPolicy %s/%s: %w", gatewayNamespace, authPolicyName, delErr)
+						return false, fmt.Errorf("failed to delete stale tenant gateway AuthPolicy %s/%s: %w", gatewayNamespace, authPolicyName, delErr)
 					}
 					log.Info("deleted stale tenant gateway AuthPolicy (Gateway no longer exists)", "name", authPolicyName, "namespace", gatewayNamespace)
 				}
 				// Nothing to create or update without a Gateway.
-				return nil
+				return false, nil
 			}
-			return fmt.Errorf("failed to get Gateway %s/%s for OwnerReference: %w", gatewayNamespace, gatewayName, gwErr)
+			return false, fmt.Errorf("failed to get Gateway %s/%s for OwnerReference: %w", gatewayNamespace, gatewayName, gwErr)
 		}
 	}
 
@@ -1351,24 +1354,24 @@ func (r *MaaSAuthPolicyReconciler) reconcileGatewayAuthPolicy(ctx context.Contex
 			setGatewayOwnerReference(gateway, gwPolicy)
 		}
 		if err := unstructured.SetNestedMap(gwPolicy.Object, spec, "spec"); err != nil {
-			return fmt.Errorf("failed to set gateway AuthPolicy spec: %w", err)
+			return false, fmt.Errorf("failed to set gateway AuthPolicy spec: %w", err)
 		}
 		if err := r.Create(ctx, gwPolicy); err != nil {
-			return fmt.Errorf("failed to create gateway AuthPolicy: %w", err)
+			return false, fmt.Errorf("failed to create gateway AuthPolicy: %w", err)
 		}
 		log.Info("gateway AuthPolicy created", "name", authPolicyName, "namespace", gatewayNamespace)
 		r.deleteGatewayDefaultAuthPolicy(ctx, log)
-		return nil
+		return true, nil
 	}
 
 	if !isManaged(existing) {
 		log.Info("gateway AuthPolicy opted out of management, skipping", "name", authPolicyName)
-		return nil
+		return false, nil
 	}
 
 	snapshot := existing.DeepCopy()
 	if err := unstructured.SetNestedMap(existing.Object, spec, "spec"); err != nil {
-		return fmt.Errorf("failed to set gateway AuthPolicy spec for update: %w", err)
+		return false, fmt.Errorf("failed to set gateway AuthPolicy spec for update: %w", err)
 	}
 	// Ensure OwnerReferences are set on existing tenant gateway AuthPolicies
 	// (handles upgrade from pre-ownerref versions).
@@ -1378,14 +1381,14 @@ func (r *MaaSAuthPolicyReconciler) reconcileGatewayAuthPolicy(ctx context.Contex
 	if equality.Semantic.DeepEqual(snapshot.Object, existing.Object) {
 		log.Info("gateway AuthPolicy unchanged, skipping update", "name", authPolicyName)
 		r.deleteGatewayDefaultAuthPolicy(ctx, log)
-		return nil
+		return false, nil
 	}
 	if err := r.Update(ctx, existing); err != nil {
-		return fmt.Errorf("failed to update gateway AuthPolicy: %w", err)
+		return false, fmt.Errorf("failed to update gateway AuthPolicy: %w", err)
 	}
 	log.Info("gateway AuthPolicy updated", "name", authPolicyName, "namespace", gatewayNamespace)
 	r.deleteGatewayDefaultAuthPolicy(ctx, log)
-	return nil
+	return true, nil
 }
 
 // reconcileModelAuthPolicies creates or updates the per-model group-membership AuthPolicy for
