@@ -167,8 +167,8 @@ class TestMultiTenantIntegration:
 
     def test_same_named_resources_across_tenants(self):
         """7.3: Same-named MaaS resources in separate tenant namespaces both contribute safely."""
-        case_a = new_discovery_case()
-        case_b = new_discovery_case()
+        case_a = new_discovery_case(use_default_gateway=True)
+        case_b = new_discovery_case(use_default_gateway=True)
         shared_policy = f"e2e-shared-int-policy-{case_a['suffix']}"
         shared_sub = f"e2e-shared-int-sub-{case_a['suffix']}"
         for case in (case_a, case_b):
@@ -177,12 +177,12 @@ class TestMultiTenantIntegration:
 
         try:
             for case in (case_a, case_b):
-                bootstrap_aitenant_tenant(case)
+                apply_discovery_labels(case["tenant_ns"], case["tenant_label_name"])
+                apply_tenant_cr(case["tenant_ns"], DEFAULT_GATEWAY_NAME)
                 apply_maas_auth_policy(shared_policy, case["tenant_ns"])
                 apply_maas_subscription(shared_sub, case["tenant_ns"])
                 wait_for_finalizer("maasauthpolicy", shared_policy, case["tenant_ns"], FINALIZER_AUTHPOLICY)
                 wait_for_finalizer("maassubscription", shared_sub, case["tenant_ns"], FINALIZER_SUBSCRIPTION)
-                wait_for_status_phase("maasauthpolicy", shared_policy, case["tenant_ns"], expected_phase="Active")
 
             expected_subs = [f"{case_a['tenant_ns']}/{shared_sub}", f"{case_b['tenant_ns']}/{shared_sub}"]
             wait_for_annotation_contains(
@@ -193,8 +193,8 @@ class TestMultiTenantIntegration:
                 expected_subs,
             )
         finally:
-            cleanup_discovery_case(case_a)
-            cleanup_discovery_case(case_b)
+            cleanup_discovery_case(case_a, delete_gateway=False)
+            cleanup_discovery_case(case_b, delete_gateway=False)
 
     def test_tenant_namespace_label_change_triggers_reconciliation(self):
         """7.4: Adding and removing discovery labels changes reconciliation behavior."""

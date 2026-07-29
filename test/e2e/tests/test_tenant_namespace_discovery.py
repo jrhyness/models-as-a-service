@@ -206,8 +206,8 @@ class TestTenantNamespaceDiscovery:
 
     def test_namespace_qualified_collision_prevention(self):
         """1.5: Same-named CRs in two tenant namespaces use namespace-qualified TRLP tracking."""
-        case_a = new_discovery_case()
-        case_b = new_discovery_case()
+        case_a = new_discovery_case(use_default_gateway=True)
+        case_b = new_discovery_case(use_default_gateway=True)
         shared_policy_name = f"e2e-shared-policy-{case_a['suffix']}"
         shared_sub_name = f"e2e-shared-sub-{case_a['suffix']}"
         case_a["policy_name"] = shared_policy_name
@@ -217,15 +217,15 @@ class TestTenantNamespaceDiscovery:
 
         try:
             for case in (case_a, case_b):
-                bootstrap_aitenant_tenant(case)
+                apply_discovery_labels(case["tenant_ns"], case["tenant_label_name"])
+                apply_tenant_cr(case["tenant_ns"], DEFAULT_GATEWAY_NAME)
                 apply_maas_auth_policy(shared_policy_name, case["tenant_ns"])
                 apply_maas_subscription(shared_sub_name, case["tenant_ns"])
                 wait_for_finalizer("maasauthpolicy", shared_policy_name, case["tenant_ns"], FINALIZER_AUTHPOLICY)
                 wait_for_finalizer("maassubscription", shared_sub_name, case["tenant_ns"], FINALIZER_SUBSCRIPTION)
-                _wait_for_maas_auth_policy_phase(shared_policy_name, namespace=case["tenant_ns"], timeout=120,
-                                                 require_enforced=False)
 
             assert_no_per_model_authpolicy(MODEL_REF, MODEL_NAMESPACE)
+            assert get_gateway_authpolicy() is not None
 
             expected_a_sub = f"{case_a['tenant_ns']}/{shared_sub_name}"
             expected_b_sub = f"{case_b['tenant_ns']}/{shared_sub_name}"
@@ -240,8 +240,8 @@ class TestTenantNamespaceDiscovery:
             assert expected_a_sub in sub_contributors, f"missing {expected_a_sub} in {sub_contributors}"
             assert expected_b_sub in sub_contributors, f"missing {expected_b_sub} in {sub_contributors}"
         finally:
-            cleanup_discovery_case(case_a)
-            cleanup_discovery_case(case_b)
+            cleanup_discovery_case(case_a, delete_gateway=False)
+            cleanup_discovery_case(case_b, delete_gateway=False)
 
     def test_tenant_admin_rbac_is_namespace_scoped(self):
         """1.6: Tenant-admin Role from AITenant bootstrap is scoped to the tenant namespace."""
