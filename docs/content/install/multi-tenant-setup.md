@@ -226,25 +226,30 @@ See [Tenant RBAC](../configuration-and-management/tenant-rbac.md) for examples w
 
 ## 5. Configure Models
 
-Create MaaS resources in the tenant namespace to expose models:
+Create the MaaSModelRef in the **model namespace** (co-located with the backend resource) and use `tenantRef` to associate it with the tenant's gateway. MaaSAuthPolicy and MaaSSubscription must be created in the **tenant namespace** (where the MaasTenantConfig CR lives).
 
 ```bash
 TENANT_NS="ai-tenant-${TENANT_NAME}"
+MODEL_NS="llm"   # namespace where the LLMInferenceService runs
 
-# Create a MaaSModelRef
+# Create a MaaSModelRef in the model namespace.
+# tenantRef tells the controller to resolve the gateway from this AITenant
+# instead of using namespace-based inference (which defaults to the default tenant).
 cat <<EOF | oc apply -f -
 apiVersion: maas.opendatahub.io/v1alpha1
 kind: MaaSModelRef
 metadata:
   name: my-model
-  namespace: ${TENANT_NS}
+  namespace: ${MODEL_NS}
 spec:
   modelRef:
+    kind: LLMInferenceService
     name: my-llm-inference-service
-    namespace: llm
+  tenantRef: ${TENANT_NAME}
 EOF
 
-# Create a MaaSAuthPolicy
+# Create a MaaSAuthPolicy in the tenant namespace.
+# modelRefs point to the MaaSModelRef by name and namespace.
 cat <<EOF | oc apply -f -
 apiVersion: maas.opendatahub.io/v1alpha1
 kind: MaaSAuthPolicy
@@ -254,14 +259,14 @@ metadata:
 spec:
   modelRefs:
     - name: my-model
-      namespace: ${TENANT_NS}
+      namespace: ${MODEL_NS}
   subjects:
     groups:
       - name: system:authenticated
     users: []
 EOF
 
-# Create a MaaSSubscription
+# Create a MaaSSubscription in the tenant namespace.
 cat <<EOF | oc apply -f -
 apiVersion: maas.opendatahub.io/v1alpha1
 kind: MaaSSubscription
@@ -275,7 +280,7 @@ spec:
     users: []
   modelRefs:
     - name: my-model
-      namespace: ${TENANT_NS}
+      namespace: ${MODEL_NS}
       tokenRateLimits:
         - limit: 1000
           window: 1m
@@ -283,7 +288,10 @@ EOF
 ```
 
 !!! note
-    MaaSAuthPolicy and MaaSSubscription must be created in a namespace that contains a `Tenant` CR. The admission webhook rejects them otherwise.
+    MaaSAuthPolicy and MaaSSubscription must be created in a namespace that contains a `MaasTenantConfig` CR. The admission webhook rejects them otherwise.
+
+!!! tip "MaaSModelRef for the default tenant"
+    For models that belong to the default tenant, `tenantRef` can be omitted. The controller falls back to namespace-based gateway resolution. See [MaaSModelRef CRD Reference](../reference/crds/maas-model-ref.md#multi-tenant-models) for details.
 
 ## Webhook Validation
 
