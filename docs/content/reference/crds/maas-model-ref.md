@@ -109,7 +109,7 @@ By default, the controller resolves the gateway for a MaaSModelRef using namespa
 
 In multi-tenant deployments, models often live in a shared namespace (e.g. `llm`) but need to route through a specific tenant's gateway. Set `spec.tenantRef` to the name of the AITenant. The controller looks up the AITenant in the AITenant namespace and uses its gateway directly.
 
-A validating webhook rejects `tenantRef` values that do not match an existing AITenant. The value must be a valid DNS-1123 label (max 253 characters).
+A validating webhook rejects `tenantRef` values that do not match an existing AITenant. The value must use lowercase alphanumeric characters and hyphens (matching the CRD pattern `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`) and be no longer than 253 characters.
 
 **Example:**
 ```yaml
@@ -144,7 +144,7 @@ For step-by-step instructions, see [Multi-Tenant Setup — Configure Models](../
 | httpRouteGatewayName | string | Name of the Gateway that the HTTPRoute references |
 | httpRouteGatewayNamespace | string | Namespace of the Gateway that the HTTPRoute references |
 | httpRouteHostnames | []string | Hostnames configured on the HTTPRoute |
-| resolvedTenantRef | string | Name of the AITenant the model was resolved to. Set from `spec.tenantRef` when provided; empty for default-tenant models. |
+| resolvedTenantRef | string | The explicitly selected AITenant from `spec.tenantRef`; empty when `tenantRef` is omitted and namespace-based resolution is used. |
 | conditions | []Condition | Latest observations of the model's state |
 
 ---

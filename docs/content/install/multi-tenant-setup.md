@@ -227,6 +227,10 @@ Create the MaaSModelRef in the **model namespace** (co-located with the backend 
 TENANT_NS="ai-tenant-${TENANT_NAME}"
 MODEL_NS="llm"   # namespace where the LLMInferenceService runs
 
+# The model namespace must carry the tenant Gateway's access label
+# so the controller-generated HTTPRoute can attach.
+oc label namespace "${MODEL_NS}" "maas.opendatahub.io/gateway-access-${TENANT_NAME}=true" --overwrite
+
 # Create a MaaSModelRef in the model namespace.
 # tenantRef tells the controller to resolve the gateway from this AITenant
 # instead of using namespace-based inference (which defaults to the default tenant).
@@ -300,7 +304,7 @@ The AITenant admission webhook enforces two rules:
 
 ### Self-Bootstrap
 
-On startup, the controller automatically creates `AITenant/models-as-a-service` in the infrastructure namespace for the default tenant. This AITenant bootstraps the default tenant namespace and MaaSTenantConfig CR.
+On startup, the controller automatically creates `AITenant/models-as-a-service` in the infrastructure namespace for the default tenant. This AITenant bootstraps the default tenant namespace and `MaasTenantConfig` CR.
 
 ### Namespace Discovery
 
