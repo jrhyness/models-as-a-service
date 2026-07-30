@@ -323,6 +323,8 @@ deploy_maas_platform() {
     # Note: ODH/catalog already installed by install-odh.sh; deploy.sh will skip duplicate installs
     # CI Postgres pods do not have TLS; override sslmode to avoid connection failures.
     export DB_SSLMODE="${DB_SSLMODE:-disable}"
+    # deploy.sh includes MODEL_NAMESPACE in Gateway allowedRoutes when exported
+    export MODEL_NAMESPACE
     local deploy_cmd=(
         "$PROJECT_ROOT/scripts/deploy.sh"
         --deployment-mode "${DEPLOY_MODE}"
@@ -849,6 +851,7 @@ run_e2e_tests() {
         "$test_dir/tests/test_config_tenant.py" \
         "$test_dir/tests/test_tenant_discovery.py" \
         "$test_dir/tests/test_tenant_discovery_isolation.py" \
+        "$test_dir/tests/test_per_tenant_ipp_isolation.py" \
         "$test_dir/tests/test_external_oidc.py" ; then
         echo "❌ ERROR: E2E tests failed"
         exit 1

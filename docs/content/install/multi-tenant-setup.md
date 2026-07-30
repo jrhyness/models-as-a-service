@@ -15,7 +15,12 @@ Before creating additional tenants:
 
 Each AITenant requires a dedicated Gateway. Gateways cannot be shared between AITenants.
 
-Get the cluster domain and create the Gateway:
+Get the cluster domain and create the Gateway.
+
+The Gateway uses a per-tenant label selector for `allowedRoutes` so only explicitly
+labelled namespaces can attach HTTPRoutes — more secure than `from: All`. Label each
+namespace that needs access (infra namespace, model namespaces) before or after Gateway
+creation:
 
 ```bash
 TENANT_NAME="red-team"
@@ -23,6 +28,14 @@ CLUSTER_DOMAIN=$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spe
 GATEWAY_HOSTNAME="${TENANT_NAME}-maas.${CLUSTER_DOMAIN}"
 GATEWAY_NAMESPACE="openshift-ingress"
 CERT_NAME="router-certs-default"
+GATEWAY_ACCESS_LABEL="maas.opendatahub.io/gateway-access-${TENANT_NAME}"
+
+# Label the namespaces that need to attach HTTPRoutes to this tenant Gateway.
+# At minimum: the infrastructure namespace where maas-api is deployed.
+# Also label any model namespaces (e.g. llm) where LLMInferenceServices run.
+INFRA_NS="odh-ai-gateway-infra"   # adjust if using RHOAI (redhat-ai-gateway-infra)
+oc label namespace "${INFRA_NS}" "${GATEWAY_ACCESS_LABEL}=true" --overwrite
+# oc label namespace llm "${GATEWAY_ACCESS_LABEL}=true" --overwrite  # repeat for model namespaces
 
 cat <<EOF | oc apply -f -
 apiVersion: gateway.networking.k8s.io/v1
@@ -47,14 +60,20 @@ spec:
       protocol: HTTP
       allowedRoutes:
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchLabels:
+              ${GATEWAY_ACCESS_LABEL}: "true"
     - name: https
       hostname: ${GATEWAY_HOSTNAME}
       port: 443
       protocol: HTTPS
       allowedRoutes:
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchLabels:
+              ${GATEWAY_ACCESS_LABEL}: "true"
       tls:
         mode: Terminate
         certificateRefs:
@@ -101,9 +120,17 @@ oc get gateway ${TENANT_NAME} -n ${GATEWAY_NAMESPACE}
 ```
 
 !!! tip "Automated script"
-    The `scripts/create-ai-tenant.sh` script automates Gateway, Route, and AITenant creation:
+    The `scripts/create-ai-tenant.sh` script automates Gateway, Route, and AITenant creation.
+    For multi-tenant deployments use the per-gateway label selector and label namespaces manually:
     ```bash
-    ./scripts/create-ai-tenant.sh red-team
+    NAMESPACE_SELECTOR_LABELS="maas.opendatahub.io/gateway-access-red-team=true" \
+      ./scripts/create-ai-tenant.sh red-team
+    ```
+    Then label the infra namespace and any model namespaces:
+    ```bash
+    oc label namespace odh-ai-gateway-infra \
+      maas.opendatahub.io/gateway-access-red-team=true --overwrite
+    # oc label namespace llm maas.opendatahub.io/gateway-access-red-team=true --overwrite
     ```
 
 ## 2. Create the AITenant CR
@@ -117,8 +144,19 @@ kind: AITenant
 metadata:
   name: ${TENANT_NAME}
   namespace: ai-tenants
+spec:
+  gateway:
+    name: ${TENANT_NAME}
+  # Optional: configure an external OIDC provider for this tenant.
+  # Each tenant can use a different IdP realm/client. Omit to rely on OpenShift TokenReview only.
+  # oidc:
+  #   issuerUrl: "https://keycloak.example.com/realms/${TENANT_NAME}"
+  #   clientId: ${TENANT_NAME}-maas
+  #   ttl: 300
 EOF
 ```
+
+For OIDC configuration details, per-tenant isolation, and verification steps, see [External OIDC Configuration](../advanced-administration/external-oidc.md).
 
 The controller bootstraps the following resources:
 
@@ -297,6 +335,11 @@ The controller finalizer cleans up:
     ```bash
     ./scripts/delete-ai-tenant.sh red-team
     ```
+
+## Known Limitations
+
+!!! warning "External models are only supported for the default tenant"
+    External models work for the default tenant only. Non-default tenant IPP instances have the ExternalModel controller disabled to prevent HTTPRoute conflicts. See [External Model Setup — Multi-Tenant Limitation](external-model-setup.md#multi-tenant-limitation) for details.
 
 ## See Also
 

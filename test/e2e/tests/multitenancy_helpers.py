@@ -16,6 +16,8 @@ import requests
 
 from test_helper import (
     DEPLOYMENT_NAMESPACE,
+    GATEWAY_PROPAGATION_DELAY,
+    GATEWAY_PROPAGATION_RETRIES,
     MAAS_API_DEPLOYMENT_NAMESPACE,
     MODEL_NAMESPACE,
     MODEL_REF,
@@ -24,6 +26,7 @@ from test_helper import (
     _apply_cr,
     _delete_cr,
     _ns,
+    _request_with_gateway_retry,
     _wait_reconcile,
 )
 
@@ -36,8 +39,11 @@ LABEL_AI_GATEWAY_TENANT = "ai-gateway.opendatahub.io/tenant"
 LABEL_MANAGED_BY_AITENANT = "maas.opendatahub.io/managed-by-aitenant"
 LABEL_TENANT_NAME = "maas.opendatahub.io/tenant-name"
 LABEL_TENANT_NAMESPACE = "maas.opendatahub.io/tenant-namespace"
+LABEL_TENANT_INSTANCE = "maas.opendatahub.io/tenant-instance"
 ANNOTATION_AITENANT_NAME = "maas.opendatahub.io/aitenant-name"
 ANNOTATION_AITENANT_NAMESPACE = "maas.opendatahub.io/aitenant-namespace"
+
+DEFAULT_AITENANT_NAME = "models-as-a-service"
 
 FINALIZER_SUBSCRIPTION = "maas.opendatahub.io/subscription-cleanup"
 FINALIZER_AUTHPOLICY = "maas.opendatahub.io/authpolicy-cleanup"
@@ -293,6 +299,29 @@ def wait_for_status_condition(
         return False
 
     return wait_for_json(kind, name, namespace, predicate=_predicate, timeout=timeout, interval=interval)
+
+
+def wait_for_gateway_authpolicy_ready(
+    gateway_name: str,
+    namespace: str = GATEWAY_NAMESPACE,
+    *,
+    timeout: int = 120,
+) -> dict:
+    """Wait for the gateway AuthPolicy to be both Accepted and Enforced."""
+    auth_name = per_tenant_gateway_policy_names(gateway_name, gateway_name)["gateway_authpolicy"]
+
+    def _predicate(obj: dict) -> bool:
+        conditions = (obj.get("status") or {}).get("conditions") or []
+        accepted = False
+        enforced = False
+        for c in conditions:
+            if c.get("type") == "Accepted" and c.get("status") == "True":
+                accepted = True
+            if c.get("type") == "Enforced" and c.get("status") == "True":
+                enforced = True
+        return accepted and enforced
+
+    return wait_for_json("authpolicy", auth_name, namespace, predicate=_predicate, timeout=timeout)
 
 
 def wait_for_deployment_available(name: str, namespace: str = INFRA_NAMESPACE, *, timeout: int = 180) -> dict:
@@ -653,10 +682,11 @@ def wait_for_httproute_accepted(
             parent_namespace = parent_ref.get("namespace") or gateway_namespace
             if parent_ref.get("name") != gateway_name or parent_namespace != gateway_namespace:
                 continue
-            return any(
+            if any(
                 condition.get("type") == "Accepted" and condition.get("status") == "True"
                 for condition in parent.get("conditions") or []
-            )
+            ):
+                return True
         return False
 
     return wait_for_json("httproute", route_name, namespace, predicate=_predicate, timeout=timeout, interval=interval)
@@ -896,6 +926,8 @@ def make_tenant_model_accessible(
     window: str = "1m",
     priority: Optional[int] = None,
     trlp_timeout: int = 120,
+    gateway_name: str | None = None,
+    gateway_namespace: str = GATEWAY_NAMESPACE,
 ) -> None:
     """Make a deployed tenant model accessible per ADR MS-0003 (tenant admin role).
 
@@ -917,6 +949,8 @@ def make_tenant_model_accessible(
         tenant_namespace,
         expected_phase="Active",
     )
+    if gateway_name is not None:
+        wait_for_gateway_authpolicy_ready(gateway_name, namespace=gateway_namespace)
     apply_maas_subscription(
         subscription_name,
         tenant_namespace,
@@ -1003,6 +1037,91 @@ def per_tenant_resource_name(base_name: str, tenant_name: str) -> str:
     return f"{base_name}-{tenant_name}"
 
 
+def ipp_tenant_id(tenant_name: str) -> str:
+    """Return the tenant ID used for IPP resource suffixes (empty for default tenant)."""
+    if not tenant_name or tenant_name == DEFAULT_AITENANT_NAME:
+        return ""
+    return tenant_name
+
+
+def per_tenant_ipp_names(tenant_name: str) -> dict[str, str]:
+    """Return per-tenant IPP resource names in the gateway namespace."""
+    tenant_id = ipp_tenant_id(tenant_name)
+    return {
+        "processing_deployment": per_tenant_resource_name("payload-processing", tenant_id),
+        "pre_processing_deployment": per_tenant_resource_name("payload-pre-processing", tenant_id),
+        "processing_service": per_tenant_resource_name("payload-processing", tenant_id),
+        "pre_processing_service": per_tenant_resource_name("payload-pre-processing", tenant_id),
+        "envoyfilter": per_tenant_resource_name("payload-processing", tenant_id),
+        "plugins_configmap": per_tenant_resource_name("payload-processing-plugins", tenant_id),
+        "serviceaccount": per_tenant_resource_name("payload-processing", tenant_id),
+        "networkpolicy": per_tenant_resource_name("payload-processing", tenant_id),
+        "clusterrolebinding": per_tenant_resource_name("payload-processing-reader", tenant_id),
+    }
+
+
+def wait_for_per_tenant_ipp_ready(case: dict[str, str], *, timeout: int = 240) -> dict[str, str]:
+    """Wait until tenant-scoped IPP Deployments and EnvoyFilter exist in the gateway namespace."""
+    names = per_tenant_ipp_names(case["tenant_label_name"])
+    wait_for_deployment_available(names["processing_deployment"], GATEWAY_NAMESPACE, timeout=timeout)
+    wait_for_deployment_available(names["pre_processing_deployment"], GATEWAY_NAMESPACE, timeout=timeout)
+    wait_for_json("envoyfilter", names["envoyfilter"], GATEWAY_NAMESPACE, timeout=timeout)
+    return names
+
+
+def get_ipp_deployment_env(deployment_name: str, namespace: str = GATEWAY_NAMESPACE) -> dict[str, str]:
+    return deployment_env(deployment_name, namespace)
+
+
+def envoyfilter_target_gateway(name: str, namespace: str = GATEWAY_NAMESPACE) -> str:
+    envoyfilter = get_json_or_none("envoyfilter", name, namespace)
+    if not envoyfilter:
+        return ""
+    spec = envoyfilter.get("spec") or {}
+    target_refs = spec.get("targetRefs") or []
+    if target_refs:
+        return target_refs[0].get("name") or ""
+    return (spec.get("targetRef") or {}).get("name") or ""
+
+
+def envoyfilter_grpc_cluster_names(envoyfilter: dict) -> list[str]:
+    names: list[str] = []
+
+    def walk(obj):
+        if isinstance(obj, dict):
+            cluster_name = obj.get("cluster_name")
+            if isinstance(cluster_name, str):
+                names.append(cluster_name)
+            for value in obj.values():
+                walk(value)
+        elif isinstance(obj, list):
+            for item in obj:
+                walk(item)
+
+    walk(envoyfilter)
+    return names
+
+
+def deployment_log_snapshot(
+    deployment_name: str,
+    *,
+    namespace: str = GATEWAY_NAMESPACE,
+    since: str = "30s",
+) -> str:
+    result = _oc_run(
+        ["logs", f"deployment/{deployment_name}", "-n", namespace, f"--since={since}"],
+        timeout=120,
+    )
+    if result.returncode != 0:
+        return ""
+    return result.stdout or ""
+
+
+def ipp_logs_show_recent_activity(log_text: str) -> bool:
+    markers = ("x-request-id", "handlers/server.go", "processing request headers")
+    return any(marker in log_text for marker in markers)
+
+
 def per_tenant_maas_api_names(tenant_name: str) -> dict[str, str]:
     return {
         "deployment": per_tenant_resource_name("maas-api", tenant_name),
@@ -1024,7 +1143,8 @@ def per_tenant_gateway_policy_names(tenant_name: str, gateway_name: str) -> dict
 def aitenant_cleanup_resource_refs(case: dict[str, str]) -> list[tuple[str, str, str]]:
     maas_api_names = per_tenant_maas_api_names(case["tenant_label_name"])
     gateway_policy_names = per_tenant_gateway_policy_names(case["tenant_label_name"], case["gateway_name"])
-    return [
+    ipp_names = per_tenant_ipp_names(case["tenant_label_name"])
+    refs = [
         ("deployment", maas_api_names["deployment"], INFRA_NAMESPACE),
         ("service", maas_api_names["service"], INFRA_NAMESPACE),
         ("httproute", maas_api_names["httproute"], INFRA_NAMESPACE),
@@ -1033,6 +1153,21 @@ def aitenant_cleanup_resource_refs(case: dict[str, str]) -> list[tuple[str, str,
         ("tokenratelimitpolicy", gateway_policy_names["default_deny"], GATEWAY_NAMESPACE),
         ("destinationrule", gateway_policy_names["destinationrule"], GATEWAY_NAMESPACE),
     ]
+    if ipp_tenant_id(case["tenant_label_name"]):
+        refs.extend(
+            [
+                ("deployment", ipp_names["processing_deployment"], GATEWAY_NAMESPACE),
+                ("deployment", ipp_names["pre_processing_deployment"], GATEWAY_NAMESPACE),
+                ("service", ipp_names["processing_service"], GATEWAY_NAMESPACE),
+                ("service", ipp_names["pre_processing_service"], GATEWAY_NAMESPACE),
+                ("envoyfilter", ipp_names["envoyfilter"], GATEWAY_NAMESPACE),
+                ("serviceaccount", ipp_names["serviceaccount"], GATEWAY_NAMESPACE),
+                ("configmap", ipp_names["plugins_configmap"], GATEWAY_NAMESPACE),
+                ("clusterrolebinding", ipp_names["clusterrolebinding"], ""),
+                ("networkpolicy", ipp_names["networkpolicy"], GATEWAY_NAMESPACE),
+            ]
+        )
+    return refs
 
 
 def wait_for_aitenant_cleanup_resources(case: dict[str, str], *, timeout: int = 180) -> None:
@@ -1150,13 +1285,21 @@ def bearer_headers(token: str) -> dict[str, str]:
 
 
 def create_api_key_at(base_url: str, oc_token: str, name: str, *, subscription: Optional[str] = None) -> requests.Response:
+    """Create an API key against a tenant-scoped maas-api URL.
+
+    Retries empty 403 / Authorino AUTH_FAILURE while per-tenant gateway
+    AuthPolicy enforcement catches up (same flake mode as single-tenant helpers).
+    """
     body: dict[str, str] = {"name": name}
     if subscription:
         body["subscription"] = subscription
-    return requests.post(
+    return _request_with_gateway_retry(
+        requests.post,
         f"{base_url}/v1/api-keys",
         headers=bearer_headers(oc_token),
         json=body,
+        retries=GATEWAY_PROPAGATION_RETRIES,
+        delay=GATEWAY_PROPAGATION_DELAY,
         timeout=TIMEOUT,
         verify=TLS_VERIFY,
     )

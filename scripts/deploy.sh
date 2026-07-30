@@ -515,6 +515,9 @@ validate_configuration() {
     log_debug "Using fixed namespace for operator mode: $NAMESPACE"
   fi
 
+  # Export so subprocesses (subscripts called via bash, not sourced functions) inherit the values.
+  export NAMESPACE OPERATOR_TYPE
+
   log_info "Configuration validated successfully"
 }
 
@@ -720,10 +723,12 @@ EOF
   # Infrastructure namespace is configurable via deployment overlays (params.env).
   log_info ""
   log_info "Waiting for Tenant reconciler to deploy maas-api..."
-  local infra_namespace_raw="${INFRA_NAMESPACE:-AUTO}"
+  local infra_namespace_raw="${INFRA_NAMESPACE-AUTO}"
   local infra_namespace
   if [ "$infra_namespace_raw" = "AUTO" ]; then
     infra_namespace=$(derive_infra_namespace "$NAMESPACE")
+  elif [ -z "$infra_namespace_raw" ]; then
+    infra_namespace="$NAMESPACE"
   else
     infra_namespace="$infra_namespace_raw"
   fi
@@ -803,7 +808,7 @@ deploy_via_operator() {
     exit 1
   fi
 
-  # Apply custom resources
+  # Apply custom resources (DSCI + DSC with aigateway.modelsAsAService)
   apply_custom_resources
 
   # Wait for ai-gateway-operator (deployed by the ODH operator's AIGateway module reconciler)
@@ -830,14 +835,21 @@ deploy_via_operator() {
     deploy_keycloak
   fi
 
+  # Wait for maas-controller (deployed by ai-gateway-operator).
+  log_info "Waiting for maas-controller deployment..."
+  if ! kubectl rollout status deployment/maas-controller -n "$NAMESPACE" --timeout="${POD_TIMEOUT:-300}s"; then
+    log_error "maas-controller not ready (timeout: ${POD_TIMEOUT:-300}s)"
+    exit 1
+  fi
+  log_info "  maas-controller ready."
+
+  # Wait for maas-api (deployed by maas-controller via AITenant reconciler).
+  wait_for_operator_maas_api
+
   # Configure TLS backend (if enabled)
   if [[ "$ENABLE_TLS_BACKEND" == "true" ]]; then
     configure_tls_backend
   fi
-
-  # Custom maas-api image injection is handled by the Tenant reconciler
-  # in maas-controller (common block in main). The controller receives
-  # RELATED_IMAGE_ODH_MAAS_API_IMAGE env var and applies it during PostRender.
 
   log_info "Operator deployment completed"
 }
@@ -899,12 +911,49 @@ validate_postgres_connection() {
   fi
 }
 
+# wait_for_operator_maas_api waits for maas-api to be deployed by the Tenant
+# reconciler (maas-controller) in the infrastructure namespace.
+wait_for_operator_maas_api() {
+  local infra_namespace_raw="${INFRA_NAMESPACE-AUTO}"
+  local infra_namespace
+  if [ "$infra_namespace_raw" = "AUTO" ]; then
+    infra_namespace=$(derive_infra_namespace "$NAMESPACE")
+  elif [ -z "$infra_namespace_raw" ]; then
+    infra_namespace="$NAMESPACE"
+  else
+    infra_namespace="$infra_namespace_raw"
+  fi
+
+  log_info "Waiting for Tenant reconciler to deploy maas-api in $infra_namespace..."
+  local maas_api_timeout="${CUSTOM_RESOURCE_TIMEOUT:-600}"
+  local elapsed=0
+  while [[ $elapsed -lt $maas_api_timeout ]]; do
+    if kubectl get deployment maas-api -n "$infra_namespace" &>/dev/null; then
+      log_info "  maas-api deployment found, waiting for rollout..."
+      if kubectl rollout status deployment/maas-api -n "$infra_namespace" --timeout="$((maas_api_timeout - elapsed))s" 2>/dev/null; then
+        log_info "  maas-api is ready"
+        return 0
+      fi
+    fi
+    sleep 10
+    elapsed=$((elapsed + 10))
+    (( elapsed % 60 == 0 )) && log_info "  Still waiting for maas-api... (${elapsed}s / ${maas_api_timeout}s)"
+  done
+
+  log_error "maas-api not created after ${maas_api_timeout}s in $infra_namespace"
+  log_error "Check: kubectl logs -l app.kubernetes.io/name=maas-controller -n $NAMESPACE"
+  return 1
+}
+
 deploy_postgresql() {
-  # Namespace where maas-api and postgres run (infrastructure namespace)
-  local infra_ns_raw="${INFRA_NAMESPACE:-opendatahub}"
+  # Infrastructure namespace where maas-api runs (AUTO = derive from controller namespace)
+  local controller_ns="${NAMESPACE:-opendatahub}"
+  local infra_ns_raw="${INFRA_NAMESPACE-AUTO}"
   local infra_ns
   if [ "$infra_ns_raw" = "AUTO" ]; then
-    infra_ns=$(derive_infra_namespace "$NAMESPACE")
+    infra_ns=$(derive_infra_namespace "$controller_ns")
+  elif [ -z "$infra_ns_raw" ]; then
+    infra_ns="$controller_ns"
   else
     infra_ns="$infra_ns_raw"
   fi
@@ -923,7 +972,7 @@ deploy_postgresql() {
     log_warn "  (AWS RDS, Crunchy Operator, Azure Database, etc.)"
     log_warn "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     # setup-database.sh handles upgrade detection and namespace selection
-    "${SCRIPT_DIR}/setup-database.sh"
+    NAMESPACE="$controller_ns" "${SCRIPT_DIR}/setup-database.sh"
   fi
 }
 
@@ -1145,7 +1194,7 @@ install_primary_operator() {
   case "$OPERATOR_TYPE" in
     rhoai)
       # Support custom catalog for RHOAI snapshot/development builds
-      # This allows testing with pre-release RHOAI versions that have modelsAsService support
+      # This allows testing with pre-release RHOAI versions that have modelsAsAService support
       if [[ -n "$OPERATOR_CATALOG" ]]; then
         log_info "Using custom RHOAI catalog: $OPERATOR_CATALOG"
         create_custom_catalogsource "rhoai-custom-catalog" "openshift-marketplace" "$OPERATOR_CATALOG"
@@ -1154,8 +1203,7 @@ install_primary_operator() {
         channel="${OPERATOR_CHANNEL:-fast}"
       else
         catalog_source="redhat-operators"
-        # Use 'stable-3.x' channel for RHOAI v3 (with MaaS support)
-        # RHOAI 2.x (fast channel) does not support modelsAsService
+        # Use 'stable-3.x' channel — required for RHOAI 3.5+ with aigateway.modelsAsAService support
         channel="${OPERATOR_CHANNEL:-stable-3.x}"
       fi
 
@@ -1337,68 +1385,45 @@ EOF
 }
 
 apply_dsc() {
-  log_info "Applying DataScienceCluster with ModelsAsService..."
+  log_info "Applying DataScienceCluster with aigateway.modelsAsAService..."
 
   local data_dir="${SCRIPT_DIR}/data"
 
-  if kubectl get datasciencecluster -A --no-headers 2>/dev/null | grep -q .; then
-    local existing_dsc
-    existing_dsc=$(kubectl get datasciencecluster -A -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+  # Scope to default-dsc — consistent with the manifest name and wait_datasciencecluster_ready target
+  if kubectl get datasciencecluster default-dsc &>/dev/null; then
+    local existing_dsc="default-dsc"
 
-    # Extract all spec.components leaf paths and expected values from the manifest
-    # jq produces lines like: .spec.components.kserve.managementState=Managed
-    local dsc_manifest="${data_dir}/datasciencecluster.yaml"
-    local mismatches=()
+    # Check for 3.5+ field: aigateway.modelsAsAService=Managed
+    local new_field
+    new_field=$(kubectl get datasciencecluster default-dsc \
+      -o jsonpath='{.spec.components.aigateway.modelsAsAService.managementState}' 2>/dev/null || echo "")
 
-    local expected_fields
-    if ! expected_fields=$(kubectl create --dry-run=client -o json -f "$dsc_manifest" 2>/dev/null | jq -r '
-      # Recursively flatten .spec.components into dot-notation paths with values
-      def leaf_paths:
-        . as $in |
-        paths(scalars) | . as $p |
-        ($in | getpath($p)) as $v |
-        [($p | map(tostring) | join(".")), ($v | tostring)];
-      .spec.components | leaf_paths | ".\(.[0])=\(.[1])"
-    '); then
-      log_warn "Failed to parse DSC manifest at ${dsc_manifest}. Skipping validation, proceeding with existing DSC '$existing_dsc'."
+    # Check for 3.4 legacy field: kserve.modelsAsService=Managed
+    local old_field
+    old_field=$(kubectl get datasciencecluster default-dsc \
+      -o jsonpath='{.spec.components.kserve.modelsAsService.managementState}' 2>/dev/null || echo "")
+
+    if [[ "$new_field" == "Managed" ]]; then
+      log_info "Existing DSC '$existing_dsc' already has aigateway.modelsAsAService=Managed, skipping"
       return 0
-    fi
-
-    if [[ -z "$expected_fields" ]]; then
-      log_warn "DSC manifest at ${dsc_manifest} produced no fields. Skipping validation, proceeding with existing DSC '$existing_dsc'."
+    elif [[ "$old_field" == "Managed" ]]; then
+      # 3.4 → 3.5 upgrade: existing DSC uses kserve.modelsAsService (backward compat path).
+      # Apply the new DSC on top — server-side merge adds aigateway fields while the old
+      # kserve.modelsAsService field stays frozen (CEL self==oldSelf). The operator's
+      # backward compat handles MaaS deployment until the user migrates the DSC.
+      log_info "Existing DSC '$existing_dsc' has kserve.modelsAsService=Managed (3.4 style) — upgrading to aigateway.modelsAsAService"
+      kubectl apply --server-side=true -f "${data_dir}/datasciencecluster.yaml"
       return 0
+    else
+      log_error "Existing DSC '$existing_dsc' does not have MaaS enabled."
+      log_error "  aigateway.modelsAsAService: '${new_field:-unset}' (expected Managed)"
+      log_error "  kserve.modelsAsService (legacy): '${old_field:-unset}'"
+      log_error "Enable MaaS via aigateway.modelsAsAService in your DSC and re-run."
+      return 1
     fi
-
-    while IFS='=' read -r field_path expected; do
-      local full_path=".spec.components${field_path}"
-      local actual
-      actual=$(kubectl get datasciencecluster "$existing_dsc" \
-        -o jsonpath="{${full_path}}" 2>/dev/null || echo "")
-      if [[ "$actual" != "$expected" ]]; then
-        mismatches+=("${full_path}: '${actual:-unset}' (expected '${expected}')")
-      fi
-    done <<< "$expected_fields"
-
-    if [[ ${#mismatches[@]} -eq 0 ]]; then
-      log_info "Existing DataScienceCluster '$existing_dsc' meets MaaS requirements, skipping creation"
-      return 0
-    fi
-
-    log_error "Existing DataScienceCluster '$existing_dsc' does not meet MaaS requirements:"
-    for mismatch in "${mismatches[@]}"; do
-      log_error "  $mismatch"
-    done
-
-    log_error "Fix the required fields in DSC deployment and try again..."
-    return 1
   fi
 
-  # Apply DSC with modelsAsService - this is REQUIRED for MaaS deployment
-  # Without modelsAsService, only KServe deploys (no maas-api, no HTTPRoutes, no AuthPolicy)
-  # If the operator doesn't support modelsAsService, kubectl will fail with a clear error
-  #
-  # Note: RHOAI 3.2.0 does NOT support modelsAsService in DSC schema
-  #       Only ODH currently supports this feature
+  # No existing DSC — apply fresh 3.5+ DSC with aigateway.modelsAsAService
   kubectl apply --server-side=true -f "${data_dir}/datasciencecluster.yaml"
 }
 
@@ -1434,17 +1459,34 @@ enable_ai_gateway_component() {
 apply_kuadrant_cr() {
   local namespace=$1
 
-  log_info "Initializing Gateway API and ModelsAsService gateway..."
+  log_info "Initializing Gateway API and ModelsAsAService gateway..."
 
   # Setup Gateway using standalone script (replaces inline setup_gateway_api + setup_maas_gateway)
   # The script handles GatewayClass creation, Gateway creation with TLS cert detection,
   # and waits for Gateway to be Programmed before returning.
+  # Default allowedRoutes to the app namespace so maas-api HTTPRoutes can attach.
+  # Include MODEL_NAMESPACE when set (e2e/demos deploy models outside the app ns).
+  # Override with ALLOWED_ROUTE_NAMESPACES or NAMESPACE_SELECTOR_LABELS as needed.
+  local gateway_allowed_namespaces="${ALLOWED_ROUTE_NAMESPACES:-}"
+  if [[ -z "$gateway_allowed_namespaces" && -z "${NAMESPACE_SELECTOR_LABELS:-}" ]]; then
+    # Always include the infra namespace: maas-api-route lives there and must attach
+    # to the gateway for API key/subscription calls to reach maas-api.
+    local infra_ns
+    infra_ns=$(derive_infra_namespace "$NAMESPACE")
+    gateway_allowed_namespaces="$NAMESPACE,$infra_ns"
+    if [[ -n "${MODEL_NAMESPACE:-}" && "${MODEL_NAMESPACE}" != "$NAMESPACE" ]]; then
+      gateway_allowed_namespaces="${gateway_allowed_namespaces},${MODEL_NAMESPACE}"
+    fi
+  fi
+
   INGRESS_MODE="${INGRESS_MODE:-route}" \
   DISCONNECTED="${DISCONNECTED:-false}" \
   CLUSTER_DOMAIN="${CLUSTER_DOMAIN:-}" \
   CERT_NAME="${CERT_NAME:-}" \
   DRY_RUN="${DRY_RUN:-false}" \
   MAAS_MANIFEST_REF="${MAAS_MANIFEST_REF:-}" \
+  ALLOWED_ROUTE_NAMESPACES="${gateway_allowed_namespaces}" \
+  NAMESPACE_SELECTOR_LABELS="${NAMESPACE_SELECTOR_LABELS:-}" \
   "${SCRIPT_DIR}/setup-gateway.sh" || {
     log_error "Gateway setup failed"
     return 1
@@ -1722,10 +1764,12 @@ configure_tls_backend() {
   log_info "Restarting deployments to pick up TLS configuration..."
 
   # maas-api deploys to infrastructure namespace
-  local infra_namespace_raw="${INFRA_NAMESPACE:-AUTO}"
+  local infra_namespace_raw="${INFRA_NAMESPACE-AUTO}"
   local infra_namespace
   if [ "$infra_namespace_raw" = "AUTO" ]; then
     infra_namespace=$(derive_infra_namespace "$NAMESPACE")
+  elif [ -z "$infra_namespace_raw" ]; then
+    infra_namespace="$NAMESPACE"
   else
     infra_namespace="$infra_namespace_raw"
   fi

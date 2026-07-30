@@ -2,10 +2,15 @@ package main
 
 import (
 	"context"
+	"errors"
+	"os"
 	"testing"
+	"time"
 
+	confv1 "github.com/openshift/api/config/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -14,6 +19,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	controllerfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	maasv1alpha1 "github.com/opendatahub-io/models-as-a-service/maas-controller/api/maas/v1alpha1"
 	"github.com/opendatahub-io/models-as-a-service/maas-controller/pkg/controller/maas"
@@ -43,8 +49,108 @@ func managerTestScheme(t *testing.T) *runtime.Scheme {
 	t.Helper()
 	s := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(s))
+	utilruntime.Must(confv1.Install(s))
 	utilruntime.Must(maasv1alpha1.AddToScheme(s))
 	return s
+}
+
+func TestFetchTLSProfileWithRetryTransientErrorFallsBackToIntermediate(t *testing.T) {
+	originalDelay := tlsProfileRetryDelay
+	defer func() {
+		tlsProfileRetryDelay = originalDelay
+	}()
+	tlsProfileRetryDelay = 0
+
+	calls := 0
+	cl := controllerfake.NewClientBuilder().
+		WithScheme(managerTestScheme(t)).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				calls++
+				return apierrors.NewInternalError(errors.New("apiserver unavailable"))
+			},
+		}).
+		Build()
+
+	profile, adherence, available, err := fetchTLSProfileWithRetry(context.Background(), cl)
+	if err != nil {
+		t.Fatalf("fetchTLSProfileWithRetry returned error: %v", err)
+	}
+	if calls != tlsProfileFetchMaxRetries {
+		t.Fatalf("Get calls = %d, want %d", calls, tlsProfileFetchMaxRetries)
+	}
+	if !available {
+		t.Fatalf("available = false, want true so watcher can self-heal")
+	}
+	if adherence != confv1.TLSAdherencePolicyNoOpinion {
+		t.Fatalf("adherence = %q, want %q", adherence, confv1.TLSAdherencePolicyNoOpinion)
+	}
+	if profile.MinTLSVersion != confv1.VersionTLS12 {
+		t.Fatalf("MinTLSVersion = %q, want Intermediate TLS 1.2", profile.MinTLSVersion)
+	}
+	if len(profile.Ciphers) == 0 {
+		t.Fatalf("default Intermediate profile should include TLS ciphers")
+	}
+}
+
+func TestFetchTLSProfileWithRetryAPIUnavailableSkipsWatcher(t *testing.T) {
+	cl := controllerfake.NewClientBuilder().
+		WithScheme(managerTestScheme(t)).
+		Build()
+
+	profile, adherence, available, err := fetchTLSProfileWithRetry(context.Background(), cl)
+	if err != nil {
+		t.Fatalf("fetchTLSProfileWithRetry returned error: %v", err)
+	}
+	if available {
+		t.Fatalf("available = true, want false for non-OpenShift API absence")
+	}
+	if adherence != confv1.TLSAdherencePolicyNoOpinion {
+		t.Fatalf("adherence = %q, want %q", adherence, confv1.TLSAdherencePolicyNoOpinion)
+	}
+	if profile.MinTLSVersion != confv1.VersionTLS12 {
+		t.Fatalf("MinTLSVersion = %q, want Intermediate TLS 1.2", profile.MinTLSVersion)
+	}
+}
+
+func TestTLSProfileForAdherence(t *testing.T) {
+	modern := *confv1.TLSProfiles[confv1.TLSProfileModernType]
+
+	tests := []struct {
+		name      string
+		adherence confv1.TLSAdherencePolicy
+		wantMin   confv1.TLSProtocolVersion
+	}{
+		{
+			name:      "unset uses Intermediate",
+			adherence: confv1.TLSAdherencePolicyNoOpinion,
+			wantMin:   confv1.VersionTLS12,
+		},
+		{
+			name:      "legacy uses Intermediate",
+			adherence: confv1.TLSAdherencePolicyLegacyAdheringComponentsOnly,
+			wantMin:   confv1.VersionTLS12,
+		},
+		{
+			name:      "strict uses cluster profile",
+			adherence: confv1.TLSAdherencePolicyStrictAllComponents,
+			wantMin:   confv1.VersionTLS13,
+		},
+		{
+			name:      "unknown future value fails secure",
+			adherence: confv1.TLSAdherencePolicy("FuturePolicy"),
+			wantMin:   confv1.VersionTLS13,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tlsProfileForAdherence(modern, tt.adherence)
+			if got.MinTLSVersion != tt.wantMin {
+				t.Fatalf("MinTLSVersion = %q, want %q", got.MinTLSVersion, tt.wantMin)
+			}
+		})
+	}
 }
 
 func TestEnsureDefaultAITenantBootstrapCreatesAITenantFromExistingTenant(t *testing.T) {
@@ -135,8 +241,8 @@ func TestEnsureDefaultAITenantBootstrapCreatesAITenantFromExistingTenant(t *test
 	if err := cl.Get(ctx, client.ObjectKey{Name: maasv1alpha1.ConfigInstanceName}, &cfg); err != nil {
 		t.Fatalf("get Config: %v", err)
 	}
-	if got := cfg.Annotations[defaultAITenantBootstrappedAnnotation]; got != "true" {
-		t.Fatalf("Config bootstrap annotation = %q, want true", got)
+	if got := cfg.Annotations[maas.DefaultAITenantBootstrappedAnnotation]; got != "" {
+		t.Fatalf("Config bootstrap annotation = %q, want empty until AITenant is Ready", got)
 	}
 }
 
@@ -241,6 +347,16 @@ func TestEnsureDefaultAITenantBootstrapNoopsWhenAITenantExistsAndMarksConfig(t *
 				Spec: maasv1alpha1.AITenantSpec{
 					Gateway: &maasv1alpha1.AITenantGatewayRef{Name: "already-owned"},
 				},
+				Status: maasv1alpha1.AITenantStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               maasv1alpha1.AITenantConditionReady,
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: metav1.Now(),
+							Reason:             "Ready",
+						},
+					},
+				},
 			},
 		).
 		Build()
@@ -276,8 +392,210 @@ func TestEnsureDefaultAITenantBootstrapNoopsWhenAITenantExistsAndMarksConfig(t *
 	if err := cl.Get(ctx, client.ObjectKey{Name: maasv1alpha1.ConfigInstanceName}, &cfg); err != nil {
 		t.Fatalf("get Config: %v", err)
 	}
-	if got := cfg.Annotations[defaultAITenantBootstrappedAnnotation]; got != "true" {
+	if got := cfg.Annotations[maas.DefaultAITenantBootstrappedAnnotation]; got != "true" {
 		t.Fatalf("Config bootstrap annotation = %q, want true", got)
+	}
+}
+
+func TestEnsureDefaultAITenantBootstrapSkipsTerminatingAITenant(t *testing.T) {
+	ctx := context.Background()
+	s := managerTestScheme(t)
+	now := metav1.Now()
+	cl := controllerfake.NewClientBuilder().
+		WithScheme(s).
+		WithObjects(
+			&appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tenantreconcile.MaaSControllerDeploymentName,
+					Namespace: "opendatahub",
+				},
+			},
+			&maasv1alpha1.Config{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: maasv1alpha1.ConfigInstanceName,
+					UID:  types.UID("cfg-default"),
+				},
+			},
+			&maasv1alpha1.AITenant{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              tenantreconcile.DefaultAITenantName,
+					Namespace:         tenantreconcile.DefaultAITenantNamespace,
+					DeletionTimestamp: &now,
+					Finalizers:        []string{"test-finalizer"},
+				},
+				Spec: maasv1alpha1.AITenantSpec{
+					Gateway: &maasv1alpha1.AITenantGatewayRef{Name: "gw"},
+				},
+				Status: maasv1alpha1.AITenantStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               maasv1alpha1.AITenantConditionReady,
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: metav1.Now(),
+							Reason:             "Ready",
+						},
+					},
+				},
+			},
+		).
+		Build()
+
+	created, err := ensureDefaultAITenantBootstrap(
+		ctx,
+		cl,
+		"models-as-a-service",
+		tenantreconcile.DefaultAITenantNamespace,
+		"opendatahub",
+		tenantreconcile.MaaSControllerDeploymentName,
+		"maas-default-gateway",
+		"openshift-ingress",
+	)
+	if err != nil {
+		t.Fatalf("ensure default AITenant: %v", err)
+	}
+	if created {
+		t.Fatalf("created = true, want false when AITenant is Terminating")
+	}
+
+	var cfg maasv1alpha1.Config
+	if err := cl.Get(ctx, client.ObjectKey{Name: maasv1alpha1.ConfigInstanceName}, &cfg); err != nil {
+		t.Fatalf("get Config: %v", err)
+	}
+	if got := cfg.Annotations[maas.DefaultAITenantBootstrappedAnnotation]; got == "true" {
+		t.Fatalf("Config bootstrap annotation = %q, want empty when AITenant is Terminating", got)
+	}
+}
+
+func TestEnsureDefaultAITenantBootstrapSkipsTerminatingPhaseAITenant(t *testing.T) {
+	ctx := context.Background()
+	s := managerTestScheme(t)
+	cl := controllerfake.NewClientBuilder().
+		WithScheme(s).
+		WithObjects(
+			&appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tenantreconcile.MaaSControllerDeploymentName,
+					Namespace: "opendatahub",
+				},
+			},
+			&maasv1alpha1.Config{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: maasv1alpha1.ConfigInstanceName,
+					UID:  types.UID("cfg-default"),
+				},
+			},
+			&maasv1alpha1.AITenant{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tenantreconcile.DefaultAITenantName,
+					Namespace: tenantreconcile.DefaultAITenantNamespace,
+				},
+				Spec: maasv1alpha1.AITenantSpec{
+					Gateway: &maasv1alpha1.AITenantGatewayRef{Name: "gw"},
+				},
+				Status: maasv1alpha1.AITenantStatus{
+					Phase: "Terminating",
+					Conditions: []metav1.Condition{
+						{
+							Type:               maasv1alpha1.AITenantConditionReady,
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: metav1.Now(),
+							Reason:             "Ready",
+						},
+					},
+				},
+			},
+		).
+		Build()
+
+	created, err := ensureDefaultAITenantBootstrap(
+		ctx,
+		cl,
+		"models-as-a-service",
+		tenantreconcile.DefaultAITenantNamespace,
+		"opendatahub",
+		tenantreconcile.MaaSControllerDeploymentName,
+		"maas-default-gateway",
+		"openshift-ingress",
+	)
+	if err != nil {
+		t.Fatalf("ensure default AITenant: %v", err)
+	}
+	if created {
+		t.Fatalf("created = true, want false when AITenant phase is Terminating")
+	}
+
+	var cfg maasv1alpha1.Config
+	if err := cl.Get(ctx, client.ObjectKey{Name: maasv1alpha1.ConfigInstanceName}, &cfg); err != nil {
+		t.Fatalf("get Config: %v", err)
+	}
+	if got := cfg.Annotations[maas.DefaultAITenantBootstrappedAnnotation]; got == "true" {
+		t.Fatalf("Config bootstrap annotation = %q, want empty when AITenant phase is Terminating", got)
+	}
+}
+
+func TestEnsureDefaultAITenantBootstrapSkipsNotReadyAITenant(t *testing.T) {
+	ctx := context.Background()
+	s := managerTestScheme(t)
+	cl := controllerfake.NewClientBuilder().
+		WithScheme(s).
+		WithObjects(
+			&appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tenantreconcile.MaaSControllerDeploymentName,
+					Namespace: "opendatahub",
+				},
+			},
+			&maasv1alpha1.Config{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: maasv1alpha1.ConfigInstanceName,
+					UID:  types.UID("cfg-default"),
+				},
+			},
+			&maasv1alpha1.AITenant{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tenantreconcile.DefaultAITenantName,
+					Namespace: tenantreconcile.DefaultAITenantNamespace,
+				},
+				Spec: maasv1alpha1.AITenantSpec{
+					Gateway: &maasv1alpha1.AITenantGatewayRef{Name: "gw"},
+				},
+				Status: maasv1alpha1.AITenantStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               maasv1alpha1.AITenantConditionReady,
+							Status:             metav1.ConditionFalse,
+							LastTransitionTime: metav1.Now(),
+							Reason:             "NotReady",
+						},
+					},
+				},
+			},
+		).
+		Build()
+
+	created, err := ensureDefaultAITenantBootstrap(
+		ctx,
+		cl,
+		"models-as-a-service",
+		tenantreconcile.DefaultAITenantNamespace,
+		"opendatahub",
+		tenantreconcile.MaaSControllerDeploymentName,
+		"maas-default-gateway",
+		"openshift-ingress",
+	)
+	if err != nil {
+		t.Fatalf("ensure default AITenant: %v", err)
+	}
+	if created {
+		t.Fatalf("created = true, want false when AITenant is not Ready")
+	}
+
+	var cfg maasv1alpha1.Config
+	if err := cl.Get(ctx, client.ObjectKey{Name: maasv1alpha1.ConfigInstanceName}, &cfg); err != nil {
+		t.Fatalf("get Config: %v", err)
+	}
+	if got := cfg.Annotations[maas.DefaultAITenantBootstrappedAnnotation]; got == "true" {
+		t.Fatalf("Config bootstrap annotation = %q, want empty when AITenant is not Ready", got)
 	}
 }
 
@@ -456,7 +774,7 @@ func TestEnsureDefaultAITenantBootstrapDoesNotRecreateAfterBootstrapMarker(t *te
 					Name: maasv1alpha1.ConfigInstanceName,
 					UID:  types.UID("cfg-default"),
 					Annotations: map[string]string{
-						defaultAITenantBootstrappedAnnotation: "true",
+						maas.DefaultAITenantBootstrappedAnnotation: "true",
 					},
 				},
 			},
@@ -565,5 +883,34 @@ func TestEnsureManagedNamespacePatchesNilLabels(t *testing.T) {
 	}
 	if _, exists := ns.Labels["app.kubernetes.io/managed-by"]; exists {
 		t.Fatalf("managed-by label was added to namespace not created by maas-controller")
+	}
+}
+
+func TestParseAITenantDeletionTimeout(t *testing.T) {
+	tests := []struct {
+		name   string
+		envVal string
+		envSet bool
+		want   time.Duration
+	}{
+		{name: "unset returns default", envSet: false, want: 10 * time.Minute},
+		{name: "valid duration", envVal: "5m", envSet: true, want: 5 * time.Minute},
+		{name: "zero is allowed", envVal: "0s", envSet: true, want: 0},
+		{name: "invalid falls back to default", envVal: "not-a-duration", envSet: true, want: 10 * time.Minute},
+		{name: "negative falls back to default", envVal: "-3m", envSet: true, want: 10 * time.Minute},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envSet {
+				t.Setenv("AITENANT_DELETION_TIMEOUT", tt.envVal)
+			} else {
+				t.Setenv("AITENANT_DELETION_TIMEOUT", "")
+				os.Unsetenv("AITENANT_DELETION_TIMEOUT")
+			}
+			got := parseAITenantDeletionTimeout()
+			if got != tt.want {
+				t.Fatalf("parseAITenantDeletionTimeout() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

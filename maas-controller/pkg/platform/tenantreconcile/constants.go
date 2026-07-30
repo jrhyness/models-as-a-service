@@ -22,6 +22,12 @@ const (
 	// other packages that need the same key must reference this constant.
 	AnnotationManaged = "opendatahub.io/managed"
 
+	// AnnotationMaaSAPIReplicas overrides the maas-api Deployment replica count for a tenant.
+	AnnotationMaaSAPIReplicas = "maas.opendatahub.io/maas-api-replicas"
+
+	// AnnotationPayloadProcessingReplicas overrides the payload-processing Deployment replica count for a tenant.
+	AnnotationPayloadProcessingReplicas = "maas.opendatahub.io/payload-processing-replicas"
+
 	// ComponentName is the ODH component label key suffix (app.opendatahub.io/<name>).
 	// This is the DSC component identifier, not a standalone CR kind.
 	ComponentName = "modelsasservice"
@@ -72,12 +78,20 @@ const (
 	baseMaaSAPIServiceName                         = "maas-api"
 	baseMaaSAPIKeyCleanupScriptConfigMapName       = "maas-api-key-cleanup-script" //nolint:gosec // Kubernetes resource name, not a credential
 	baseMaaSAPIDeploymentNSNetworkPolicyName       = "maas-api-allow-deployment-ns"
+	baseMaaSAPIServingCertName                     = "maas-api-serving-cert"
 
-	// Non-tenant-specific resource names (shared infrastructure)
+	// Base IPP resource names in kustomize manifests. Per-tenant deployments suffix
+	// these with "-{tenantID}" (default tenant keeps unsuffixed names).
 	PayloadProcessingName                         = "payload-processing"
 	PayloadPreProcessingName                      = "payload-pre-processing"
 	PayloadProcessingPluginsConfigMapName         = "payload-processing-plugins"
 	PayloadProcessingReaderClusterRoleBindingName = "payload-processing-reader"
+	// PayloadProcessingEnvoyFilterPriority runs after Kuadrant's default-priority (0)
+	// EnvoyFilter so RHCL's envoy.filters.http.wasm anchor exists when we INSERT_*.
+	PayloadProcessingEnvoyFilterPriority int64 = 10
+
+	// LabelTenantInstance distinguishes pods when multiple IPP stacks share a gateway namespace.
+	LabelTenantInstance = "maas.opendatahub.io/tenant-instance"
 	// MaaSControllerDeploymentName matches deployment/base/maas-controller/manager/manager.yaml.
 	MaaSControllerDeploymentName = "maas-controller"
 	MaaSDBSecretName             = "maas-db-config" //nolint:gosec // secret name reference, not a credential
@@ -111,6 +125,7 @@ var (
 	GVKNetworkPolicy        = schema.GroupVersionKind{Group: "networking.k8s.io", Version: "v1", Kind: "NetworkPolicy"}
 	GVKPersesDashboard      = schema.GroupVersionKind{Group: "perses.dev", Version: "v1alpha1", Kind: "PersesDashboard"}
 	GVKPersesDatasource     = schema.GroupVersionKind{Group: "perses.dev", Version: "v1alpha1", Kind: "PersesDatasource"}
+	GVKCertificate          = schema.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "Certificate"}
 )
 
 // Resource naming functions for multi-tenant deployment.
@@ -181,6 +196,46 @@ func MaaSAPIDeploymentName(tenantID string) string {
 
 func MaaSAPIServiceName(tenantID string) string {
 	return resourceNameForTenant(baseMaaSAPIServiceName, tenantID)
+}
+
+func PayloadProcessingDeploymentName(tenantID string) string {
+	return resourceNameForTenant(PayloadProcessingName, tenantID)
+}
+
+func PayloadPreProcessingDeploymentName(tenantID string) string {
+	return resourceNameForTenant(PayloadPreProcessingName, tenantID)
+}
+
+func PayloadProcessingServiceName(tenantID string) string {
+	return resourceNameForTenant(PayloadProcessingName, tenantID)
+}
+
+func PayloadPreProcessingServiceName(tenantID string) string {
+	return resourceNameForTenant(PayloadPreProcessingName, tenantID)
+}
+
+func PayloadProcessingEnvoyFilterName(tenantID string) string {
+	return resourceNameForTenant(PayloadProcessingName, tenantID)
+}
+
+func PayloadProcessingPluginsConfigMapForTenant(tenantID string) string {
+	return resourceNameForTenant(PayloadProcessingPluginsConfigMapName, tenantID)
+}
+
+func PayloadProcessingServiceAccountName(tenantID string) string {
+	return resourceNameForTenant(PayloadProcessingName, tenantID)
+}
+
+func PayloadProcessingNetworkPolicyName(tenantID string) string {
+	return resourceNameForTenant(PayloadProcessingName, tenantID)
+}
+
+func MaaSAPIServingCertName(tenantID string) string {
+	return resourceNameForTenant(baseMaaSAPIServingCertName, tenantID)
+}
+
+func PayloadProcessingReaderClusterRoleBindingNameForTenant(tenantID string) string {
+	return resourceNameForTenant(PayloadProcessingReaderClusterRoleBindingName, tenantID)
 }
 
 // TenantIdentifierFor extracts the tenant identifier from a tenant config object.
