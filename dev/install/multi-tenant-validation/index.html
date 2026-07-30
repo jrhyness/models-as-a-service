@@ -3511,8 +3511,8 @@
 <li><code>ai-gateway.opendatahub.io/tenant: &lt;tenant-name&gt;</code></li>
 <li><code>maas.opendatahub.io/managed-by-aitenant: "true"</code></li>
 </ul>
-<p>Verify the Tenant CR:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>oc<span class="w"> </span>get<span class="w"> </span>tenant<span class="w"> </span>default-tenant<span class="w"> </span>-n<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NS</span><span class="si">}</span><span class="w"> </span>-o<span class="w"> </span>yaml
+<p>Verify the MaasTenantConfig CR:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>oc<span class="w"> </span>get<span class="w"> </span>maastenantconfig<span class="w"> </span>default-tenant<span class="w"> </span>-n<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NS</span><span class="si">}</span><span class="w"> </span>-o<span class="w"> </span>yaml
 </code></pre></div>
 <p>Expected: <code>status.phase</code> is <code>Active</code>.</p>
 <h2 id="3-verify-maas-api-deployment">3. Verify maas-api Deployment</h2>
@@ -3570,8 +3570,8 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;=== AITenant ===&quot;</span>
 <a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>oc<span class="w"> </span>get<span class="w"> </span>aitenant<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="w"> </span>-n<span class="w"> </span>ai-tenants
 <a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;=== Tenant CR ===&quot;</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>oc<span class="w"> </span>get<span class="w"> </span>tenant<span class="w"> </span>default-tenant<span class="w"> </span>-n<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NS</span><span class="si">}</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;=== MaasTenantConfig CR ===&quot;</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>oc<span class="w"> </span>get<span class="w"> </span>maastenantconfig<span class="w"> </span>default-tenant<span class="w"> </span>-n<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NS</span><span class="si">}</span>
 <a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
 <a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;=== maas-api ===&quot;</span>
 <a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>oc<span class="w"> </span>get<span class="w"> </span>deployment<span class="w"> </span>maas-api-<span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="w"> </span>-n<span class="w"> </span><span class="si">${</span><span class="nv">INFRA_NS</span><span class="si">}</span>
@@ -3608,7 +3608,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>gateway openshift-ingress/red-team is already in use by AITenant ai-tenants/other-tenant
 </code></pre></div>
 <h3 id="maassubscription-rejected">MaaSSubscription rejected</h3>
-<p>MaaSSubscription and MaaSAuthPolicy must be created in a namespace that contains a <code>Tenant</code> CR. Wait for the AITenant controller to create the Tenant CR before creating these resources.</p>
+<p>MaaSSubscription and MaaSAuthPolicy must be created in a namespace that contains a <code>MaasTenantConfig</code> CR. Wait for the AITenant controller to create the MaasTenantConfig before creating these resources.</p>
 <h2 id="see-also">See Also</h2>
 <ul>
 <li><a href="../multi-tenant-setup/">Multi-Tenant Setup</a></li>
@@ -3638,7 +3638,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 8, 2026 22:21:22 UTC">July 8, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 30, 2026 21:50:10 UTC">July 30, 2026</span>
   </span>
 
     
