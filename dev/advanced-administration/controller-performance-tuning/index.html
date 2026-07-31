@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://opendatahub-io.github.io/models-as-a-service/dev/install/multi-tenant-setup/">
+        <link rel="canonical" href="https://opendatahub-io.github.io/models-as-a-service/dev/advanced-administration/controller-performance-tuning/">
       
       
-        <link rel="prev" href="../validation/">
+        <link rel="prev" href="../external-oidc/">
       
       
-        <link rel="next" href="../multi-tenant-validation/">
+        <link rel="next" href="../../observability/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>Multi-Tenant Setup - ODH Models-as-a-Service Documentation</title>
+        <title>Controller Performance Tuning - ODH Models-as-a-Service Documentation</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#multi-tenant-setup" class="md-skip">
+        <a href="#controller-performance-tuning" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Multi-Tenant Setup
+              Controller Performance Tuning
             
           </span>
         </div>
@@ -269,12 +269,10 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../../quickstart/" class="md-tabs__link">
           
   
@@ -291,6 +289,8 @@
   
   
   
+    
+  
   
     
     
@@ -298,10 +298,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../../configuration-and-management/quota-and-access-configuration/" class="md-tabs__link">
           
   
@@ -993,31 +995,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   
@@ -1035,7 +1034,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1087,13 +1086,10 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
@@ -1102,7 +1098,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
         
           
-          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
             
   
   
@@ -1138,7 +1134,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../prerequisites/" class="md-nav__link">
+      <a href="../../install/prerequisites/" class="md-nav__link">
         
   
   
@@ -1166,7 +1162,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../platform-setup/" class="md-nav__link">
+      <a href="../../install/platform-setup/" class="md-nav__link">
         
   
   
@@ -1199,31 +1195,28 @@
                 
   
   
-    
   
   
-  
     
     
     
     
       
       
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
         
           
-          
         
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
         
           
-          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
             
   
   
@@ -1241,7 +1234,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1259,7 +1252,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../maas-setup/" class="md-nav__link">
+      <a href="../../install/maas-setup/" class="md-nav__link">
         
   
   
@@ -1287,7 +1280,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../model-setup/" class="md-nav__link">
+      <a href="../../install/model-setup/" class="md-nav__link">
         
   
   
@@ -1315,7 +1308,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../external-model-setup/" class="md-nav__link">
+      <a href="../../install/external-model-setup/" class="md-nav__link">
         
   
   
@@ -1343,7 +1336,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../validation/" class="md-nav__link">
+      <a href="../../install/validation/" class="md-nav__link">
         
   
   
@@ -1368,37 +1361,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Multi-Tenant Setup
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../install/multi-tenant-setup/" class="md-nav__link">
         
   
   
@@ -1414,214 +1380,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Prerequisites
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#1-create-a-tenant-gateway" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Create a Tenant Gateway
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-create-the-aitenant-cr" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Create the AITenant CR
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="2. Create the AITenant CR">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#tenant-name-constraints" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Tenant Name Constraints
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#namespace-derivation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Namespace Derivation
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-verify-bootstrap-resources" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Verify Bootstrap Resources
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-grant-tenant-admin-access" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Grant Tenant-Admin Access
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-configure-models" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Configure Models
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#webhook-validation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Webhook Validation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#operator-behavior" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Operator Behavior
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Operator Behavior">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#self-bootstrap" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Self-Bootstrap
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#namespace-discovery" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Namespace Discovery
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#controller-flags" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Controller Flags
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#delete-a-tenant" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Delete a Tenant
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#known-limitations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Known Limitations
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        See Also
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1634,7 +1392,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../multi-tenant-validation/" class="md-nav__link">
+      <a href="../../install/multi-tenant-validation/" class="md-nav__link">
         
   
   
@@ -1662,7 +1420,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../troubleshooting/" class="md-nav__link">
+      <a href="../../install/troubleshooting/" class="md-nav__link">
         
   
   
@@ -1702,28 +1460,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
-        
-          
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -1741,7 +1502,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1765,10 +1526,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -1777,7 +1541,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1" >
         
           
-          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="">
             
   
   
@@ -2051,10 +1815,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -2063,7 +1830,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_2" >
         
           
-          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="">
             
   
   
@@ -2160,28 +1927,31 @@
                 
   
   
+    
   
   
+  
     
     
     
     
       
       
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
         
           
+          
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_3" >
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="">
             
   
   
@@ -2199,7 +1969,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2217,7 +1987,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../advanced-administration/subscription-cardinality/" class="md-nav__link">
+      <a href="../subscription-cardinality/" class="md-nav__link">
         
   
   
@@ -2245,7 +2015,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../advanced-administration/telemetry-defaults-and-cardinality/" class="md-nav__link">
+      <a href="../telemetry-defaults-and-cardinality/" class="md-nav__link">
         
   
   
@@ -2273,7 +2043,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../advanced-administration/limitador-persistence/" class="md-nav__link">
+      <a href="../limitador-persistence/" class="md-nav__link">
         
   
   
@@ -2329,7 +2099,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../advanced-administration/external-oidc/" class="md-nav__link">
+      <a href="../external-oidc/" class="md-nav__link">
         
   
   
@@ -2354,10 +2124,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../advanced-administration/controller-performance-tuning/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Controller Performance Tuning
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2373,6 +2170,70 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#-max-concurrent-reconciles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        --max-concurrent-reconciles
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmark-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmark Results
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scaling-guidance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scaling Guidance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#leader-election" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Leader Election
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -3348,10 +3209,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
+  <a href="#-max-concurrent-reconciles" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Prerequisites
+        --max-concurrent-reconciles
       
     </span>
   </a>
@@ -3359,10 +3220,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#1-create-a-tenant-gateway" class="md-nav__link">
+  <a href="#benchmark-results" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Create a Tenant Gateway
+        Benchmark Results
       
     </span>
   </a>
@@ -3370,49 +3231,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-create-the-aitenant-cr" class="md-nav__link">
+  <a href="#scaling-guidance" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Create the AITenant CR
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="2. Create the AITenant CR">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#tenant-name-constraints" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Tenant Name Constraints
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#namespace-derivation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Namespace Derivation
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-verify-bootstrap-resources" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Verify Bootstrap Resources
+        Scaling Guidance
       
     </span>
   </a>
@@ -3420,115 +3242,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-grant-tenant-admin-access" class="md-nav__link">
+  <a href="#leader-election" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Grant Tenant-Admin Access
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-configure-models" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Configure Models
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#webhook-validation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Webhook Validation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#operator-behavior" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Operator Behavior
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Operator Behavior">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#self-bootstrap" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Self-Bootstrap
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#namespace-discovery" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Namespace Discovery
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#controller-flags" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Controller Flags
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#delete-a-tenant" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Delete a Tenant
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#known-limitations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Known Limitations
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#see-also" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        See Also
+        Leader Election
       
     </span>
   </a>
@@ -3555,374 +3272,104 @@
   
 
 
-<h1 id="multi-tenant-setup">Multi-Tenant Setup</h1>
-<p>This guide covers deploying additional tenants beyond the default <code>models-as-a-service</code> tenant. Each tenant gets its own namespace, Gateway, maas-api instance, and isolated set of MaaS resources (subscriptions, auth policies, model refs).</p>
-<h2 id="prerequisites">Prerequisites</h2>
-<p>Before creating additional tenants:</p>
-<ul>
-<li>Default tenant is working (<code>oc get aitenant models-as-a-service -n ai-tenants</code> shows <code>Ready</code>)</li>
-<li>Gateway API is available (<code>oc get gatewayclass openshift-default</code>)</li>
-<li>cert-manager operator is installed (for TLS certificate provisioning)</li>
-<li>MaaS controller is running with <code>--enable-tenant-namespace-discovery=true</code></li>
-</ul>
-<h2 id="1-create-a-tenant-gateway">1. Create a Tenant Gateway</h2>
-<p>Each AITenant requires a dedicated Gateway. Gateways cannot be shared between AITenants.</p>
-<p>Get the cluster domain and create the Gateway.</p>
-<p>The Gateway uses a per-tenant label selector for <code>allowedRoutes</code> so only explicitly
-labelled namespaces can attach HTTPRoutes — more secure than <code>from: All</code>. Label each
-namespace that needs access (infra namespace, model namespaces) before or after Gateway
-creation:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">TENANT_NAME</span><span class="o">=</span><span class="s2">&quot;red-team&quot;</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">CLUSTER_DOMAIN</span><span class="o">=</span><span class="k">$(</span>oc<span class="w"> </span>get<span class="w"> </span>ingresses.config.openshift.io<span class="w"> </span>cluster<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.spec.domain}&#39;</span><span class="k">)</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nv">GATEWAY_HOSTNAME</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="s2">-maas.</span><span class="si">${</span><span class="nv">CLUSTER_DOMAIN</span><span class="si">}</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nv">GATEWAY_NAMESPACE</span><span class="o">=</span><span class="s2">&quot;openshift-ingress&quot;</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nv">CERT_NAME</span><span class="o">=</span><span class="s2">&quot;router-certs-default&quot;</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nv">GATEWAY_ACCESS_LABEL</span><span class="o">=</span><span class="s2">&quot;maas.opendatahub.io/gateway-access-</span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="c1"># Label the namespaces that need to attach HTTPRoutes to this tenant Gateway.</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># At minimum: the infrastructure namespace where maas-api is deployed.</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># Also label any model namespaces (e.g. llm) where LLMInferenceServices run.</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="nv">INFRA_NS</span><span class="o">=</span><span class="s2">&quot;odh-ai-gateway-infra&quot;</span><span class="w">   </span><span class="c1"># adjust if using RHOAI (redhat-ai-gateway-infra)</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>oc<span class="w"> </span>label<span class="w"> </span>namespace<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">INFRA_NS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">GATEWAY_ACCESS_LABEL</span><span class="si">}</span><span class="s2">=true&quot;</span><span class="w"> </span>--overwrite
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># oc label namespace llm &quot;${GATEWAY_ACCESS_LABEL}=true&quot; --overwrite  # repeat for model namespaces</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>cat<span class="w"> </span><span class="s">&lt;&lt;EOF | oc apply -f -</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="s">apiVersion: gateway.networking.k8s.io/v1</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="s">kind: Gateway</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="s">metadata:</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="s">  name: ${TENANT_NAME}</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="s">  namespace: ${GATEWAY_NAMESPACE}</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="s">  annotations:</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="s">    opendatahub.io/managed: &quot;false&quot;</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="s">    security.opendatahub.io/authorino-tls-bootstrap: &quot;true&quot;</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="s">  labels:</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="s">    app.kubernetes.io/name: maas</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="s">    app.kubernetes.io/instance: ${TENANT_NAME}</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="s">    app.kubernetes.io/component: gateway</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="s">    opendatahub.io/managed: &quot;false&quot;</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="s">spec:</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="s">  gatewayClassName: openshift-default</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="s">  listeners:</span>
-<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="s">    - name: https</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="s">      hostname: ${GATEWAY_HOSTNAME}</span>
-<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="s">      port: 443</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="s">      protocol: HTTPS</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="s">      allowedRoutes:</span>
-<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="s">        namespaces:</span>
-<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a><span class="s">          from: Selector</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a><span class="s">          selector:</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="s">            matchLabels:</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a><span class="s">              ${GATEWAY_ACCESS_LABEL}: &quot;true&quot;</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a><span class="s">      tls:</span>
-<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="s">        mode: Terminate</span>
-<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a><span class="s">        certificateRefs:</span>
-<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a><span class="s">          - group: &quot;&quot;</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a><span class="s">            kind: Secret</span>
-<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a><span class="s">            name: ${CERT_NAME}</span>
-<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a><span class="s">EOF</span>
-</code></pre></div>
-<div class="admonition note">
-<p class="admonition-title">Route auto-provisioning</p>
-<p>On OpenShift with <code>gatewayClassName: openshift-default</code>, the Gateway controller typically auto-provisions a Route for external access. Check whether a Route was created automatically before creating one manually:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>oc<span class="w"> </span>get<span class="w"> </span>route<span class="w"> </span>-n<span class="w"> </span><span class="si">${</span><span class="nv">GATEWAY_NAMESPACE</span><span class="si">}</span><span class="w"> </span>-l<span class="w"> </span>gateway.networking.k8s.io/gateway-name<span class="o">=</span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span>
-</code></pre></div>
-If no Route was auto-provisioned, create one manually:</p>
-</div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">GATEWAY_SERVICE_NAME</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="s2">-openshift-default&quot;</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>cat<span class="w"> </span><span class="s">&lt;&lt;EOF | oc apply -f -</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="s">apiVersion: route.openshift.io/v1</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="s">kind: Route</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="s">metadata:</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="s">  name: ${TENANT_NAME}-gateway</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="s">  namespace: ${GATEWAY_NAMESPACE}</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="s">  labels:</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="s">    app.kubernetes.io/name: maas</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="s">    app.kubernetes.io/instance: ${TENANT_NAME}</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="s">    gateway.networking.k8s.io/gateway-name: ${TENANT_NAME}</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="s">spec:</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="s">  host: &quot;${GATEWAY_HOSTNAME}&quot;</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="s">  to:</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="s">    kind: Service</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="s">    name: ${GATEWAY_SERVICE_NAME}</span>
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="s">    weight: 100</span>
-<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="s">  port:</span>
-<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="s">    targetPort: https</span>
-<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="s">  tls:</span>
-<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="s">    termination: reencrypt</span>
-<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="s">    insecureEdgeTerminationPolicy: Redirect</span>
-<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="s">  wildcardPolicy: None</span>
-<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="s">EOF</span>
-</code></pre></div>
-<p>Verify the Gateway is Programmed:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>oc<span class="w"> </span>get<span class="w"> </span>gateway<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="w"> </span>-n<span class="w"> </span><span class="si">${</span><span class="nv">GATEWAY_NAMESPACE</span><span class="si">}</span>
-</code></pre></div>
-<div class="admonition tip">
-<p class="admonition-title">Automated script</p>
-<p>The <code>scripts/create-ai-tenant.sh</code> script automates Gateway and AITenant creation.
-For multi-tenant deployments use the per-gateway label selector and label namespaces manually:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">NAMESPACE_SELECTOR_LABELS</span><span class="o">=</span><span class="s2">&quot;maas.opendatahub.io/gateway-access-red-team=true&quot;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>./scripts/create-ai-tenant.sh<span class="w"> </span>red-team
-</code></pre></div>
-Then label the infra namespace and any model namespaces:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>oc<span class="w"> </span>label<span class="w"> </span>namespace<span class="w"> </span>odh-ai-gateway-infra<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>maas.opendatahub.io/gateway-access-red-team<span class="o">=</span><span class="nb">true</span><span class="w"> </span>--overwrite
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># oc label namespace llm maas.opendatahub.io/gateway-access-red-team=true --overwrite</span>
-</code></pre></div></p>
-</div>
-<h2 id="2-create-the-aitenant-cr">2. Create the AITenant CR</h2>
-<p>AITenant resources must be created in the infrastructure namespace (<code>ai-tenants</code> by default):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>cat<span class="w"> </span><span class="s">&lt;&lt;EOF | oc apply -f -</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="s">apiVersion: maas.opendatahub.io/v1alpha1</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="s">kind: AITenant</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="s">metadata:</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="s">  name: ${TENANT_NAME}</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="s">  namespace: ai-tenants</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="s">spec:</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="s">  gateway:</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="s">    name: ${TENANT_NAME}</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="s">  # Optional: configure an external OIDC provider for this tenant.</span>
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="s">  # Each tenant can use a different IdP realm/client. Omit to rely on OpenShift TokenReview only.</span>
-<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="s">  # oidc:</span>
-<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="s">  #   issuerUrl: &quot;https://keycloak.example.com/realms/${TENANT_NAME}&quot;</span>
-<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="s">  #   clientId: ${TENANT_NAME}-maas</span>
-<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="s">  #   ttl: 300</span>
-<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="s">EOF</span>
-</code></pre></div>
-<p>For OIDC configuration details, per-tenant isolation, and verification steps, see <a href="../../advanced-administration/external-oidc/">External OIDC Configuration</a>.</p>
-<p>The controller bootstraps the following resources:</p>
+<h1 id="controller-performance-tuning">Controller Performance Tuning</h1>
+<p>The maas-controller processes subscription and auth policy reconciliation within a single leader pod. By default, reconciliation is parallelized across 5 concurrent workers. This page describes how to tune concurrency for large-scale deployments.</p>
+<h2 id="-max-concurrent-reconciles"><code>--max-concurrent-reconciles</code></h2>
+<p>Controls the number of concurrent reconciliation goroutines for the MaaSSubscription and MaaSAuthPolicy controllers. Other controllers (AITenant, MaaSModelRef, Tenant, Lifecycle) always use 1 to avoid conflicts on shared resources.</p>
 <table>
 <thead>
 <tr>
-<th>Resource</th>
-<th>Location</th>
-<th>Name</th>
+<th>Parameter</th>
+<th>Value</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Namespace</td>
-<td>Cluster</td>
-<td><code>ai-tenant-${TENANT_NAME}</code></td>
+<td>Flag</td>
+<td><code>--max-concurrent-reconciles</code></td>
 </tr>
 <tr>
-<td>MaasTenantConfig CR</td>
-<td><code>ai-tenant-${TENANT_NAME}</code></td>
-<td><code>default-tenant</code></td>
+<td>Default</td>
+<td>5</td>
 </tr>
 <tr>
-<td>maas-api Deployment</td>
-<td>Infrastructure namespace</td>
-<td><code>maas-api-${TENANT_NAME}</code></td>
+<td>Range</td>
+<td>1–10</td>
 </tr>
 <tr>
-<td>AuthPolicy</td>
-<td>Gateway namespace</td>
-<td><code>${TENANT_NAME}-maas-auth</code></td>
-</tr>
-<tr>
-<td>tenant-admin Role</td>
-<td><code>ai-tenant-${TENANT_NAME}</code></td>
-<td><code>aitenant-${TENANT_NAME}-tenant-admin</code></td>
-</tr>
-<tr>
-<td>object-admin Role</td>
-<td><code>ai-tenants</code></td>
-<td><code>aitenant-${TENANT_NAME}-object-admin</code></td>
+<td>Applies to</td>
+<td>MaaSSubscription, MaaSAuthPolicy controllers</td>
 </tr>
 </tbody>
 </table>
-<h3 id="tenant-name-constraints">Tenant Name Constraints</h3>
-<ul>
-<li>Must be a valid DNS-1123 label (lowercase alphanumeric and hyphens)</li>
-<li>Maximum 41 characters (to fit derived resource names within the 63-character Kubernetes limit)</li>
-<li>Must not conflict with existing AITenant names</li>
-</ul>
-<h3 id="namespace-derivation">Namespace Derivation</h3>
-<p>The tenant namespace is derived from the AITenant name: <code>ai-tenant-&lt;aitenant-name&gt;</code>. The default tenant uses <code>models-as-a-service</code> as both the AITenant name and namespace.</p>
-<h2 id="3-verify-bootstrap-resources">3. Verify Bootstrap Resources</h2>
-<p>Wait for the AITenant to become Ready:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>oc<span class="w"> </span>get<span class="w"> </span>aitenant<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="w"> </span>-n<span class="w"> </span>ai-tenants<span class="w"> </span>-w
-</code></pre></div>
-<p>Verify the tenant namespace was created with correct labels:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>oc<span class="w"> </span>get<span class="w"> </span>namespace<span class="w"> </span>ai-tenant-<span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="w"> </span>--show-labels
-</code></pre></div>
-<p>Expected labels:</p>
-<ul>
-<li><code>ai-gateway.opendatahub.io/tenant=&lt;tenant-name&gt;</code></li>
-<li><code>maas.opendatahub.io/managed-by-aitenant=true</code></li>
-</ul>
-<p>Verify the MaasTenantConfig CR exists:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>oc<span class="w"> </span>get<span class="w"> </span>maastenantconfig<span class="w"> </span>default-tenant<span class="w"> </span>-n<span class="w"> </span>ai-tenant-<span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span>
-</code></pre></div>
-<p>Verify the maas-api deployment is running in the infrastructure namespace:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nv">INFRA_NS</span><span class="o">=</span><span class="k">$(</span>oc<span class="w"> </span>get<span class="w"> </span>deployment<span class="w"> </span>-A<span class="w"> </span>-o<span class="w"> </span>custom-columns<span class="o">=</span>NS:.metadata.namespace,NAME:.metadata.name<span class="w"> </span>--no-headers<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;maas-api-</span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span><span class="s1">&#39;{print $1}&#39;</span><span class="k">)</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>oc<span class="w"> </span>get<span class="w"> </span>deployment<span class="w"> </span>maas-api-<span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="w"> </span>-n<span class="w"> </span><span class="si">${</span><span class="nv">INFRA_NS</span><span class="si">}</span>
-</code></pre></div>
-<h2 id="4-grant-tenant-admin-access">4. Grant Tenant-Admin Access</h2>
-<p>The controller creates Roles but does not create RoleBindings. Grant access with standard Kubernetes RoleBindings:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>oc<span class="w"> </span>create<span class="w"> </span>rolebinding<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span>-tenant-admin<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span>--role<span class="o">=</span>aitenant-<span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span>-tenant-admin<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span>--group<span class="o">=</span>red-team-admins<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span>-n<span class="w"> </span>ai-tenant-<span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span>
-</code></pre></div>
-<p>See <a href="../../configuration-and-management/tenant-rbac/">Tenant RBAC</a> for examples with users, groups, and ServiceAccounts.</p>
-<h2 id="5-configure-models">5. Configure Models</h2>
-<p>Create the MaaSModelRef in the <strong>model namespace</strong> (co-located with the backend resource) and use <code>tenantRef</code> to associate it with the tenant's gateway. MaaSAuthPolicy and MaaSSubscription must be created in the <strong>tenant namespace</strong> (where the MaasTenantConfig CR lives).</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nv">TENANT_NS</span><span class="o">=</span><span class="s2">&quot;ai-tenant-</span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="s2">&quot;</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nv">MODEL_NS</span><span class="o">=</span><span class="s2">&quot;llm&quot;</span><span class="w">   </span><span class="c1"># namespace where the LLMInferenceService runs</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># The model namespace must carry the tenant Gateway&#39;s access label</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="c1"># so the controller-generated HTTPRoute can attach.</span>
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>oc<span class="w"> </span>label<span class="w"> </span>namespace<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">MODEL_NS</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;maas.opendatahub.io/gateway-access-</span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="s2">=true&quot;</span><span class="w"> </span>--overwrite
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="c1"># Create a MaaSModelRef in the model namespace.</span>
-<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="c1"># tenantRef tells the controller to resolve the gateway from this AITenant</span>
-<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="c1"># instead of using namespace-based inference (which defaults to the default tenant).</span>
-<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>cat<span class="w"> </span><span class="s">&lt;&lt;EOF | oc apply -f -</span>
-<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="s">apiVersion: maas.opendatahub.io/v1alpha1</span>
-<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="s">kind: MaaSModelRef</span>
-<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="s">metadata:</span>
-<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="s">  name: my-model</span>
-<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="s">  namespace: ${MODEL_NS}</span>
-<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="s">spec:</span>
-<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="s">  modelRef:</span>
-<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="s">    kind: LLMInferenceService</span>
-<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="s">    name: my-llm-inference-service</span>
-<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a><span class="s">  tenantRef: ${TENANT_NAME}</span>
-<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a><span class="s">EOF</span>
-<a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a>
-<a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a><span class="c1"># Create a MaaSAuthPolicy in the tenant namespace.</span>
-<a id="__codelineno-12-25" name="__codelineno-12-25" href="#__codelineno-12-25"></a><span class="c1"># modelRefs point to the MaaSModelRef by name and namespace.</span>
-<a id="__codelineno-12-26" name="__codelineno-12-26" href="#__codelineno-12-26"></a>cat<span class="w"> </span><span class="s">&lt;&lt;EOF | oc apply -f -</span>
-<a id="__codelineno-12-27" name="__codelineno-12-27" href="#__codelineno-12-27"></a><span class="s">apiVersion: maas.opendatahub.io/v1alpha1</span>
-<a id="__codelineno-12-28" name="__codelineno-12-28" href="#__codelineno-12-28"></a><span class="s">kind: MaaSAuthPolicy</span>
-<a id="__codelineno-12-29" name="__codelineno-12-29" href="#__codelineno-12-29"></a><span class="s">metadata:</span>
-<a id="__codelineno-12-30" name="__codelineno-12-30" href="#__codelineno-12-30"></a><span class="s">  name: my-model-access</span>
-<a id="__codelineno-12-31" name="__codelineno-12-31" href="#__codelineno-12-31"></a><span class="s">  namespace: ${TENANT_NS}</span>
-<a id="__codelineno-12-32" name="__codelineno-12-32" href="#__codelineno-12-32"></a><span class="s">spec:</span>
-<a id="__codelineno-12-33" name="__codelineno-12-33" href="#__codelineno-12-33"></a><span class="s">  modelRefs:</span>
-<a id="__codelineno-12-34" name="__codelineno-12-34" href="#__codelineno-12-34"></a><span class="s">    - name: my-model</span>
-<a id="__codelineno-12-35" name="__codelineno-12-35" href="#__codelineno-12-35"></a><span class="s">      namespace: ${MODEL_NS}</span>
-<a id="__codelineno-12-36" name="__codelineno-12-36" href="#__codelineno-12-36"></a><span class="s">  subjects:</span>
-<a id="__codelineno-12-37" name="__codelineno-12-37" href="#__codelineno-12-37"></a><span class="s">    groups:</span>
-<a id="__codelineno-12-38" name="__codelineno-12-38" href="#__codelineno-12-38"></a><span class="s">      - name: system:authenticated</span>
-<a id="__codelineno-12-39" name="__codelineno-12-39" href="#__codelineno-12-39"></a><span class="s">    users: []</span>
-<a id="__codelineno-12-40" name="__codelineno-12-40" href="#__codelineno-12-40"></a><span class="s">EOF</span>
-<a id="__codelineno-12-41" name="__codelineno-12-41" href="#__codelineno-12-41"></a>
-<a id="__codelineno-12-42" name="__codelineno-12-42" href="#__codelineno-12-42"></a><span class="c1"># Create a MaaSSubscription in the tenant namespace.</span>
-<a id="__codelineno-12-43" name="__codelineno-12-43" href="#__codelineno-12-43"></a>cat<span class="w"> </span><span class="s">&lt;&lt;EOF | oc apply -f -</span>
-<a id="__codelineno-12-44" name="__codelineno-12-44" href="#__codelineno-12-44"></a><span class="s">apiVersion: maas.opendatahub.io/v1alpha1</span>
-<a id="__codelineno-12-45" name="__codelineno-12-45" href="#__codelineno-12-45"></a><span class="s">kind: MaaSSubscription</span>
-<a id="__codelineno-12-46" name="__codelineno-12-46" href="#__codelineno-12-46"></a><span class="s">metadata:</span>
-<a id="__codelineno-12-47" name="__codelineno-12-47" href="#__codelineno-12-47"></a><span class="s">  name: my-subscription</span>
-<a id="__codelineno-12-48" name="__codelineno-12-48" href="#__codelineno-12-48"></a><span class="s">  namespace: ${TENANT_NS}</span>
-<a id="__codelineno-12-49" name="__codelineno-12-49" href="#__codelineno-12-49"></a><span class="s">spec:</span>
-<a id="__codelineno-12-50" name="__codelineno-12-50" href="#__codelineno-12-50"></a><span class="s">  owner:</span>
-<a id="__codelineno-12-51" name="__codelineno-12-51" href="#__codelineno-12-51"></a><span class="s">    groups:</span>
-<a id="__codelineno-12-52" name="__codelineno-12-52" href="#__codelineno-12-52"></a><span class="s">      - name: system:authenticated</span>
-<a id="__codelineno-12-53" name="__codelineno-12-53" href="#__codelineno-12-53"></a><span class="s">    users: []</span>
-<a id="__codelineno-12-54" name="__codelineno-12-54" href="#__codelineno-12-54"></a><span class="s">  modelRefs:</span>
-<a id="__codelineno-12-55" name="__codelineno-12-55" href="#__codelineno-12-55"></a><span class="s">    - name: my-model</span>
-<a id="__codelineno-12-56" name="__codelineno-12-56" href="#__codelineno-12-56"></a><span class="s">      namespace: ${MODEL_NS}</span>
-<a id="__codelineno-12-57" name="__codelineno-12-57" href="#__codelineno-12-57"></a><span class="s">      tokenRateLimits:</span>
-<a id="__codelineno-12-58" name="__codelineno-12-58" href="#__codelineno-12-58"></a><span class="s">        - limit: 1000</span>
-<a id="__codelineno-12-59" name="__codelineno-12-59" href="#__codelineno-12-59"></a><span class="s">          window: 1m</span>
-<a id="__codelineno-12-60" name="__codelineno-12-60" href="#__codelineno-12-60"></a><span class="s">EOF</span>
-</code></pre></div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>MaaSAuthPolicy and MaaSSubscription must be created in a namespace that contains a <code>MaasTenantConfig</code> CR. The admission webhook rejects them otherwise.</p>
-</div>
-<div class="admonition tip">
-<p class="admonition-title">MaaSModelRef for the default tenant</p>
-<p>For models that belong to the default tenant, <code>tenantRef</code> can be omitted. The controller falls back to namespace-based gateway resolution. See <a href="../../reference/crds/maas-model-ref/#multi-tenant-models">MaaSModelRef CRD Reference</a> for details.</p>
-</div>
-<h2 id="webhook-validation">Webhook Validation</h2>
-<p>The AITenant admission webhook enforces two rules:</p>
-<ol>
-<li>
-<p><strong>Namespace restriction</strong>: AITenant must be created in the configured infrastructure namespace (default: <code>ai-tenants</code>). Creating it in any other namespace is rejected.</p>
-</li>
-<li>
-<p><strong>Gateway uniqueness</strong>: Each AITenant must reference a unique Gateway. Two AITenants cannot use the same Gateway. The webhook checks all existing AITenants and rejects duplicates.</p>
-</li>
-</ol>
-<h2 id="operator-behavior">Operator Behavior</h2>
-<h3 id="self-bootstrap">Self-Bootstrap</h3>
-<p>On startup, the controller automatically creates <code>AITenant/models-as-a-service</code> in the infrastructure namespace for the default tenant. This AITenant bootstraps the default tenant namespace and <code>MaasTenantConfig</code> CR.</p>
-<h3 id="namespace-discovery">Namespace Discovery</h3>
-<p>When <code>--enable-tenant-namespace-discovery=true</code> is set, the controller watches for namespaces with the <code>ai-gateway.opendatahub.io/tenant</code> label. Changes to this label trigger tenant reconciliation.</p>
-<h3 id="controller-flags">Controller Flags</h3>
+<h2 id="benchmark-results">Benchmark Results</h2>
+<p>Tested on RHOAI 3.5 cluster with 300 MaaSSubscriptions created simultaneously:</p>
 <table>
 <thead>
 <tr>
-<th>Flag</th>
-<th>Default</th>
-<th>Description</th>
+<th>MaxConcurrentReconciles</th>
+<th>Time to all Active</th>
+<th>Speedup</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>--aitenant-namespace</code></td>
-<td><code>ai-tenants</code></td>
-<td>Namespace for AITenant CRs</td>
+<td>1</td>
+<td>236s</td>
+<td>baseline</td>
 </tr>
 <tr>
-<td><code>--enable-tenant-namespace-discovery</code></td>
-<td><code>false</code></td>
-<td>Watch namespaces for tenant label changes</td>
+<td>5 (default)</td>
+<td>60s</td>
+<td>3.9x</td>
 </tr>
 <tr>
-<td><code>--gateway-namespace</code></td>
-<td><code>openshift-ingress</code></td>
-<td>Namespace where Gateways are deployed</td>
-</tr>
-<tr>
-<td><code>--gateway-name</code></td>
-<td><code>maas-default-gateway</code></td>
-<td>Default Gateway name for the default tenant</td>
-</tr>
-<tr>
-<td><code>--infra-namespace</code></td>
-<td><code>AUTO</code></td>
-<td>Infrastructure namespace for maas-api and maas-db-config. See <a href="../../configuration-and-management/infra-namespace-migration/">Infrastructure Namespace Migration</a></td>
+<td>10</td>
+<td>67s</td>
+<td>3.5x</td>
 </tr>
 </tbody>
 </table>
-<h2 id="delete-a-tenant">Delete a Tenant</h2>
-<p>To remove a tenant:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>oc<span class="w"> </span>delete<span class="w"> </span>aitenant<span class="w"> </span><span class="si">${</span><span class="nv">TENANT_NAME</span><span class="si">}</span><span class="w"> </span>-n<span class="w"> </span>ai-tenants
+<p>At default pod resource limits, values above 5 show diminishing returns due to API server contention.</p>
+<h2 id="scaling-guidance">Scaling Guidance</h2>
+<table>
+<thead>
+<tr>
+<th>Deployment Size</th>
+<th>Recommended Value</th>
+<th>Resource Changes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Small (&lt; 100 subscriptions)</td>
+<td>5 (default)</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Medium (100–500 subscriptions)</td>
+<td>5</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Large (500+ subscriptions)</td>
+<td>5–10</td>
+<td>Increase controller CPU and memory</td>
+</tr>
+</tbody>
+</table>
+<p>To increase the value beyond 5, update the controller deployment args and scale resources:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Increase concurrency</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>oc<span class="w"> </span>patch<span class="w"> </span>deploy<span class="w"> </span>maas-controller<span class="w"> </span>-n<span class="w"> </span>&lt;controller-namespace&gt;<span class="w"> </span>--type<span class="o">=</span>json<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>-p<span class="w"> </span><span class="s1">&#39;[{&quot;op&quot;:&quot;add&quot;,&quot;path&quot;:&quot;/spec/template/spec/containers/0/args/-&quot;,&quot;value&quot;:&quot;--max-concurrent-reconciles=10&quot;}]&#39;</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># Scale resources to support higher concurrency</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>oc<span class="w"> </span>patch<span class="w"> </span>deploy<span class="w"> </span>maas-controller<span class="w"> </span>-n<span class="w"> </span>&lt;controller-namespace&gt;<span class="w"> </span>--type<span class="o">=</span>json<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span>-p<span class="w"> </span><span class="s1">&#39;[{&quot;op&quot;:&quot;replace&quot;,&quot;path&quot;:&quot;/spec/template/spec/containers/0/resources/limits/memory&quot;,&quot;value&quot;:&quot;512Mi&quot;},</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="s1">      {&quot;op&quot;:&quot;replace&quot;,&quot;path&quot;:&quot;/spec/template/spec/containers/0/resources/limits/cpu&quot;,&quot;value&quot;:&quot;1&quot;}]&#39;</span>
 </code></pre></div>
-<p>The controller finalizer cleans up:</p>
-<ul>
-<li>Tenant CR in the tenant namespace</li>
-<li>Controller-created Roles and RoleBindings</li>
-<li>Namespace labels and annotations (namespace itself is preserved)</li>
-</ul>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>User-created RoleBindings are <strong>not</strong> deleted. Remove them manually before or after deleting the AITenant. Stale RoleBindings that reference recreated Roles can re-enable access.</p>
-</div>
-<div class="admonition tip">
-<p class="admonition-title">Automated cleanup</p>
-<p>Use the <code>scripts/delete-ai-tenant.sh</code> script for full cleanup including Gateway:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>./scripts/delete-ai-tenant.sh<span class="w"> </span>red-team
-</code></pre></div></p>
-</div>
-<h2 id="known-limitations">Known Limitations</h2>
-<div class="admonition warning">
-<p class="admonition-title">External models are only supported for the default tenant</p>
-<p>External models work for the default tenant only. Non-default tenant IPP instances have the ExternalModel controller disabled to prevent HTTPRoute conflicts. See <a href="../external-model-setup/#multi-tenant-limitation">External Model Setup — Multi-Tenant Limitation</a> for details.</p>
-</div>
-<h2 id="see-also">See Also</h2>
-<ul>
-<li><a href="../../reference/crds/ai-tenant/">AITenant CRD Reference</a></li>
-<li><a href="../../reference/crds/tenant/">MaasTenantConfig CRD Reference</a></li>
-<li><a href="../../configuration-and-management/tenant-rbac/">Tenant RBAC</a></li>
-<li><a href="../multi-tenant-validation/">Multi-Tenant Validation</a></li>
-<li><a href="../../reference/api-reference/">API Reference</a></li>
-</ul>
+<h2 id="leader-election">Leader Election</h2>
+<p>The maas-controller uses Kubernetes leader election (<code>--leader-elect</code>). Only the leader pod runs reconcilers — additional replicas are standby for high-availability failover, not parallel processing. <code>MaxConcurrentReconciles</code> is the mechanism for parallelizing reconciliation within the single leader.</p>
 
 
 
@@ -3945,7 +3392,7 @@ Then label the infra namespace and any model namespaces:
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 31, 2026 13:26:04 UTC">July 31, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 31, 2026 01:20:35 UTC">July 31, 2026</span>
   </span>
 
     
@@ -3955,7 +3402,7 @@ Then label the infra namespace and any model namespaces:
     <span class="md-icon" title="Created">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 8, 2026 22:21:22 UTC">July 8, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 31, 2026 01:20:35 UTC">July 31, 2026</span>
   </span>
 
     
