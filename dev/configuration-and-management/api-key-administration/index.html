@@ -1688,6 +1688,61 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#revoking-all-keys-for-a-subscription" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Revoking All Keys for a Subscription
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#combined-scope-user-subscription" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Combined Scope (User + Subscription)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dry-run-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dry-Run Mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#request-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request Fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authorization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#use-cases" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3327,6 +3382,61 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#revoking-all-keys-for-a-subscription" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Revoking All Keys for a Subscription
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#combined-scope-user-subscription" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Combined Scope (User + Subscription)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dry-run-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dry-Run Mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#request-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request Fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authorization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#use-cases" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3465,7 +3575,7 @@
 <h1 id="api-key-administration">API Key Administration</h1>
 <p>This guide covers administrative operations for managing API keys across the MaaS platform.</p>
 <h2 id="bulk-key-revocation">Bulk Key Revocation</h2>
-<p>Platform administrators can revoke API keys for any user, which is useful for security incidents or offboarding.</p>
+<p>Platform administrators can bulk revoke API keys by <strong>user</strong>, by <strong>subscription</strong>, or both. A <strong>dry-run</strong> mode is available to preview how many keys would be revoked before committing.</p>
 <h3 id="revoking-all-keys-for-a-user">Revoking All Keys for a User</h3>
 <p>Send a <code>POST</code> request to <code>/v1/api-keys/bulk-revoke</code> with the target username:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl<span class="w"> </span>-sS<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">MAAS_API_URL</span><span class="si">}</span><span class="s2">/maas-api/v1/api-keys/bulk-revoke&quot;</span><span class="w"> </span><span class="se">\</span>
@@ -3474,14 +3584,86 @@
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;username&quot;: &quot;alice&quot;}&#39;</span>
 </code></pre></div>
 <p>This updates the status of all API keys belonging to the specified user to <code>revoked</code> in the database. The next validation request for any of those keys will reject them. Authorino may cache validation results briefly; revocation is effective as soon as the cache expires.</p>
+<h3 id="revoking-all-keys-for-a-subscription">Revoking All Keys for a Subscription</h3>
+<p>Revoke every active API key bound to a specific MaaSSubscription. This is useful when decommissioning a subscription or rotating all credentials for a particular access tier:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>curl<span class="w"> </span>-sS<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">MAAS_API_URL</span><span class="si">}</span><span class="s2">/maas-api/v1/api-keys/bulk-revoke&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="k">$(</span>oc<span class="w"> </span>whoami<span class="w"> </span>-t<span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;subscription&quot;: &quot;premium-simulator-subscription&quot;}&#39;</span>
+</code></pre></div>
+<h3 id="combined-scope-user-subscription">Combined Scope (User + Subscription)</h3>
+<p>Revoke only a specific user's keys that are bound to a particular subscription:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl<span class="w"> </span>-sS<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">MAAS_API_URL</span><span class="si">}</span><span class="s2">/maas-api/v1/api-keys/bulk-revoke&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="k">$(</span>oc<span class="w"> </span>whoami<span class="w"> </span>-t<span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;username&quot;: &quot;alice&quot;, &quot;subscription&quot;: &quot;simulator-subscription&quot;}&#39;</span>
+</code></pre></div>
+<h3 id="dry-run-mode">Dry-Run Mode</h3>
+<p>Preview how many keys would be revoked without actually revoking them. The response returns only the count — no key IDs are exposed. Set <code>dryRun: true</code> with any scope (username, subscription, or both).</p>
+<p><strong>Dry-run by subscription:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>curl<span class="w"> </span>-sS<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">MAAS_API_URL</span><span class="si">}</span><span class="s2">/maas-api/v1/api-keys/bulk-revoke&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="k">$(</span>oc<span class="w"> </span>whoami<span class="w"> </span>-t<span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;subscription&quot;: &quot;simulator-subscription&quot;, &quot;dryRun&quot;: true}&#39;</span>
+</code></pre></div>
+<p><strong>Dry-run by username:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>curl<span class="w"> </span>-sS<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">MAAS_API_URL</span><span class="si">}</span><span class="s2">/maas-api/v1/api-keys/bulk-revoke&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="k">$(</span>oc<span class="w"> </span>whoami<span class="w"> </span>-t<span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;username&quot;: &quot;alice&quot;, &quot;dryRun&quot;: true}&#39;</span>
+</code></pre></div>
+<p><strong>Dry-run with combined scope:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>curl<span class="w"> </span>-sS<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">MAAS_API_URL</span><span class="si">}</span><span class="s2">/maas-api/v1/api-keys/bulk-revoke&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="k">$(</span>oc<span class="w"> </span>whoami<span class="w"> </span>-t<span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;username&quot;: &quot;alice&quot;, &quot;subscription&quot;: &quot;simulator-subscription&quot;, &quot;dryRun&quot;: true}&#39;</span>
+</code></pre></div>
+<p><strong>Response (same structure for all dry-run scopes):</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">&quot;revokedCount&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Dry run: 12 active key(s) would be revoked for subscription simulator-subscription&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">&quot;dryRun&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="request-fields">Request Fields</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>username</code></td>
+<td>Optional (at least one of <code>username</code> or <code>subscription</code> must be provided)</td>
+<td>Target user whose keys should be revoked. Regular users can only specify their own username; specifying another user requires admin privileges.</td>
+</tr>
+<tr>
+<td><code>subscription</code></td>
+<td>Optional (at least one of <code>username</code> or <code>subscription</code> must be provided)</td>
+<td>MaaSSubscription name whose bound keys should be revoked. Admin-only.</td>
+</tr>
+<tr>
+<td><code>dryRun</code></td>
+<td>Optional</td>
+<td>When <code>true</code>, returns the count of keys that would be revoked without performing any mutation. Default: <code>false</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="authorization">Authorization</h3>
 <div class="admonition warning">
 <p class="admonition-title">Administrative privilege required</p>
-<p>Only administrators with appropriate permissions can revoke other users' keys. Regular users can only revoke their own keys via <code>DELETE /v1/api-keys/{id}</code>.</p>
+<p>Subscription-scoped and cross-user revocation require admin privileges. Regular users can only revoke their own keys via <code>DELETE /v1/api-keys/{id}</code> or bulk revoke with their own username.</p>
 </div>
 <h3 id="use-cases">Use Cases</h3>
 <ul>
 <li><strong>Security incident response</strong>: Immediately cut off access for a compromised account</li>
 <li><strong>User offboarding</strong>: Revoke all keys when a user leaves the organization</li>
+<li><strong>Subscription decommission</strong>: Revoke all keys bound to a subscription before removing it</li>
+<li><strong>Access tier migration</strong>: Revoke keys for an old subscription after migrating users to a new one</li>
+<li><strong>Impact assessment</strong>: Use dry-run to preview the blast radius before executing a bulk revoke</li>
 <li><strong>Policy enforcement</strong>: Revoke keys that violate usage policies</li>
 </ul>
 <hr />
@@ -3515,18 +3697,18 @@
 </ul>
 <h3 id="troubleshooting-cleanup">Troubleshooting Cleanup</h3>
 <p><strong>Check CronJob status:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>oc<span class="w"> </span>get<span class="w"> </span>cronjob<span class="w"> </span>maas-api-key-cleanup<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>oc<span class="w"> </span>get<span class="w"> </span><span class="nb">jobs</span><span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>maas-api-cleanup<span class="w"> </span>--sort-by<span class="o">=</span>.metadata.creationTimestamp
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>oc<span class="w"> </span>get<span class="w"> </span>cronjob<span class="w"> </span>maas-api-key-cleanup<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>oc<span class="w"> </span>get<span class="w"> </span><span class="nb">jobs</span><span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>maas-api-cleanup<span class="w"> </span>--sort-by<span class="o">=</span>.metadata.creationTimestamp
 </code></pre></div>
 <p><strong>View cleanup logs:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Latest CronJob run</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>oc<span class="w"> </span>logs<span class="w"> </span>job/<span class="k">$(</span>oc<span class="w"> </span>get<span class="w"> </span><span class="nb">jobs</span><span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>maas-api-cleanup<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--sort-by<span class="o">=</span>.metadata.creationTimestamp<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.items[-1].metadata.name}&#39;</span><span class="k">)</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>-n<span class="w"> </span>&lt;namespace&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Latest CronJob run</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>oc<span class="w"> </span>logs<span class="w"> </span>job/<span class="k">$(</span>oc<span class="w"> </span>get<span class="w"> </span><span class="nb">jobs</span><span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>-l<span class="w"> </span><span class="nv">app</span><span class="o">=</span>maas-api-cleanup<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span>--sort-by<span class="o">=</span>.metadata.creationTimestamp<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.items[-1].metadata.name}&#39;</span><span class="k">)</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span>-n<span class="w"> </span>&lt;namespace&gt;
 </code></pre></div>
 <p><strong>Manually trigger cleanup</strong> (from an allowed pod or via oc exec):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>oc<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>deploy/maas-api<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>--<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>curl<span class="w"> </span>-sf<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8080/internal/v1/api-keys/cleanup
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>oc<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>deploy/maas-api<span class="w"> </span>-n<span class="w"> </span>&lt;namespace&gt;<span class="w"> </span>--<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span>curl<span class="w"> </span>-sf<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8080/internal/v1/api-keys/cleanup
 </code></pre></div>
 <p>Response: <code>{"deletedCount": N, "message": "Successfully deleted N expired ephemeral key(s)"}</code></p>
 <hr />
@@ -3557,7 +3739,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="May 7, 2026 14:37:02 UTC">May 7, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 10, 2026 19:43:52 UTC">August 10, 2026</span>
   </span>
 
     
