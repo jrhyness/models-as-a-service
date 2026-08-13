@@ -3355,3 +3355,46 @@ func TestEnsureInfraNamespaceGatewayLabelsSkipsPatchWhenAlreadyLabeled(t *testin
 	g.Expect(r.ensureInfraNamespaceGatewayLabels(context.Background(), ref)).To(Succeed())
 	g.Expect(patchCalled).To(BeFalse(), "should not patch when labels are already present")
 }
+
+func TestEnsureInfraNamespaceGatewayLabelsRejectsConflictingValues(t *testing.T) {
+	g := NewWithT(t)
+	s := aitenantTestScheme(t)
+	infraNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "redhat-ai-gateway-infra"}}
+
+	from := gatewayapiv1.NamespacesFromSelector
+	gw := existingAITenantGateway("team-a")
+	gw.Spec.Listeners = []gatewayapiv1.Listener{
+		{
+			Name: "https", Port: 443, Protocol: gatewayapiv1.HTTPSProtocolType,
+			AllowedRoutes: &gatewayapiv1.AllowedRoutes{
+				Namespaces: &gatewayapiv1.RouteNamespaces{
+					From:     &from,
+					Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"env": "prod"}},
+				},
+			},
+		},
+		{
+			Name: "https-alt", Port: 8443, Protocol: gatewayapiv1.HTTPSProtocolType,
+			AllowedRoutes: &gatewayapiv1.AllowedRoutes{
+				Namespaces: &gatewayapiv1.RouteNamespaces{
+					From:     &from,
+					Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"env": "staging"}},
+				},
+			},
+		},
+	}
+
+	cl := fake.NewClientBuilder().WithScheme(s).WithObjects(infraNs, gw).Build()
+	r := &AITenantReconciler{
+		Client:           cl,
+		Scheme:           s,
+		APIReader:        cl,
+		AppNamespace:     "redhat-ai-gateway-infra",
+		GatewayNamespace: "openshift-ingress",
+	}
+
+	ref := maasv1alpha1.TenantGatewayRef{Namespace: "openshift-ingress", Name: "team-a"}
+	err := r.ensureInfraNamespaceGatewayLabels(context.Background(), ref)
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(err.Error()).To(ContainSubstring("conflicting namespace selector values"))
+}

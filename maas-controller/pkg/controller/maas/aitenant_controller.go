@@ -419,6 +419,10 @@ func (r *AITenantReconciler) ensureInfraNamespaceGatewayLabels(ctx context.Conte
 			continue
 		}
 		for k, v := range ns.Selector.MatchLabels {
+			if existing, ok := labels[k]; ok && existing != v {
+				return fmt.Errorf("gateway %s/%s has conflicting namespace selector values for label %q: listener %q wants %q but another listener wants %q",
+					ref.Namespace, ref.Name, k, listener.Name, v, existing)
+			}
 			labels[k] = v
 		}
 	}
