@@ -3229,3 +3229,128 @@ func TestAITenantReconcile_DeletionTimeoutDisabledWhenZero(t *testing.T) {
 	g.Expect(res.RequeueAfter).To(BeNumerically(">", 0),
 		"should requeue for normal cleanup when timeout is disabled, not force-remove")
 }
+
+func gatewayWithMatchLabels(name string, matchLabels map[string]string) *gatewayapiv1.Gateway {
+	from := gatewayapiv1.NamespacesFromSelector
+	gw := existingAITenantGateway(name)
+	gw.Spec.Listeners = []gatewayapiv1.Listener{
+		{
+			Name: "https", Port: 443, Protocol: gatewayapiv1.HTTPSProtocolType,
+			AllowedRoutes: &gatewayapiv1.AllowedRoutes{
+				Namespaces: &gatewayapiv1.RouteNamespaces{
+					From: &from,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: matchLabels,
+					},
+				},
+			},
+		},
+	}
+	return gw
+}
+
+func TestEnsureInfraNamespaceGatewayLabelsAppliesMatchLabels(t *testing.T) {
+	g := NewWithT(t)
+	s := aitenantTestScheme(t)
+	infraNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "redhat-ai-gateway-infra"}}
+	gw := gatewayWithMatchLabels("team-a", map[string]string{"maas-gateway-access": "true"})
+
+	cl := fake.NewClientBuilder().WithScheme(s).WithObjects(infraNs, gw).Build()
+	r := &AITenantReconciler{
+		Client:           cl,
+		Scheme:           s,
+		APIReader:        cl,
+		AppNamespace:     "redhat-ai-gateway-infra",
+		GatewayNamespace: "openshift-ingress",
+	}
+
+	ref := maasv1alpha1.TenantGatewayRef{Namespace: "openshift-ingress", Name: "team-a"}
+	g.Expect(r.ensureInfraNamespaceGatewayLabels(context.Background(), ref)).To(Succeed())
+
+	var ns corev1.Namespace
+	g.Expect(cl.Get(context.Background(), client.ObjectKey{Name: "redhat-ai-gateway-infra"}, &ns)).To(Succeed())
+	g.Expect(ns.Labels).To(HaveKeyWithValue("maas-gateway-access", "true"))
+}
+
+func TestEnsureInfraNamespaceGatewayLabelsSkipsWhenNoSelector(t *testing.T) {
+	g := NewWithT(t)
+	s := aitenantTestScheme(t)
+	infraNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "redhat-ai-gateway-infra"}}
+	gw := existingAITenantGateway("team-a")
+
+	cl := fake.NewClientBuilder().WithScheme(s).WithObjects(infraNs, gw).Build()
+	r := &AITenantReconciler{
+		Client:           cl,
+		Scheme:           s,
+		APIReader:        cl,
+		AppNamespace:     "redhat-ai-gateway-infra",
+		GatewayNamespace: "openshift-ingress",
+	}
+
+	ref := maasv1alpha1.TenantGatewayRef{Namespace: "openshift-ingress", Name: "team-a"}
+	g.Expect(r.ensureInfraNamespaceGatewayLabels(context.Background(), ref)).To(Succeed())
+
+	var ns corev1.Namespace
+	g.Expect(cl.Get(context.Background(), client.ObjectKey{Name: "redhat-ai-gateway-infra"}, &ns)).To(Succeed())
+	g.Expect(ns.Labels).To(BeEmpty())
+}
+
+func TestEnsureInfraNamespaceGatewayLabelsPreservesExistingLabels(t *testing.T) {
+	g := NewWithT(t)
+	s := aitenantTestScheme(t)
+	infraNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+		Name:   "redhat-ai-gateway-infra",
+		Labels: map[string]string{"app.kubernetes.io/managed-by": "maas-controller"},
+	}}
+	gw := gatewayWithMatchLabels("team-a", map[string]string{"maas-gateway-access": "true"})
+
+	cl := fake.NewClientBuilder().WithScheme(s).WithObjects(infraNs, gw).Build()
+	r := &AITenantReconciler{
+		Client:           cl,
+		Scheme:           s,
+		APIReader:        cl,
+		AppNamespace:     "redhat-ai-gateway-infra",
+		GatewayNamespace: "openshift-ingress",
+	}
+
+	ref := maasv1alpha1.TenantGatewayRef{Namespace: "openshift-ingress", Name: "team-a"}
+	g.Expect(r.ensureInfraNamespaceGatewayLabels(context.Background(), ref)).To(Succeed())
+
+	var ns corev1.Namespace
+	g.Expect(cl.Get(context.Background(), client.ObjectKey{Name: "redhat-ai-gateway-infra"}, &ns)).To(Succeed())
+	g.Expect(ns.Labels).To(HaveKeyWithValue("maas-gateway-access", "true"))
+	g.Expect(ns.Labels).To(HaveKeyWithValue("app.kubernetes.io/managed-by", "maas-controller"))
+}
+
+func TestEnsureInfraNamespaceGatewayLabelsSkipsPatchWhenAlreadyLabeled(t *testing.T) {
+	g := NewWithT(t)
+	s := aitenantTestScheme(t)
+	infraNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+		Name:   "redhat-ai-gateway-infra",
+		Labels: map[string]string{"maas-gateway-access": "true"},
+	}}
+	gw := gatewayWithMatchLabels("team-a", map[string]string{"maas-gateway-access": "true"})
+
+	patchCalled := false
+	cl := fake.NewClientBuilder().WithScheme(s).WithObjects(infraNs, gw).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+				if obj.GetName() == "redhat-ai-gateway-infra" {
+					patchCalled = true
+				}
+				return c.Patch(ctx, obj, patch, opts...)
+			},
+		}).
+		Build()
+	r := &AITenantReconciler{
+		Client:           cl,
+		Scheme:           s,
+		APIReader:        cl,
+		AppNamespace:     "redhat-ai-gateway-infra",
+		GatewayNamespace: "openshift-ingress",
+	}
+
+	ref := maasv1alpha1.TenantGatewayRef{Namespace: "openshift-ingress", Name: "team-a"}
+	g.Expect(r.ensureInfraNamespaceGatewayLabels(context.Background(), ref)).To(Succeed())
+	g.Expect(patchCalled).To(BeFalse(), "should not patch when labels are already present")
+}

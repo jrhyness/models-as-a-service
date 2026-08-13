@@ -218,6 +218,14 @@ func (r *AITenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
+	if err := r.ensureInfraNamespaceGatewayLabels(ctx, gatewayRef); err != nil {
+		setAITenantPhase(&aitenant, "Failed", "InfraNamespaceLabelFailed", err.Error())
+		if err2 := r.updateAITenantStatus(ctx, &aitenant, statusSnapshot); err2 != nil {
+			return ctrl.Result{}, err2
+		}
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
 	if err := r.ensureGatewayClaim(ctx, &aitenant, gatewayRef); err != nil {
 		setAITenantPhase(&aitenant, "Failed", "GatewayClaimFailed", err.Error())
 		if err2 := r.updateAITenantStatus(ctx, &aitenant, statusSnapshot); err2 != nil {
@@ -389,6 +397,66 @@ func (r *AITenantReconciler) validateTenantGateway(ctx context.Context, ref maas
 		}
 		return fmt.Errorf("get Gateway %s/%s: %w", key.Namespace, key.Name, err)
 	}
+	return nil
+}
+
+// ensureInfraNamespaceGatewayLabels reads the tenant's Gateway and applies any
+// listener matchLabels to the shared infrastructure namespace so that hardened
+// gateways accept per-tenant maas-api HTTPRoutes from it.
+func (r *AITenantReconciler) ensureInfraNamespaceGatewayLabels(ctx context.Context, ref maasv1alpha1.TenantGatewayRef) error {
+	var gw gatewayapiv1.Gateway
+	if err := r.get(ctx, client.ObjectKey{Namespace: ref.Namespace, Name: ref.Name}, &gw); err != nil {
+		return fmt.Errorf("read gateway %s/%s: %w", ref.Namespace, ref.Name, err)
+	}
+
+	labels := map[string]string{}
+	for _, listener := range gw.Spec.Listeners {
+		if listener.AllowedRoutes == nil || listener.AllowedRoutes.Namespaces == nil {
+			continue
+		}
+		ns := listener.AllowedRoutes.Namespaces
+		if ns.From == nil || *ns.From != gatewayapiv1.NamespacesFromSelector || ns.Selector == nil {
+			continue
+		}
+		for k, v := range ns.Selector.MatchLabels {
+			labels[k] = v
+		}
+	}
+
+	if len(labels) == 0 {
+		return nil
+	}
+
+	var infraNs corev1.Namespace
+	if err := r.get(ctx, client.ObjectKey{Name: r.AppNamespace}, &infraNs); err != nil {
+		return fmt.Errorf("read infra namespace %s: %w", r.AppNamespace, err)
+	}
+
+	needsPatch := false
+	for k, v := range labels {
+		if infraNs.Labels[k] != v {
+			needsPatch = true
+			break
+		}
+	}
+	if !needsPatch {
+		return nil
+	}
+
+	patch := client.MergeFrom(infraNs.DeepCopy())
+	if infraNs.Labels == nil {
+		infraNs.Labels = make(map[string]string)
+	}
+	for k, v := range labels {
+		infraNs.Labels[k] = v
+	}
+	if err := r.Patch(ctx, &infraNs, patch); err != nil {
+		return fmt.Errorf("patch labels on infra namespace %s: %w", r.AppNamespace, err)
+	}
+
+	log := ctrl.LoggerFrom(ctx)
+	log.Info("applied gateway namespace-selector labels to infrastructure namespace",
+		"infraNamespace", r.AppNamespace, "gateway", ref.Name, "labels", labels)
 	return nil
 }
 
