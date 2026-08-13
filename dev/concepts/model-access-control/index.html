@@ -3446,7 +3446,7 @@
 <li>Lives in the <code>models-as-a-service</code> namespace</li>
 <li>References one or more MaaSModelRef resources (by name and namespace)</li>
 <li>Specifies which groups or users can access those models</li>
-<li>Generates Authorino AuthPolicy resources for enforcement at the gateway</li>
+<li>Access checks are evaluated by maas-api during subscription selection and surfaced as <code>accessAllowed</code> in the gateway's subscription-info metadata</li>
 </ul>
 <p><strong>Multiple policies per model</strong>: You can create multiple MaaSAuthPolicies that reference the same model. The controller aggregates them—a user matching any policy gets access.</p>
 <h3 id="maassubscription">MaaSSubscription</h3>
@@ -3463,12 +3463,10 @@
 <p>For a user to access a model:</p>
 <ol>
 <li><strong>Authentication</strong>: User presents an API key or identity token</li>
-<li><strong>Authorization check</strong> (AuthPolicy):</li>
-<li>Does the user's groups match any MaaSAuthPolicy for this model?</li>
-<li>If no: 403 Forbidden</li>
-<li><strong>Quota check</strong> (Subscription):</li>
-<li>Does the user's API key have a subscription that includes this model?</li>
-<li>If no: 403 Forbidden</li>
+<li><strong>Subscription selection and authorization</strong> (AuthPolicy → maas-api):</li>
+<li>maas-api resolves which MaaSSubscription applies and checks the caller's groups/username against MaaSAuthPolicy rules for the requested model</li>
+<li>The result includes <code>accessAllowed</code> in the subscription-info metadata</li>
+<li>If the user has no matching MaaSAuthPolicy or MaaSSubscription: 403 Forbidden</li>
 <li><strong>Rate limit check</strong> (TokenRateLimitPolicy):</li>
 <li>Has the user exceeded token limits for this subscription?</li>
 <li>If yes: 429 Too Many Requests</li>
@@ -3513,7 +3511,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="April 29, 2026 19:59:56 UTC">April 29, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 13, 2026 11:35:15 UTC">August 13, 2026</span>
   </span>
 
     
