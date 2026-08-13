@@ -13,6 +13,8 @@
 #                                 Policy engine is auto-selected:
 #                                   odh → kuadrant (community v1.4.2)
 #                                   rhoai → rhcl (Red Hat Connectivity Link)
+#   --policy-engine <rhcl|kuadrant>
+#                                 Override rate-limiting policy engine
 #   --enable-tls-backend          Enable TLS for Authorino/MaaS API (default: on)
 #   --enable-keycloak             Deploy Keycloak for external OIDC (optional)
 #   --namespace <namespace>       Target namespace
@@ -133,7 +135,9 @@ esac
 
 DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-operator}"
 OPERATOR_TYPE="${OPERATOR_TYPE:-odh}"
-POLICY_ENGINE=""  # Auto-determined: odh→kuadrant, rhoai→rhcl
+POLICY_ENGINE="${POLICY_ENGINE:-}"  # Auto-determined unless set via env or --policy-engine
+RHCL_STARTING_CSV="${RHCL_STARTING_CSV:-}"
+RHCL_NAMESPACE="${RHCL_NAMESPACE:-kuadrant-system}"
 NAMESPACE="${DEPLOYMENT_NAMESPACE:-}"  # Auto-determined based on operator type
 ENABLE_TLS_BACKEND="${ENABLE_TLS_BACKEND:-true}"
 ENABLE_KEYCLOAK="${ENABLE_KEYCLOAK:-false}"
@@ -143,7 +147,7 @@ DEV_MODE="${DEV_MODE:-false}"
 OPERATOR_CATALOG="${OPERATOR_CATALOG:-}"
 OPERATOR_IMAGE="${OPERATOR_IMAGE:-}"
 OPERATOR_CHANNEL="${OPERATOR_CHANNEL:-}"
-OPERATOR_STARTING_CSV="${OPERATOR_STARTING_CSV:-}"
+OPERATOR_STARTING_CSV="${OPERATOR_STARTING_CSV:-opendatahub-operator.v3.5.0-ea.2}"
 OPERATOR_INSTALL_PLAN_APPROVAL="${OPERATOR_INSTALL_PLAN_APPROVAL:-}"
 MAAS_API_IMAGE="${MAAS_API_IMAGE:-}"
 MAAS_CONTROLLER_IMAGE="${MAAS_CONTROLLER_IMAGE:-}"
@@ -174,6 +178,12 @@ OPTIONS:
       - rhoai → rhcl (Red Hat Connectivity Link)
       - odh → kuadrant (community v1.4.2 with AuthPolicy v1)
       Only applies when --deployment-mode=operator
+
+  --policy-engine <rhcl|kuadrant>
+      Rate-limiting policy engine (default: auto-selected)
+      - rhcl: Red Hat Connectivity Link from redhat-operators (stable channel head)
+      - kuadrant: upstream community catalog (v1.4.2)
+      Overrides auto-selection for both operator and kustomize modes.
 
   --enable-tls-backend
       Enable TLS backend for Authorino and MaaS API (default: enabled)
@@ -239,8 +249,7 @@ ADVANCED OPTIONS (PR Testing):
 
   --external-oidc
       Enable external OIDC on the maas-api AuthPolicy.
-      Requires OIDC_ISSUER_URL or deployment/overlays/odh/params.env to provide
-      a real oidc-issuer-url value.
+      Requires OIDC_ISSUER_URL (and OIDC_CLIENT_ID) to be set.
 
 ENVIRONMENT VARIABLES:
   MAAS_API_IMAGE            Custom MaaS API container image
@@ -248,11 +257,15 @@ ENVIRONMENT VARIABLES:
   AI_GATEWAY_OPERATOR_IMAGE Custom ai-gateway-operator image (operator mode only)
   OPERATOR_CATALOG          Custom operator catalog
   OPERATOR_IMAGE            Custom operator image
-  OPERATOR_STARTING_CSV     ODH Subscription startingCSV (optional; when unset, follows the channel head)
+  OPERATOR_STARTING_CSV     ODH Subscription startingCSV (default: opendatahub-operator.v3.5.0-ea.2; set "-" to follow channel head)
   OPERATOR_INSTALL_PLAN_APPROVAL  ODH Subscription OLM approval (default: Manual — no auto-upgrades; first InstallPlan is auto-approved by the script)
   OPERATOR_TYPE             Operator type (rhoai/odh)
-  EXTERNAL_OIDC            Enable external OIDC on maas-api (true/false)
-  OIDC_ISSUER_URL          External OIDC issuer URL for maas-api AuthPolicy patching
+  POLICY_ENGINE             Policy engine override (rhcl|kuadrant)
+  RHCL_STARTING_CSV         Pin RHCL operator CSV (default: channel head on redhat-operators)
+  RHCL_NAMESPACE            RHCL operator/Kuadrant workload namespace (default: kuadrant-system)
+  EXTERNAL_OIDC             Enable external OIDC on maas-api (true/false)
+  OIDC_ISSUER_URL           External OIDC issuer URL for maas-api AuthPolicy patching
+  OIDC_CLIENT_ID            External OIDC client ID for maas-api AuthPolicy patching (required with EXTERNAL_OIDC)
   LOG_LEVEL                 Logging verbosity (DEBUG, INFO, WARN, ERROR)
   FORCE_OVERWRITE           When true, re-apply manifests even if the resource already exists (default: false)
   POSTGRES_CONNECTION       External PostgreSQL connection string (same as --postgres-connection)
@@ -324,6 +337,11 @@ parse_arguments() {
       --operator-type)
         require_flag_value "$1" "${2:-}"
         OPERATOR_TYPE="$2"
+        shift 2
+        ;;
+      --policy-engine)
+        require_flag_value "$1" "${2:-}"
+        POLICY_ENGINE="$2"
         shift 2
         ;;
       --enable-tls-backend)
@@ -473,10 +491,17 @@ validate_configuration() {
     fi
   fi
 
-  # Auto-determine policy engine based on operator type
+  # Auto-determine policy engine based on operator type unless explicitly set.
   # - ODH uses community Kuadrant (v1.4.2 from upstream catalog has AuthPolicy v1)
   # - RHOAI uses RHCL (Red Hat Connectivity Link - downstream)
-  if [[ "$DEPLOYMENT_MODE" == "operator" ]]; then
+  if [[ -n "$POLICY_ENGINE" ]]; then
+    if [[ ! "$POLICY_ENGINE" =~ ^(rhcl|kuadrant)$ ]]; then
+      log_error "Invalid policy engine: $POLICY_ENGINE"
+      log_error "Must be 'rhcl' or 'kuadrant'"
+      exit 1
+    fi
+    log_debug "Using explicitly configured policy engine: $POLICY_ENGINE"
+  elif [[ "$DEPLOYMENT_MODE" == "operator" ]]; then
     case "$OPERATOR_TYPE" in
       odh)
         POLICY_ENGINE="kuadrant"
@@ -627,9 +652,12 @@ main() {
   else
     # Direct-install path used when maas-controller is absent, or when
     # FORCE_OVERWRITE=true requests a full local re-apply and restart.
-    # Ensure maas-parameters ConfigMap exists with image defaults before the
-    # controller starts; maas-controller reads these via configMapKeyRef
-    # (RELATED_IMAGE_* env vars).
+    # deployment/base/maas-controller/default now generates its own
+    # maas-parameters ConfigMap (see its kustomization.yaml), so image
+    # overrides below are injected via a `behavior: merge` configMapGenerator
+    # in the temporary overlay (Phase 2) instead of a separate kubectl-create
+    # step -- a standalone create here would just be overwritten by Phase 2's
+    # apply and silently drop PR-testing image overrides.
     local default_tag="odh-stable"
     [[ "${DEV_MODE:-false}" == "true" ]] && default_tag="latest"
     local cm_maas_api_image="${MAAS_API_IMAGE:-quay.io/opendatahub/maas-api:${default_tag}}"
@@ -637,18 +665,6 @@ main() {
     local cm_payload_processing_image="${PAYLOAD_PROCESSING_IMAGE:-$(get_odh_overlay_param payload-processing-image 2>/dev/null || echo "quay.io/opendatahub/odh-ai-gateway-payload-processing:odh-stable")}"
     local cm_cleanup_image="registry.redhat.io/ubi9/ubi-minimal:9.7"
     local cm_monitoring_namespace="${MONITORING_NAMESPACE:-opendatahub}"
-
-    log_info "  Ensuring maas-parameters ConfigMap..."
-    kubectl create configmap maas-parameters -n "$NAMESPACE" \
-      --from-literal="maas-api-image=${cm_maas_api_image}" \
-      --from-literal="maas-controller-image=${cm_maas_controller_image}" \
-      --from-literal="payload-processing-image=${cm_payload_processing_image}" \
-      --from-literal="maas-api-key-cleanup-image=${cm_cleanup_image}" \
-      --from-literal="monitoring-namespace=${cm_monitoring_namespace}" \
-      --dry-run=client -o yaml | kubectl apply -f - || {
-      log_error "Failed to create/update maas-parameters ConfigMap"
-      return 1
-    }
 
     log_info "  Phase 1: Applying MaaS CRDs and waiting until Established (controller creates Config after CRD is ready)..."
     if ! install_maas_controller_crds_and_wait "${project_root}/deployment/base/maas-controller/crd"; then
@@ -667,6 +683,22 @@ kind: Kustomization
 namespace: ${NAMESPACE}
 resources:
   - ../deployment/base/maas-controller/default
+# Overrides deployment/base/maas-controller/default's own maas-parameters
+# ConfigMap (merge, not create) with this run's resolved image/namespace
+# values, so PR-testing overrides (--maas-api-image, --payload-processing-image,
+# MONITORING_NAMESPACE, etc.) reach both the Deployment env vars and any
+# tenant-reconciler code that reads this ConfigMap.
+configMapGenerator:
+  - name: maas-parameters
+    behavior: merge
+    literals:
+      - maas-api-image=${cm_maas_api_image}
+      - maas-controller-image=${cm_maas_controller_image}
+      - payload-processing-image=${cm_payload_processing_image}
+      - maas-api-key-cleanup-image=${cm_cleanup_image}
+      - monitoring-namespace=${cm_monitoring_namespace}
+generatorOptions:
+  disableNameSuffixHash: true
 EOF
     (
       cd "${controller_overlay_dir}" && \
@@ -1060,12 +1092,20 @@ install_policy_engine() {
   case "$POLICY_ENGINE" in
     rhcl)
       log_info "Installing RHCL (Red Hat Connectivity Link - downstream)"
+      local rhcl_ns="${RHCL_NAMESPACE:-kuadrant-system}"
+      local rhcl_starting_csv="${RHCL_STARTING_CSV:-}"
+      if [[ -n "$rhcl_starting_csv" ]]; then
+        log_info "Pinning RHCL operator to startingCSV: $rhcl_starting_csv"
+      else
+        log_info "Using RHCL channel head from redhat-operators (stable)"
+      fi
+      log_info "Installing RHCL into namespace: $rhcl_ns"
       if ! install_olm_operator \
         "rhcl-operator" \
-        "rh-connectivity-link" \
+        "$rhcl_ns" \
         "redhat-operators" \
         "stable" \
-        "" \
+        "$rhcl_starting_csv" \
         "AllNamespaces" \
         "" \
         ""; then
@@ -1074,10 +1114,10 @@ install_policy_engine() {
       fi
 
       # Patch RHCL CSV to recognize OpenShift Gateway controller
-      patch_kuadrant_csv "rh-connectivity-link" "rhcl-operator"
+      patch_kuadrant_csv "$rhcl_ns" "rhcl-operator"
 
       # Apply RHCL/Kuadrant custom resource
-      apply_kuadrant_cr "rh-connectivity-link"
+      apply_kuadrant_cr "$rhcl_ns"
       ;;
 
     kuadrant)
@@ -1242,9 +1282,9 @@ install_primary_operator() {
         channel="${OPERATOR_CHANNEL:-fast-3}"
       fi
 
-      # Follow the configured channel head by default unless OPERATOR_STARTING_CSV
-      # explicitly pins a CSV.
-      local odh_starting_csv="${OPERATOR_STARTING_CSV:-}"
+      # Pin to ODH 3.5 EA2 unless overridden (omit with OPERATOR_STARTING_CSV=- to follow channel head)
+      local odh_starting_csv="${OPERATOR_STARTING_CSV:-opendatahub-operator.v3.5.0-ea.2}"
+      [[ "$odh_starting_csv" == "-" ]] && odh_starting_csv=""
 
       # Manual = no auto-upgrades; install_olm_operator auto-approves the first InstallPlan only
       local odh_plan_approval="${OPERATOR_INSTALL_PLAN_APPROVAL:-Manual}"
@@ -1575,15 +1615,13 @@ patch_operator_csv() {
 #──────────────────────────────────────────────────────────────
 
 # get_odh_overlay_param
-#   Reads a value from the active overlay's params.env.
+#   Reads a value from the canonical maas-controller params.env.
 get_odh_overlay_param() {
   local key="$1"
   local project_root
   project_root="$(find_project_root)" || return 1
 
-  local overlay="odh"
-  [[ "${DEV_MODE:-false}" == "true" ]] && overlay="dev"
-  local params_file="$project_root/deployment/overlays/$overlay/params.env"
+  local params_file="$project_root/deployment/base/maas-controller/default/params.env"
   [[ -f "$params_file" ]] || return 1
 
   awk -F= -v key="$key" '$1 == key { print substr($0, index($0, "=") + 1); exit }' "$params_file"
@@ -1591,9 +1629,6 @@ get_odh_overlay_param() {
 
 resolve_external_oidc_issuer() {
   local oidc_issuer_url="${OIDC_ISSUER_URL:-}"
-  if [[ -z "$oidc_issuer_url" ]]; then
-    oidc_issuer_url=$(get_odh_overlay_param "oidc-issuer-url" 2>/dev/null || echo "")
-  fi
 
   if [[ -z "$oidc_issuer_url" || "$oidc_issuer_url" == "https://oidc.example.invalid/realms/maas" ]]; then
     return 1
@@ -1604,9 +1639,6 @@ resolve_external_oidc_issuer() {
 
 resolve_external_oidc_client_id() {
   local oidc_client_id="${OIDC_CLIENT_ID:-}"
-  if [[ -z "$oidc_client_id" ]]; then
-    oidc_client_id=$(get_odh_overlay_param "oidc-client-id" 2>/dev/null || echo "")
-  fi
 
   if [[ -z "$oidc_client_id" ]]; then
     return 1
@@ -1716,14 +1748,10 @@ configure_tenant_external_oidc() {
 configure_tls_backend() {
   log_info "Configuring TLS backend for Authorino and MaaS API..."
 
-  # Determine Authorino namespace based on rate limiter
-  local authorino_namespace
+  # Authorino and Kuadrant workloads run in kuadrant-system for both RHCL and community Kuadrant.
+  local authorino_namespace="${RHCL_NAMESPACE:-kuadrant-system}"
   case "$POLICY_ENGINE" in
-    rhcl)
-      authorino_namespace="rh-connectivity-link"
-      ;;
-    kuadrant)
-      authorino_namespace="kuadrant-system"
+    rhcl|kuadrant)
       ;;
     *)
       log_warn "Unknown policy engine: $POLICY_ENGINE, defaulting to kuadrant-system"
