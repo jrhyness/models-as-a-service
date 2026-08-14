@@ -224,11 +224,17 @@ func (r *AITenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	if err := r.ensureInfraNamespaceGatewayLabels(ctx, gw); err != nil {
-		setAITenantPhase(&aitenant, "Failed", "InfraNamespaceLabelFailed", err.Error())
-		if err2 := r.updateAITenantStatus(ctx, &aitenant, statusSnapshot); err2 != nil {
-			return ctrl.Result{}, err2
-		}
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		ctrl.LoggerFrom(ctx).Error(err, "infra namespace gateway label reconciliation failed, continuing")
+		apimeta.SetStatusCondition(&aitenant.Status.Conditions, metav1.Condition{
+			Type:               tenantreconcile.ConditionTypeDegraded,
+			Status:             metav1.ConditionTrue,
+			Reason:             "InfraNamespaceLabelFailed",
+			Message:            err.Error(),
+			ObservedGeneration: aitenant.Generation,
+			LastTransitionTime: metav1.Now(),
+		})
+	} else {
+		apimeta.RemoveStatusCondition(&aitenant.Status.Conditions, tenantreconcile.ConditionTypeDegraded)
 	}
 
 	if err := r.ensureGatewayClaim(ctx, &aitenant, gatewayRef); err != nil {
@@ -529,7 +535,9 @@ func (r *AITenantReconciler) ensureInfraNamespaceGatewayLabels(ctx context.Conte
 	}
 
 	// Build the patch: add desired labels, remove stale labels, update annotation.
-	patch := client.MergeFrom(infraNs.DeepCopy())
+	// Use optimistic locking so concurrent reconciles for different tenants
+	// get a 409 Conflict instead of silently overwriting each other's ownership.
+	patch := client.MergeFromWithOptions(infraNs.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	if infraNs.Labels == nil {
 		infraNs.Labels = make(map[string]string)
 	}
@@ -627,7 +635,7 @@ func (r *AITenantReconciler) cleanupGatewayLabelsOnDelete(ctx context.Context, a
 		return nil
 	}
 
-	patch := client.MergeFrom(infraNs.DeepCopy())
+	patch := client.MergeFromWithOptions(infraNs.DeepCopy(), client.MergeFromWithOptimisticLock{})
 	for _, k := range keysToRemove {
 		delete(infraNs.Labels, k)
 		delete(ownership, k)
@@ -665,7 +673,7 @@ func (r *AITenantReconciler) cleanupGatewayLabelsOnDelete(ctx context.Context, a
 // selector are reflected on the infrastructure namespace labels.
 func (r *AITenantReconciler) enqueueAITenantForGateway(ctx context.Context, obj client.Object) []reconcile.Request {
 	var list maasv1alpha1.AITenantList
-	if err := r.APIReader.List(ctx, &list, client.InNamespace(r.AITenantNamespace)); err != nil {
+	if err := r.APIReader.List(ctx, &list, client.InNamespace(r.aitenantNamespace())); err != nil {
 		ctrl.LoggerFrom(ctx).Error(err, "failed to list AITenants for gateway mapper")
 		return nil
 	}
