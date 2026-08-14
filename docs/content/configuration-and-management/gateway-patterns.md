@@ -358,7 +358,7 @@ affected AITenants automatically.
 ### Conflict errors
 
 Two situations produce reconciliation errors visible in the AITenant status
-(`phase: Failed`, `reason: InfraNamespaceLabelFailed`):
+(condition `type: Degraded`, `reason: InfraNamespaceLabelFailed`):
 
 **Intra-gateway conflict:** A single gateway has two listeners that disagree on a
 label value (e.g. listener `https` wants `env=prod` and listener `https-alt`
