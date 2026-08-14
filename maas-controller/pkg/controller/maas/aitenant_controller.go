@@ -470,18 +470,26 @@ func (r *AITenantReconciler) ensureInfraNamespaceGatewayLabels(ctx context.Conte
 		return fmt.Errorf("unmarshal %s annotation on infra namespace %s: %w", gatewayLabelsAnnotation, r.AppNamespace, err)
 	}
 
-	// Cross-gateway conflict detection: reject if another gateway co-owns a
-	// label key and the desired value differs from the current value.
+	// Conflict detection: reject if the desired value differs from an existing
+	// value that is either owned by another gateway or set out of band.
 	for k, v := range desiredLabels {
+		existing, present := infraNs.Labels[k]
+		if !present || existing == v {
+			continue
+		}
 		owners := ownership[k]
-		otherOwners := len(owners) > 1 || (len(owners) == 1 && owners[0] != gw.Name)
-		if otherOwners && infraNs.Labels[k] != v {
+		if len(owners) == 0 {
+			return fmt.Errorf("label %q on infra namespace %s already has value %q set outside the controller; gateway %q wants %q — resolve manually",
+				k, r.AppNamespace, existing, gw.Name, v)
+		}
+		otherOwners := len(owners) > 1 || owners[0] != gw.Name
+		if otherOwners {
 			otherName := owners[0]
 			if otherName == gw.Name && len(owners) > 1 {
 				otherName = owners[1]
 			}
 			return fmt.Errorf("conflicting gateway label %q on infra namespace %s: owned by gateway %q (value %q) but gateway %q wants %q",
-				k, r.AppNamespace, otherName, infraNs.Labels[k], gw.Name, v)
+				k, r.AppNamespace, otherName, existing, gw.Name, v)
 		}
 	}
 
@@ -643,9 +651,7 @@ func (r *AITenantReconciler) cleanupGatewayLabelsOnDelete(ctx context.Context, a
 	}
 
 	if err := r.Patch(ctx, &infraNs, patch); err != nil {
-		log.Error(err, "failed to clean up gateway labels from infrastructure namespace, continuing with deletion",
-			"infraNamespace", r.AppNamespace, "gateway", gatewayRef.Name)
-		return nil
+		return fmt.Errorf("cleanup gateway labels on infra namespace %s: %w", r.AppNamespace, err)
 	}
 
 	log.Info("cleaned up gateway namespace-selector labels from infrastructure namespace",

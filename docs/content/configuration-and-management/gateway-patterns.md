@@ -380,13 +380,15 @@ which gateway owns the contested label.
   manual namespace configuration.
 - The controller does not label model namespaces — only the infrastructure
   namespace.
-- Labels applied to the infrastructure namespace before this feature was
-  available are not tracked in the ownership annotation. The controller will
-  not manage or clean up those labels. Remove them manually if they are no
-  longer needed:
+- Labels not selected by any managed Gateway are not tracked in the ownership
+  annotation. The controller does not manage or clean up those labels. Remove
+  them manually if they are no longer needed:
   ```bash
   oc label namespace <infra-namespace> <label-key>-
   ```
+- If an existing label on the infrastructure namespace conflicts with a
+  gateway's desired value, the controller rejects the reconciliation rather
+  than overwriting it. Resolve the conflict manually before retrying.
 
 ## MaaS integration
 

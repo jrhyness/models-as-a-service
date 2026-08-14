@@ -3612,3 +3612,35 @@ func TestEnsureInfraNamespaceGatewayLabelsAllowsSharedOwnership(t *testing.T) {
 	g.Expect(json.Unmarshal([]byte(ns.Annotations[gatewayLabelsAnnotation]), &ownership)).To(Succeed())
 	g.Expect(ownership["maas-gateway-access"]).To(ConsistOf("gateway-a", "gateway-b"))
 }
+
+func TestEnsureInfraNamespaceGatewayLabelsRejectsUnownedConflict(t *testing.T) {
+	g := NewWithT(t)
+	s := aitenantTestScheme(t)
+
+	// The infra namespace has a label set manually (no ownership entry).
+	infraNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+		Name:   "redhat-ai-gateway-infra",
+		Labels: map[string]string{"env": "prod"},
+	}}
+	// Gateway wants "env=staging" — conflicts with the unowned value.
+	gw := gatewayWithMatchLabels("gateway-a", map[string]string{"env": "staging"})
+
+	cl := fake.NewClientBuilder().WithScheme(s).WithObjects(infraNs).Build()
+	r := &AITenantReconciler{
+		Client:           cl,
+		Scheme:           s,
+		APIReader:        cl,
+		AppNamespace:     "redhat-ai-gateway-infra",
+		GatewayNamespace: "openshift-ingress",
+	}
+
+	err := r.ensureInfraNamespaceGatewayLabels(context.Background(), gw)
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(err.Error()).To(ContainSubstring("outside the controller"))
+	g.Expect(err.Error()).To(ContainSubstring("gateway-a"))
+
+	// Verify the label was not overwritten.
+	var ns corev1.Namespace
+	g.Expect(cl.Get(context.Background(), client.ObjectKey{Name: "redhat-ai-gateway-infra"}, &ns)).To(Succeed())
+	g.Expect(ns.Labels).To(HaveKeyWithValue("env", "prod"))
+}
