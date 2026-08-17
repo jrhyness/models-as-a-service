@@ -148,7 +148,7 @@ During reconciliation, the controller copies `Tenant.spec.apiKeys` and `Tenant.s
 
 The copy is fill-only: if `MaasTenantConfig/default-tenant` already has `spec.apiKeys` or `spec.telemetry`, the controller does not overwrite those fields from the legacy `Tenant`. Treat `MaasTenantConfig` as the source of truth after it exists.
 
-After migration, the controller marks the legacy singleton as migrated and removes it only after verifying that the expected AITenant-managed `MaasTenantConfig/default-tenant` exists and contains the migrated configuration. If the target is missing, ownership or tenant-namespace metadata does not match, copied configuration is incomplete, or the controller migration markers are absent, the legacy `Tenant/default-tenant` is left untouched for safe recovery.
+After migration, the controller marks the legacy singleton as migrated and removes it only after verifying that the expected AITenant-managed `MaasTenantConfig/default-tenant` exists and contains the migrated configuration. If the target is missing, ownership or tenant-namespace metadata does not match, copied configuration is incomplete, or the controller migration markers are absent, the legacy `Tenant/default-tenant` is not deleted. Note that migration markers and annotations may already have been applied to the legacy object even when deletion is skipped.
 
 A namespace that only has the legacy `Tenant/default-tenant` object is unsupported after this migration. Admission compatibility may still allow older tenant-scoped resources during the grace window, but platform workload reconciliation runs from `MaasTenantConfig/default-tenant`; restore the owning `AITenant` bootstrap or create the `MaasTenantConfig` singleton before relying on that namespace.
 

@@ -754,6 +754,22 @@ func TestCleanupMigratedLegacyTenant(t *testing.T) {
 				config.Spec.Telemetry = nil
 			},
 		},
+		{
+			name:          "keeps legacy Tenant when config has different API key settings",
+			includeConfig: true,
+			mutateConfig: func(config *maasv1alpha1.MaasTenantConfig) {
+				differentDays := int32(90)
+				config.Spec.APIKeys = &maasv1alpha1.TenantAPIKeysConfig{MaxExpirationDays: &differentDays}
+			},
+		},
+		{
+			name:          "keeps legacy Tenant when config has different telemetry settings",
+			includeConfig: true,
+			mutateConfig: func(config *maasv1alpha1.MaasTenantConfig) {
+				differentEnabled := false
+				config.Spec.Telemetry = &maasv1alpha1.TenantTelemetryConfig{Enabled: &differentEnabled}
+			},
+		},
 	}
 
 	for _, tt := range tests {

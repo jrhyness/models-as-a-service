@@ -822,7 +822,7 @@ func (r *AITenantReconciler) markLegacyTenantDeprecated(ctx context.Context, ait
 	if equality.Semantic.DeepEqual(base, &legacy) {
 		return nil
 	}
-	return r.Patch(ctx, &legacy, client.MergeFrom(base))
+	return r.Patch(ctx, &legacy, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{}))
 }
 
 func (r *AITenantReconciler) cleanupMigratedLegacyTenant(
@@ -857,8 +857,12 @@ func (r *AITenantReconciler) cleanupMigratedLegacyTenant(
 		legacy.Annotations[legacyMigratedToAnnotation] != maasv1alpha1.MaasTenantConfigInstanceName {
 		return nil
 	}
-	if (legacy.Spec.APIKeys != nil && config.Spec.APIKeys == nil) ||
-		(legacy.Spec.Telemetry != nil && config.Spec.Telemetry == nil) {
+	if legacy.Spec.APIKeys != nil &&
+		!equality.Semantic.DeepEqual(legacy.Spec.APIKeys, config.Spec.APIKeys) {
+		return nil
+	}
+	if legacy.Spec.Telemetry != nil &&
+		!equality.Semantic.DeepEqual(legacy.Spec.Telemetry, config.Spec.Telemetry) {
 		return nil
 	}
 
