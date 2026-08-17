@@ -818,6 +818,7 @@ func (r *AITenantReconciler) markLegacyTenantDeprecated(ctx context.Context, ait
 	annotations[legacyMigratedToAnnotation] = maasv1alpha1.MaasTenantConfigInstanceName
 	legacy.SetAnnotations(annotations)
 	controllerutil.RemoveFinalizer(&legacy, tenantFinalizer)
+	controllerutil.RemoveFinalizer(&legacy, legacyTenantFinalizer)
 	if equality.Semantic.DeepEqual(base, &legacy) {
 		return nil
 	}
