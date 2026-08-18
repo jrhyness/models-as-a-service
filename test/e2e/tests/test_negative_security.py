@@ -702,9 +702,12 @@ class TestInternalEndpointIsolation:
             path, r.status_code, len(r.content),
         )
 
-        assert r.status_code not in range(200, 300), (
-            f"Internal endpoint {path} must not be reachable through gateway, "
-            f"got {r.status_code}: {r.text[:500]}"
+        assert r.status_code == 404, (
+            f"Internal endpoint {path} must not be routable through gateway "
+            f"(expected 404, got {r.status_code}). "
+            f"A 2xx means the handler is exposed; a 401/403 means the path is "
+            f"routed but auth-blocked — both indicate a routing defect. "
+            f"Response: {r.text[:300]}"
         )
 
     def test_health_endpoint_accessible(self):
