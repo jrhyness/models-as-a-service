@@ -42,7 +42,9 @@ spec:
           weight: 100
     # Rule 3: Public maas-api endpoints under /maas-api/v1 prefix.
     # Scoped to /v1 to prevent gateway exposure of /internal/* endpoints (FIND-004).
-    # /v1/tenants is NOT routed through Gateway (internal-only, called via Service).
+    # /v1/tenants is reachable via this prefix; accepted because the handler
+    # enforces its own auth (TokenReview + SAR) and returns only non-sensitive
+    # discovery metadata. Will move to a dedicated discovery service.
     - matches:
         - path:
             type: PathPrefix
