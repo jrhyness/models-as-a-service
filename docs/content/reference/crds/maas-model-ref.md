@@ -107,7 +107,7 @@ The override does not bypass backend validation. The controller still checks tha
 
 The controller auto-resolves the tenant for a MaaSModelRef from the HTTPRoute's gateway parentRef. Because the platform enforces a 1:1 Gateway-to-Tenant mapping (via the AITenant webhook), the controller can unambiguously derive which tenant owns a model by finding the AITenant whose gateway matches the HTTPRoute's parentRef.
 
-**Recommended (auto-resolve):** Omit `spec.tenantRef`. The controller resolves the tenant automatically from the gateway configured on the LLMInferenceService. The MaaSModelRef enters `Pending` state during resolution and moves to `Ready` once the tenant is resolved and governance is attached. If no matching AITenant is found, the model enters `Failed` state with a descriptive message.
+**Recommended (auto-resolve):** Omit `spec.tenantRef`. The controller resolves the tenant automatically from the gateway configured on the backend resource (LLMInferenceService or ExternalModel HTTPRoute). The MaaSModelRef enters `Pending` state during resolution and moves to `Ready` once the tenant is resolved and governance is attached. If no matching AITenant is found, the model enters `Failed` state with a descriptive message.
 
 ```yaml
 apiVersion: maas.opendatahub.io/v1alpha1
