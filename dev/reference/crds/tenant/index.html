@@ -3144,6 +3144,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#payloadprocessingconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PayloadProcessingConfig
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="PayloadProcessingConfig">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#payloadprocessingautoscaling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PayloadProcessingAutoscaling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tenantapikeysconfig" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3234,10 +3262,32 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#replica-count-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Replica Count Overrides
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#example-scaling-for-high-concurrency" class="md-nav__link">
     <span class="md-ellipsis">
       
         Example: Scaling for High Concurrency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-autoscaling-payload-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Autoscaling Payload Processing
       
     </span>
   </a>
@@ -3372,6 +3422,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#payloadprocessingconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PayloadProcessingConfig
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="PayloadProcessingConfig">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#payloadprocessingautoscaling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PayloadProcessingAutoscaling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tenantapikeysconfig" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3462,10 +3540,32 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#replica-count-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Replica Count Overrides
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#example-scaling-for-high-concurrency" class="md-nav__link">
     <span class="md-ellipsis">
       
         Example: Scaling for High Concurrency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-autoscaling-payload-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: Autoscaling Payload Processing
       
     </span>
   </a>
@@ -3598,8 +3698,85 @@
 <td>No</td>
 <td>Telemetry and metrics collection configuration</td>
 </tr>
+<tr>
+<td>payloadProcessing</td>
+<td>PayloadProcessingConfig</td>
+<td>No</td>
+<td>Replica count and autoscaling configuration for the payload-processing Deployment</td>
+</tr>
 </tbody>
 </table>
+<hr />
+<h2 id="payloadprocessingconfig">PayloadProcessingConfig</h2>
+<p><code>spec.payloadProcessing</code> controls replica count and optional HPA-based autoscaling for the tenant's payload-processing Deployment.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>replicas</td>
+<td>int32</td>
+<td>No</td>
+<td>1</td>
+<td>Sets the Deployment <code>spec.replicas</code>. When <code>autoscaling</code> is also configured, this value becomes the HPA <code>minReplicas</code> floor instead. Valid range: 1–100.</td>
+</tr>
+<tr>
+<td>autoscaling</td>
+<td>PayloadProcessingAutoscaling</td>
+<td>No</td>
+<td>-</td>
+<td>Presence of this section enables HPA-based autoscaling for payload-processing pods.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="payloadprocessingautoscaling">PayloadProcessingAutoscaling</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>maxReplicas</td>
+<td>int32</td>
+<td>No</td>
+<td>10</td>
+<td>HPA <code>maxReplicas</code>. Valid range: 1–100.</td>
+</tr>
+<tr>
+<td>targetCPUUtilization</td>
+<td>int32</td>
+<td>No</td>
+<td>70</td>
+<td>HPA target CPU utilization percentage. Valid range: 1–100.</td>
+</tr>
+<tr>
+<td>targetMemoryUtilization</td>
+<td>int32</td>
+<td>No</td>
+<td>80</td>
+<td>HPA target memory utilization percentage. Valid range: 1–100.</td>
+</tr>
+</tbody>
+</table>
+<p>When autoscaling is enabled:
+- <code>spec.payloadProcessing.replicas</code> (if set) becomes the HPA <code>minReplicas</code> floor instead of directly setting <code>spec.replicas</code> on the Deployment.
+- The HPA manages the Deployment's replica count based on CPU and memory utilization thresholds.
+- Scale-down uses a 300s stabilization window and a 25%/60s policy to prevent flapping.
+- Scale-up reacts immediately (0s stabilization) with up to 100%/15s or 4 pods/15s (whichever is higher).</p>
+<p>Remove the <code>autoscaling</code> section to disable autoscaling. The HPA will be removed and the Deployment will revert to static replica management via <code>spec.payloadProcessing.replicas</code>.</p>
 <hr />
 <h2 id="tenantapikeysconfig">TenantAPIKeysConfig</h2>
 <p><code>spec.apiKeys</code> controls API key lifecycle policies.</p>
@@ -3744,6 +3921,7 @@
 <hr />
 <h2 id="annotations">Annotations</h2>
 <p>Optional metadata annotations that control per-tenant horizontal scaling.</p>
+<h3 id="replica-count-overrides">Replica Count Overrides</h3>
 <table>
 <thead>
 <tr>
@@ -3764,7 +3942,7 @@
 <td><code>maas.opendatahub.io/payload-processing-replicas</code></td>
 <td>1</td>
 <td>1–100</td>
-<td>Overrides the payload-processing Deployment replica count for this tenant</td>
+<td><strong>Deprecated:</strong> use <code>spec.payloadProcessing.replicas</code> instead. Still supported during the migration window but will be removed in a future release.</td>
 </tr>
 </tbody>
 </table>
@@ -3783,23 +3961,39 @@
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">  </span><span class="nt">apiKeys</span><span class="p">:</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nt">maxExpirationDays</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">90</span>
 </code></pre></div>
-<hr />
-<h2 id="example">Example</h2>
+<h3 id="example-autoscaling-payload-processing">Example: Autoscaling Payload Processing</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maas.opendatahub.io/v1alpha1</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MaasTenantConfig</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default-tenant</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">models-as-a-service</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">apiKeys</span><span class="p">:</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">maxExpirationDays</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">90</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="nt">telemetry</span><span class="p">:</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="nt">metrics</span><span class="p">:</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="nt">captureOrganization</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">      </span><span class="nt">captureUser</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">      </span><span class="nt">captureGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">      </span><span class="nt">captureModelUsage</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">payloadProcessing</span><span class="p">:</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">replicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span><span class="w">                     </span><span class="c1"># minimum replicas (HPA minReplicas floor)</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="nt">autoscaling</span><span class="p">:</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">      </span><span class="nt">maxReplicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span><span class="w">               </span><span class="c1"># maximum replicas (ceiling)</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">      </span><span class="nt">targetCPUUtilization</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span><span class="w">      </span><span class="c1"># scale up when avg CPU &gt; 60%</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="nt">targetMemoryUtilization</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">75</span><span class="w">   </span><span class="c1"># scale up when avg memory &gt; 75%</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">  </span><span class="nt">apiKeys</span><span class="p">:</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="nt">maxExpirationDays</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">90</span>
+</code></pre></div>
+<hr />
+<h2 id="example">Example</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maas.opendatahub.io/v1alpha1</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MaasTenantConfig</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default-tenant</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">models-as-a-service</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">apiKeys</span><span class="p">:</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">maxExpirationDays</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">90</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">  </span><span class="nt">telemetry</span><span class="p">:</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="nt">metrics</span><span class="p">:</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">      </span><span class="nt">captureOrganization</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">      </span><span class="nt">captureUser</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">      </span><span class="nt">captureGroup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">      </span><span class="nt">captureModelUsage</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div>
 <hr />
 <h2 id="migration-notes">Migration Notes</h2>
@@ -3835,7 +4029,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 23, 2026 16:38:28 UTC">July 23, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 19, 2026 13:02:02 UTC">August 19, 2026</span>
   </span>
 
     
