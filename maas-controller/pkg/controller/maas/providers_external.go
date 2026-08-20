@@ -129,8 +129,15 @@ func (h *externalModelHandler) ReconcileRoute(ctx context.Context, log logr.Logg
 		return fmt.Errorf("failed to get HTTPRoute %s/%s: %w", routeNS, routeName, err)
 	}
 
-	expectedGatewayName := h.r.gatewayName()
-	expectedGatewayNamespace := h.r.gatewayNamespace()
+	// Resolve the expected gateway for this model (tenant-aware when spec.tenantRef is omitted).
+	// This performs reverse lookup against AITenants to auto-resolve the tenant from the
+	// HTTPRoute's gateway parentRef, leveraging the enforced 1:1 Gateway-to-Tenant mapping.
+	expectedGatewayRef, err := h.r.resolveGatewayRef(ctx, log, model, route)
+	if err != nil {
+		return fmt.Errorf("failed to resolve gateway for ExternalModel: %w", err)
+	}
+	expectedGatewayName := expectedGatewayRef.Name
+	expectedGatewayNamespace := expectedGatewayRef.Namespace
 	gatewayFound := false
 	gatewayAccepted := false
 	var gatewayName string
