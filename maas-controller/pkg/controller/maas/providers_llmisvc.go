@@ -60,17 +60,13 @@ func (h *llmisvcHandler) validateLLMISvcHTTPRoute(ctx context.Context, log logr.
 	route := &routeList.Items[0]
 	routeName := route.Name
 
-	expectedGatewayName := h.r.gatewayName()
-	expectedGatewayNamespace := h.r.gatewayNamespace()
 	gatewayRef, err := h.r.resolveGatewayRef(ctx, log, model, route)
 	if err != nil {
 		return fmt.Errorf("resolve tenant gateway for model %s/%s: %w", model.Namespace, model.Name, err)
 	}
-	if gatewayRef.Name != "" {
-		expectedGatewayName = gatewayRef.Name
-		expectedGatewayNamespace = gatewayRef.Namespace
-		log.V(4).Info("Using tenant gateway", "gateway", fmt.Sprintf("%s/%s", expectedGatewayNamespace, expectedGatewayName), "tenantRef", model.Spec.TenantRef)
-	}
+	expectedGatewayName := gatewayRef.Name
+	expectedGatewayNamespace := gatewayRef.Namespace
+	log.V(4).Info("Using tenant gateway", "gateway", fmt.Sprintf("%s/%s", expectedGatewayNamespace, expectedGatewayName), "tenantRef", model.Spec.TenantRef)
 
 	gatewayFound := false
 	var gatewayName string

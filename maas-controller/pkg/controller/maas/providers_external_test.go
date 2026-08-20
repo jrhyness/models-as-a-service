@@ -324,16 +324,7 @@ func newInferenceExternalModelCR(name, ns, providerRef string) *unstructured.Uns
 
 func newTestReconcilerWithMapper(objects ...client.Object) (*MaaSModelRefReconciler, client.Client) {
 	// Include default AITenant for tenant auto-resolution
-	defaultTenant := &maasv1alpha1.AITenant{
-		ObjectMeta: metav1.ObjectMeta{Name: "default-tenant", Namespace: "ai-tenants"},
-		Status: maasv1alpha1.AITenantStatus{
-			GatewayRef: maasv1alpha1.TenantGatewayRef{
-				Name:      "maas-default-gateway",
-				Namespace: "openshift-ingress",
-			},
-		},
-	}
-	allObjects := append([]client.Object{defaultTenant}, objects...)
+	allObjects := append([]client.Object{defaultTestAITenant()}, objects...)
 	c := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithRESTMapper(testRESTMapper()).
@@ -343,9 +334,9 @@ func newTestReconcilerWithMapper(objects ...client.Object) (*MaaSModelRefReconci
 	return &MaaSModelRefReconciler{
 		Client:            c,
 		Scheme:            scheme,
-		GatewayName:       "maas-default-gateway",
-		GatewayNamespace:  "openshift-ingress",
-		AITenantNamespace: "ai-tenants",
+		GatewayName:       testGatewayName,
+		GatewayNamespace:  testGatewayNamespace,
+		AITenantNamespace: testAITenantNamespace,
 	}, c
 }
 

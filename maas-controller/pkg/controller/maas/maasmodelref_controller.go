@@ -840,6 +840,23 @@ func (r *MaaSModelRefReconciler) resolveGatewayRefFromHTTPRoute(ctx context.Cont
 	}
 
 	for _, parentRef := range route.Spec.ParentRefs {
+		// Filter to Gateway API Gateways only. ParentReference defaults to
+		// gateway.networking.k8s.io/Gateway. Service mesh parentRefs use
+		// group="" with kind=Service and must not be resolved as Gateways.
+		const gatewayGroup = "gateway.networking.k8s.io"
+		const gatewayKind = "Gateway"
+		group := gatewayGroup
+		if parentRef.Group != nil {
+			group = string(*parentRef.Group)
+		}
+		kind := gatewayKind
+		if parentRef.Kind != nil {
+			kind = string(*parentRef.Kind)
+		}
+		if (group != "" && group != gatewayGroup) || (kind != "" && kind != gatewayKind) {
+			continue
+		}
+
 		gwName := string(parentRef.Name)
 		gwNamespace := route.Namespace
 		if parentRef.Namespace != nil {
@@ -859,6 +876,21 @@ func (r *MaaSModelRefReconciler) resolveGatewayRefFromHTTPRoute(ctx context.Cont
 	model.Status.ResolvedTenantRef = ""
 	gwDescs := make([]string, 0, len(route.Spec.ParentRefs))
 	for _, pr := range route.Spec.ParentRefs {
+		// Only include Gateway API Gateways in the error message
+		const gatewayGroup = "gateway.networking.k8s.io"
+		const gatewayKind = "Gateway"
+		group := gatewayGroup
+		if pr.Group != nil {
+			group = string(*pr.Group)
+		}
+		kind := gatewayKind
+		if pr.Kind != nil {
+			kind = string(*pr.Kind)
+		}
+		if (group != "" && group != gatewayGroup) || (kind != "" && kind != gatewayKind) {
+			continue
+		}
+
 		ns := route.Namespace
 		if pr.Namespace != nil {
 			ns = string(*pr.Namespace)

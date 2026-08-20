@@ -16,6 +16,8 @@ Prerequisites:
   - Gateway infrastructure (openshift-ingress)
 """
 
+import logging
+
 import pytest
 
 from multitenancy_helpers import (
@@ -207,6 +209,9 @@ class TestTenantAutoResolve:
             from multitenancy_helpers import delete_namespace_best_effort, remove_gateway_access_label, INFRA_NAMESPACE
             try:
                 remove_gateway_access_label(INFRA_NAMESPACE, case["gateway_name"])
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: BLE001 - cleanup must not mask test results
+                logging.warning(
+                    "failed to remove gateway access label %s from %s: %s",
+                    case["gateway_name"], INFRA_NAMESPACE, exc,
+                )
             delete_namespace_best_effort(case["tenant_ns"])
