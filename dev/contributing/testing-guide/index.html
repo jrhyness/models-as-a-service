@@ -2890,6 +2890,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="CI Pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#deploy-phase-timings-and-fail-fast" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deploy phase timings and fail-fast
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3576,6 +3593,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="CI Pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#deploy-phase-timings-and-fail-fast" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deploy phase timings and fail-fast
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4123,6 +4157,35 @@
 </tbody>
 </table>
 <p>Konflux provisions a fresh cluster, deploys ODH + MaaS with the PR's built images, and runs <code>test/e2e/scripts/prow_run_smoke_test.sh</code>. Nightly builds use the same script against the latest <code>main</code> images — there is no separate nightly test suite.</p>
+<h3 id="deploy-phase-timings-and-fail-fast">Deploy phase timings and fail-fast</h3>
+<p><code>/group-test</code> is sequential: cluster provision → <strong>deploy + validate</strong> → pytest. <code>prow_run_smoke_test.sh</code> writes UTC start/end stamps for <code>deploy_platform</code>, <code>deploy_models</code>, <code>validate</code>, <code>pytest_pass1</code>, and <code>pytest_pass2</code> to <strong><code>phase-timings.txt</code></strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Where</th>
+<th>Path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Local</td>
+<td><code>$PROJECT_ROOT/test/e2e/reports/phase-timings.txt</code> (or <code>$ARTIFACT_DIR</code> / <code>$ARTIFACTS</code> / <code>$LOG_DIR</code> if set)</td>
+</tr>
+<tr>
+<td>Konflux / Prow</td>
+<td><code>artifacts/&lt;job&gt;/&lt;step&gt;/phase-timings.txt</code> (OpenShift CI copies <code>ARTIFACT_DIR</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Each line looks like <code>2026-08-19T20:01:02Z deploy_platform start</code>. A start without a matching end means that phase failed or the job was killed.</p>
+<p>Readiness gates <strong>fail the job before pytest</strong> so a bad DSC, AuthPolicy, or ODH install does not burn another ~40 minutes of pytest:</p>
+<ul>
+<li>DataScienceCluster wait in <code>prow_run_smoke_test.sh</code> exits 1 and dumps DSC conditions.</li>
+<li>After models are applied, AuthPolicy <code>Enforced=True</code> is required (<code>wait_for_auth_policies_enforced</code> returns 1 on timeout). <code>SKIP_AUTH_CHECK</code> still defaults to true <strong>before</strong> models exist (RHOAIENG-48760 chicken-egg).</li>
+<li><code>.github/hack/install-odh.sh</code> exits 1 if the operator webhook, DSCInitialization, or DataScienceCluster never become Ready.</li>
+<li><code>validate-deployment.sh</code> retries after polling gateway/pods, not after a fixed 30s sleep.</li>
+</ul>
+<p><code>SKIP_DEPLOYMENT=true</code> still skips platform and model install; timings are then recorded only for validate and pytest.</p>
 <div class="admonition tip">
 <p class="admonition-title">Docs-only changes</p>
 <p>PRs that only touch <code>docs/**</code> or <code>*.md</code> files skip Konflux builds and E2E entirely (controlled via CEL expressions in <code>.tekton/</code> pipeline definitions).</p>
@@ -4281,7 +4344,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 17, 2026 21:10:09 UTC">August 17, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 20, 2026 14:08:17 UTC">August 20, 2026</span>
   </span>
 
     
