@@ -593,3 +593,231 @@ func TestResolveGatewayRef_AutoResolve_ParentRefWithoutNamespace(t *testing.T) {
 		t.Errorf("resolveGatewayRef() ResolvedTenantRef = %q, want %q", model.Status.ResolvedTenantRef, "local-tenant")
 	}
 }
+
+// TestResolveGatewayRef_AutoResolve_SkipsServiceParentRef verifies that
+// Service parentRefs (e.g., core API group Service) are filtered out and not
+// resolved as Gateways (regression test for CWE-20 fix).
+func TestResolveGatewayRef_AutoResolve_SkipsServiceParentRef(t *testing.T) {
+	ctx := context.Background()
+
+	aitenant := &maasv1alpha1.AITenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "team-alpha",
+			Namespace: testAITenantNamespace,
+		},
+	}
+
+	model := &maasv1alpha1.MaaSModelRef{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "model-ns"},
+		Spec: maasv1alpha1.MaaSModelSpec{
+			ModelRef: maasv1alpha1.ModelReference{Kind: "LLMInferenceService", Name: "test-llmisvc"},
+		},
+	}
+
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(aitenant).
+		WithStatusSubresource(&maasv1alpha1.AITenant{}).
+		Build()
+
+	// Patch AITenant status
+	aitenant.Status = maasv1alpha1.AITenantStatus{
+		GatewayRef: maasv1alpha1.TenantGatewayRef{
+			Name:      "alpha-gateway",
+			Namespace: "gateway-ns",
+		},
+	}
+	if err := c.Status().Update(ctx, aitenant); err != nil {
+		t.Fatalf("failed to update AITenant status: %v", err)
+	}
+
+	r := &MaaSModelRefReconciler{
+		Client:            c,
+		Scheme:            scheme,
+		GatewayName:       testGatewayName,
+		GatewayNamespace:  testGatewayNamespace,
+		AITenantNamespace: testAITenantNamespace,
+	}
+	h := &llmisvcHandler{r: r}
+
+	// HTTPRoute with only a Service parentRef (core API group) — should NOT resolve
+	serviceKind := gatewayapiv1.Kind("Service")
+	coreGroup := gatewayapiv1.Group("")
+	gwNS := gatewayapiv1.Namespace("model-ns")
+	route := &gatewayapiv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "model-ns"},
+		Spec: gatewayapiv1.HTTPRouteSpec{
+			CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+				ParentRefs: []gatewayapiv1.ParentReference{
+					{Name: "my-service", Namespace: &gwNS, Kind: &serviceKind, Group: &coreGroup},
+				},
+			},
+		},
+	}
+
+	_, err := h.r.resolveGatewayRef(ctx, logr.Discard(), model, route)
+	if err == nil {
+		t.Fatal("resolveGatewayRef() expected error for Service parentRef, got nil")
+	}
+	if !strings.Contains(err.Error(), "no AITenant found") {
+		t.Errorf("resolveGatewayRef() error = %q, want to contain 'no AITenant found'", err.Error())
+	}
+	if model.Status.ResolvedTenantRef != "" {
+		t.Errorf("resolveGatewayRef() ResolvedTenantRef = %q, want empty", model.Status.ResolvedTenantRef)
+	}
+}
+
+// TestResolveGatewayRef_AutoResolve_MixedParentRefs verifies that when an
+// HTTPRoute has both Gateway and Service parentRefs, only the Gateway is used
+// for tenant resolution (regression test for CWE-20 fix).
+func TestResolveGatewayRef_AutoResolve_MixedParentRefs(t *testing.T) {
+	ctx := context.Background()
+
+	aitenant := &maasv1alpha1.AITenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "team-beta",
+			Namespace: testAITenantNamespace,
+		},
+	}
+
+	model := &maasv1alpha1.MaaSModelRef{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "model-ns"},
+		Spec: maasv1alpha1.MaaSModelSpec{
+			ModelRef: maasv1alpha1.ModelReference{Kind: "LLMInferenceService", Name: "test-llmisvc"},
+		},
+	}
+
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(aitenant).
+		WithStatusSubresource(&maasv1alpha1.AITenant{}).
+		Build()
+
+	// Patch AITenant status
+	aitenant.Status = maasv1alpha1.AITenantStatus{
+		GatewayRef: maasv1alpha1.TenantGatewayRef{
+			Name:      "beta-gateway",
+			Namespace: "gateway-ns",
+		},
+	}
+	if err := c.Status().Update(ctx, aitenant); err != nil {
+		t.Fatalf("failed to update AITenant status: %v", err)
+	}
+
+	r := &MaaSModelRefReconciler{
+		Client:            c,
+		Scheme:            scheme,
+		GatewayName:       testGatewayName,
+		GatewayNamespace:  testGatewayNamespace,
+		AITenantNamespace: testAITenantNamespace,
+	}
+	h := &llmisvcHandler{r: r}
+
+	// HTTPRoute with both Service and Gateway parentRefs
+	serviceKind := gatewayapiv1.Kind("Service")
+	coreGroup := gatewayapiv1.Group("")
+	gwNS1 := gatewayapiv1.Namespace("model-ns")
+	gwNS2 := gatewayapiv1.Namespace("gateway-ns")
+	route := &gatewayapiv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "model-ns"},
+		Spec: gatewayapiv1.HTTPRouteSpec{
+			CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+				ParentRefs: []gatewayapiv1.ParentReference{
+					// Service parentRef first
+					{Name: "my-service", Namespace: &gwNS1, Kind: &serviceKind, Group: &coreGroup},
+					// Gateway parentRef second — should match
+					{Name: "beta-gateway", Namespace: &gwNS2},
+				},
+			},
+		},
+	}
+
+	ref, err := h.r.resolveGatewayRef(ctx, logr.Discard(), model, route)
+	if err != nil {
+		t.Fatalf("resolveGatewayRef() error = %v", err)
+	}
+	if ref.Name != "beta-gateway" {
+		t.Errorf("resolveGatewayRef() gateway name = %q, want %q", ref.Name, "beta-gateway")
+	}
+	if ref.Namespace != "gateway-ns" {
+		t.Errorf("resolveGatewayRef() gateway namespace = %q, want %q", ref.Namespace, "gateway-ns")
+	}
+	if model.Status.ResolvedTenantRef != "team-beta" {
+		t.Errorf("resolveGatewayRef() ResolvedTenantRef = %q, want %q", model.Status.ResolvedTenantRef, "team-beta")
+	}
+}
+
+// TestResolveGatewayRef_AutoResolve_ServiceWithMatchingNamespace verifies
+// that a Service parentRef with matching name/namespace but wrong kind is
+// correctly filtered out (regression test for CWE-20 fix).
+func TestResolveGatewayRef_AutoResolve_ServiceWithMatchingNamespace(t *testing.T) {
+	ctx := context.Background()
+
+	aitenant := &maasv1alpha1.AITenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "team-gamma",
+			Namespace: testAITenantNamespace,
+		},
+	}
+
+	model := &maasv1alpha1.MaaSModelRef{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "model-ns"},
+		Spec: maasv1alpha1.MaaSModelSpec{
+			ModelRef: maasv1alpha1.ModelReference{Kind: "LLMInferenceService", Name: "test-llmisvc"},
+		},
+	}
+
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(aitenant).
+		WithStatusSubresource(&maasv1alpha1.AITenant{}).
+		Build()
+
+	// Patch AITenant status with a Gateway name/ns that matches what the
+	// Service parentRef will use
+	aitenant.Status = maasv1alpha1.AITenantStatus{
+		GatewayRef: maasv1alpha1.TenantGatewayRef{
+			Name:      "matching-name",
+			Namespace: "matching-ns",
+		},
+	}
+	if err := c.Status().Update(ctx, aitenant); err != nil {
+		t.Fatalf("failed to update AITenant status: %v", err)
+	}
+
+	r := &MaaSModelRefReconciler{
+		Client:            c,
+		Scheme:            scheme,
+		GatewayName:       testGatewayName,
+		GatewayNamespace:  testGatewayNamespace,
+		AITenantNamespace: testAITenantNamespace,
+	}
+	h := &llmisvcHandler{r: r}
+
+	// HTTPRoute with Service parentRef using the same name/namespace as the
+	// AITenant's gateway — should NOT match because kind=Service
+	serviceKind := gatewayapiv1.Kind("Service")
+	coreGroup := gatewayapiv1.Group("")
+	gwNS := gatewayapiv1.Namespace("matching-ns")
+	route := &gatewayapiv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "model-ns"},
+		Spec: gatewayapiv1.HTTPRouteSpec{
+			CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+				ParentRefs: []gatewayapiv1.ParentReference{
+					{Name: "matching-name", Namespace: &gwNS, Kind: &serviceKind, Group: &coreGroup},
+				},
+			},
+		},
+	}
+
+	_, err := h.r.resolveGatewayRef(ctx, logr.Discard(), model, route)
+	if err == nil {
+		t.Fatal("resolveGatewayRef() expected error for Service parentRef with matching name/ns, got nil")
+	}
+	if !strings.Contains(err.Error(), "no AITenant found") {
+		t.Errorf("resolveGatewayRef() error = %q, want to contain 'no AITenant found'", err.Error())
+	}
+	if model.Status.ResolvedTenantRef != "" {
+		t.Errorf("resolveGatewayRef() ResolvedTenantRef = %q, want empty", model.Status.ResolvedTenantRef)
+	}
+}

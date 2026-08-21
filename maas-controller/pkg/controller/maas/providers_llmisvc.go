@@ -72,6 +72,9 @@ func (h *llmisvcHandler) validateLLMISvcHTTPRoute(ctx context.Context, log logr.
 	var gatewayName string
 	var gatewayNamespace string
 	for _, parentRef := range route.Spec.ParentRefs {
+		if !parentRefTargetsGateway(parentRef) {
+			continue
+		}
 		refName := string(parentRef.Name)
 		refNS := routeNS
 		if parentRef.Namespace != nil {

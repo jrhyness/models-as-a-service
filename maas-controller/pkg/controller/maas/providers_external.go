@@ -144,6 +144,9 @@ func (h *externalModelHandler) ReconcileRoute(ctx context.Context, log logr.Logg
 	var gatewayNamespace string
 
 	for _, parentRef := range route.Spec.ParentRefs {
+		if !parentRefTargetsGateway(parentRef) {
+			continue
+		}
 		refName := string(parentRef.Name)
 		refNS := routeNS
 		if parentRef.Namespace != nil {
