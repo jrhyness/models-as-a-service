@@ -3632,7 +3632,7 @@
 
 <h1 id="maastenantconfig">MaasTenantConfig</h1>
 <p>Configures MaaS-specific tenant settings. <code>MaasTenantConfig</code> is a namespace-scoped singleton; the resource name must be <code>default-tenant</code> (enforced by CEL validation).</p>
-<p>Platform context such as Gateway and external OIDC belongs to <a href="../ai-tenant/"><code>AITenant</code></a>. <code>MaasTenantConfig</code> owns MaaS runtime configuration such as API key policy and telemetry settings. The legacy <code>Tenant</code> CRD remains installed during the migration window so existing <code>Tenant/default-tenant</code> objects can be adopted and copied into <code>MaasTenantConfig/default-tenant</code>.</p>
+<p>Platform context such as Gateway and external OIDC belongs to <a href="../ai-tenant/"><code>AITenant</code></a>. <code>MaasTenantConfig</code> owns MaaS runtime configuration such as API key policy and telemetry settings. The legacy <code>Tenant</code> CRD remains installed during the migration window so existing <code>Tenant/default-tenant</code> objects can be copied into <code>MaasTenantConfig/default-tenant</code>; the migrated legacy objects themselves are temporary.</p>
 <h2 id="multi-tenant-deployment">Multi-Tenant Deployment</h2>
 <p>In multi-tenant deployments, each tenant has one <code>MaasTenantConfig</code> in its tenant namespace:</p>
 <table>
@@ -3997,8 +3997,9 @@
 </code></pre></div>
 <hr />
 <h2 id="migration-notes">Migration Notes</h2>
-<p>Existing <code>Tenant/default-tenant</code> resources are not deleted immediately. During reconciliation, the controller copies <code>Tenant.spec.apiKeys</code> and <code>Tenant.spec.telemetry</code> into <code>MaasTenantConfig/default-tenant</code> when those fields are not already set. Legacy <code>Tenant.spec.gatewayRef</code> and <code>Tenant.spec.externalOIDC</code> are migrated to the owning <code>AITenant</code> where possible, because Gateway and OIDC are platform context rather than MaaS runtime configuration.</p>
+<p>During reconciliation, the controller copies <code>Tenant.spec.apiKeys</code> and <code>Tenant.spec.telemetry</code> into <code>MaasTenantConfig/default-tenant</code> when those fields are not already set. Legacy <code>Tenant.spec.gatewayRef</code> and <code>Tenant.spec.externalOIDC</code> are migrated to the owning <code>AITenant</code> where possible, because Gateway and OIDC are platform context rather than MaaS runtime configuration.</p>
 <p>The copy is fill-only: if <code>MaasTenantConfig/default-tenant</code> already has <code>spec.apiKeys</code> or <code>spec.telemetry</code>, the controller does not overwrite those fields from the legacy <code>Tenant</code>. Treat <code>MaasTenantConfig</code> as the source of truth after it exists.</p>
+<p>After migration, the controller marks the legacy singleton as migrated and removes it only after verifying that the expected AITenant-managed <code>MaasTenantConfig/default-tenant</code> exists and contains the migrated configuration. If the target is missing, ownership or tenant-namespace metadata does not match, copied configuration is incomplete, or the controller migration markers are absent, the legacy <code>Tenant/default-tenant</code> is not deleted. Note that migration markers and annotations may already have been applied to the legacy object even when deletion is skipped.</p>
 <p>A namespace that only has the legacy <code>Tenant/default-tenant</code> object is unsupported after this migration. Admission compatibility may still allow older tenant-scoped resources during the grace window, but platform workload reconciliation runs from <code>MaasTenantConfig/default-tenant</code>; restore the owning <code>AITenant</code> bootstrap or create the <code>MaasTenantConfig</code> singleton before relying on that namespace.</p>
 <h2 id="related-documentation">Related Documentation</h2>
 <ul>
@@ -4029,7 +4030,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 19, 2026 13:02:02 UTC">August 19, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 21, 2026 11:55:22 UTC">August 21, 2026</span>
   </span>
 
     
