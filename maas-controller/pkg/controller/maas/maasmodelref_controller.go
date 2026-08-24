@@ -817,8 +817,7 @@ func (r *MaaSModelRefReconciler) resolveGatewayRef(ctx context.Context, log logr
 
 // resolveGatewayRefFromHTTPRoute auto-resolves the tenant by finding the
 // AITenant whose Status.GatewayRef matches a gateway parentRef on the
-// HTTPRoute. The 1:1 Gateway-to-Tenant mapping (enforced by the AITenant
-// webhook) guarantees at most one match.
+// HTTPRoute. Returns an error if multiple gateways match different tenants.
 func (r *MaaSModelRefReconciler) resolveGatewayRefFromHTTPRoute(ctx context.Context, log logr.Logger, model *maasv1alpha1.MaaSModelRef, route *gatewayapiv1.HTTPRoute) (maasv1alpha1.TenantGatewayRef, error) {
 	if len(route.Spec.ParentRefs) == 0 {
 		model.Status.ResolvedTenantRef = ""
@@ -839,6 +838,12 @@ func (r *MaaSModelRefReconciler) resolveGatewayRefFromHTTPRoute(ctx context.Cont
 		}
 	}
 
+	type match struct {
+		tenant string
+		ref    maasv1alpha1.TenantGatewayRef
+	}
+	var matches []match
+
 	for _, parentRef := range route.Spec.ParentRefs {
 		if !parentRefTargetsGateway(parentRef) {
 			continue
@@ -851,13 +856,31 @@ func (r *MaaSModelRefReconciler) resolveGatewayRefFromHTTPRoute(ctx context.Cont
 		}
 
 		if tenantName, ok := tenantByGateway[gatewayKey{gwName, gwNamespace}]; ok {
-			model.Status.ResolvedTenantRef = tenantName
-			ref := maasv1alpha1.TenantGatewayRef{Name: gwName, Namespace: gwNamespace}
-			log.Info("Auto-resolved tenant from HTTPRoute gateway",
-				"tenant", tenantName, "gateway", fmt.Sprintf("%s/%s", gwNamespace, gwName),
-				"model", fmt.Sprintf("%s/%s", model.Namespace, model.Name))
-			return ref, nil
+			matches = append(matches, match{
+				tenant: tenantName,
+				ref:    maasv1alpha1.TenantGatewayRef{Name: gwName, Namespace: gwNamespace},
+			})
 		}
+	}
+
+	if len(matches) == 1 {
+		m := matches[0]
+		model.Status.ResolvedTenantRef = m.tenant
+		log.Info("Auto-resolved tenant from HTTPRoute gateway",
+			"tenant", m.tenant, "gateway", fmt.Sprintf("%s/%s", m.ref.Namespace, m.ref.Name),
+			"model", fmt.Sprintf("%s/%s", model.Namespace, model.Name))
+		return m.ref, nil
+	}
+
+	if len(matches) > 1 {
+		model.Status.ResolvedTenantRef = ""
+		descs := make([]string, 0, len(matches))
+		for _, m := range matches {
+			descs = append(descs, fmt.Sprintf("%s/%s (tenant %s)", m.ref.Namespace, m.ref.Name, m.tenant))
+		}
+		return maasv1alpha1.TenantGatewayRef{}, fmt.Errorf("multiple gateways on HTTPRoute %s/%s match different AITenants: %v; "+
+			"set spec.tenantRef explicitly to select the desired tenant",
+			route.Namespace, route.Name, descs)
 	}
 
 	model.Status.ResolvedTenantRef = ""

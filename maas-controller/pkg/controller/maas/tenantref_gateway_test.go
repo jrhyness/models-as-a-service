@@ -525,6 +525,91 @@ func TestResolveGatewayRef_AutoResolve_MultipleParentRefs(t *testing.T) {
 	}
 }
 
+func TestResolveGatewayRef_AutoResolve_AmbiguousMultipleTenants(t *testing.T) {
+	ctx := context.Background()
+
+	tenantA := &maasv1alpha1.AITenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "tenant-a",
+			Namespace: testAITenantNamespace,
+		},
+	}
+	tenantB := &maasv1alpha1.AITenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "tenant-b",
+			Namespace: testAITenantNamespace,
+		},
+	}
+
+	model := &maasv1alpha1.MaaSModelRef{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "model-ns"},
+		Spec: maasv1alpha1.MaaSModelSpec{
+			ModelRef: maasv1alpha1.ModelReference{Kind: "LLMInferenceService", Name: "test-llmisvc"},
+		},
+	}
+
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(tenantA, tenantB).
+		WithStatusSubresource(&maasv1alpha1.AITenant{}).
+		Build()
+
+	tenantA.Status = maasv1alpha1.AITenantStatus{
+		GatewayRef: maasv1alpha1.TenantGatewayRef{
+			Name:      "gateway-a",
+			Namespace: "gateway-ns",
+		},
+	}
+	if err := c.Status().Update(ctx, tenantA); err != nil {
+		t.Fatalf("failed to update AITenant status: %v", err)
+	}
+	tenantB.Status = maasv1alpha1.AITenantStatus{
+		GatewayRef: maasv1alpha1.TenantGatewayRef{
+			Name:      "gateway-b",
+			Namespace: "gateway-ns",
+		},
+	}
+	if err := c.Status().Update(ctx, tenantB); err != nil {
+		t.Fatalf("failed to update AITenant status: %v", err)
+	}
+
+	r := &MaaSModelRefReconciler{
+		Client:            c,
+		Scheme:            scheme,
+		GatewayName:       testGatewayName,
+		GatewayNamespace:  testGatewayNamespace,
+		AITenantNamespace: testAITenantNamespace,
+	}
+	h := &llmisvcHandler{r: r}
+
+	gwNS := gatewayapiv1.Namespace("gateway-ns")
+	route := &gatewayapiv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "model-ns"},
+		Spec: gatewayapiv1.HTTPRouteSpec{
+			CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+				ParentRefs: []gatewayapiv1.ParentReference{
+					{Name: "gateway-a", Namespace: &gwNS},
+					{Name: "gateway-b", Namespace: &gwNS},
+				},
+			},
+		},
+	}
+
+	_, err := h.r.resolveGatewayRef(ctx, logr.Discard(), model, route)
+	if err == nil {
+		t.Fatal("resolveGatewayRef() expected error for ambiguous multi-tenant match, got nil")
+	}
+	if !strings.Contains(err.Error(), "multiple gateways") {
+		t.Errorf("resolveGatewayRef() error = %v, want error containing 'multiple gateways'", err)
+	}
+	if !strings.Contains(err.Error(), "set spec.tenantRef explicitly") {
+		t.Errorf("resolveGatewayRef() error = %v, want error containing 'set spec.tenantRef explicitly'", err)
+	}
+	if model.Status.ResolvedTenantRef != "" {
+		t.Errorf("resolveGatewayRef() ResolvedTenantRef = %q, want empty after ambiguous resolution", model.Status.ResolvedTenantRef)
+	}
+}
+
 func TestResolveGatewayRef_AutoResolve_ParentRefWithoutNamespace(t *testing.T) {
 	ctx := context.Background()
 
