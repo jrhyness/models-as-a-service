@@ -846,11 +846,12 @@ func (r *MaaSModelRefReconciler) resolveGatewayRef(ctx context.Context, log logr
 			}
 			return maasv1alpha1.TenantGatewayRef{}, fmt.Errorf("failed to get AITenant %q: %w", model.Spec.TenantRef, err)
 		}
-		model.Status.ResolvedTenantRef = model.Spec.TenantRef
 		ref := aitenant.Status.GatewayRef
 		if ref.Name == "" || ref.Namespace == "" {
+			model.Status.ResolvedTenantRef = ""
 			return maasv1alpha1.TenantGatewayRef{}, fmt.Errorf("AITenant %q has no gateway reference in status", model.Spec.TenantRef)
 		}
+		model.Status.ResolvedTenantRef = model.Spec.TenantRef
 		log.V(4).Info("Resolved gateway from AITenant", "aiTenant", model.Spec.TenantRef, "gateway", fmt.Sprintf("%s/%s", ref.Namespace, ref.Name))
 		return ref, nil
 	}

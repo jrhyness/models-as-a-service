@@ -191,6 +191,9 @@ func TestResolveGatewayRef_WithTenantRef_NoGatewayInStatus(t *testing.T) {
 	if !strings.Contains(err.Error(), "no gateway reference") {
 		t.Errorf("resolveGatewayRef() error = %v, want error containing 'no gateway reference'", err)
 	}
+	if model.Status.ResolvedTenantRef != "" {
+		t.Errorf("resolveGatewayRef() ResolvedTenantRef = %q, want empty after gateway validation failure", model.Status.ResolvedTenantRef)
+	}
 }
 
 func TestResolveGatewayRef_WithTenantRef_OverridesModelNamespace(t *testing.T) {
