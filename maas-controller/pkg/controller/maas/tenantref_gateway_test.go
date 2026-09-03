@@ -18,6 +18,7 @@ package maas
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -412,6 +413,9 @@ func TestResolveGatewayRef_AutoResolve_NoParentRefs(t *testing.T) {
 	if err == nil {
 		t.Fatal("resolveGatewayRef() expected error for HTTPRoute with no parentRefs, got nil")
 	}
+	if !errors.Is(err, ErrTenantResolutionPending) {
+		t.Errorf("resolveGatewayRef() error = %v, want ErrTenantResolutionPending", err)
+	}
 	if !strings.Contains(err.Error(), "no gateway parentRefs") {
 		t.Errorf("resolveGatewayRef() error = %v, want error containing 'no gateway parentRefs'", err)
 	}
@@ -607,6 +611,154 @@ func TestResolveGatewayRef_AutoResolve_AmbiguousMultipleTenants(t *testing.T) {
 	}
 	if model.Status.ResolvedTenantRef != "" {
 		t.Errorf("resolveGatewayRef() ResolvedTenantRef = %q, want empty after ambiguous resolution", model.Status.ResolvedTenantRef)
+	}
+}
+
+func TestResolveGatewayRef_AutoResolve_DuplicateGatewayOwnership(t *testing.T) {
+	ctx := context.Background()
+
+	// Two AITenants claiming the same gateway — should return ambiguity error
+	tenantA := &maasv1alpha1.AITenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "tenant-dup-a",
+			Namespace: testAITenantNamespace,
+		},
+	}
+	tenantB := &maasv1alpha1.AITenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "tenant-dup-b",
+			Namespace: testAITenantNamespace,
+		},
+	}
+
+	model := &maasv1alpha1.MaaSModelRef{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "model-ns"},
+		Spec: maasv1alpha1.MaaSModelSpec{
+			ModelRef: maasv1alpha1.ModelReference{Kind: "LLMInferenceService", Name: "test-llmisvc"},
+		},
+	}
+
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(tenantA, tenantB).
+		WithStatusSubresource(&maasv1alpha1.AITenant{}).
+		Build()
+
+	// Both tenants claim the same gateway
+	sameGatewayRef := maasv1alpha1.TenantGatewayRef{
+		Name:      "shared-gateway",
+		Namespace: "gateway-ns",
+	}
+	tenantA.Status = maasv1alpha1.AITenantStatus{GatewayRef: sameGatewayRef}
+	if err := c.Status().Update(ctx, tenantA); err != nil {
+		t.Fatalf("failed to update AITenant status: %v", err)
+	}
+	tenantB.Status = maasv1alpha1.AITenantStatus{GatewayRef: sameGatewayRef}
+	if err := c.Status().Update(ctx, tenantB); err != nil {
+		t.Fatalf("failed to update AITenant status: %v", err)
+	}
+
+	r := &MaaSModelRefReconciler{
+		Client:            c,
+		Scheme:            scheme,
+		GatewayName:       testGatewayName,
+		GatewayNamespace:  testGatewayNamespace,
+		AITenantNamespace: testAITenantNamespace,
+	}
+	h := &llmisvcHandler{r: r}
+
+	gwNS := gatewayapiv1.Namespace("gateway-ns")
+	route := &gatewayapiv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "model-ns"},
+		Spec: gatewayapiv1.HTTPRouteSpec{
+			CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+				ParentRefs: []gatewayapiv1.ParentReference{
+					{Name: "shared-gateway", Namespace: &gwNS},
+				},
+			},
+		},
+	}
+
+	_, err := h.r.resolveGatewayRef(ctx, logr.Discard(), model, route)
+	if err == nil {
+		t.Fatal("resolveGatewayRef() expected error for duplicate gateway ownership, got nil")
+	}
+	if !strings.Contains(err.Error(), "multiple gateways") {
+		t.Errorf("resolveGatewayRef() error = %v, want error containing 'multiple gateways'", err)
+	}
+	if model.Status.ResolvedTenantRef != "" {
+		t.Errorf("resolveGatewayRef() ResolvedTenantRef = %q, want empty after duplicate gateway ownership", model.Status.ResolvedTenantRef)
+	}
+}
+
+func TestResolveGatewayRef_AutoResolve_DuplicateParentRefsSameTenant(t *testing.T) {
+	ctx := context.Background()
+
+	// Single tenant, but HTTPRoute has two parentRefs pointing to the same gateway
+	// (different sectionName). Should resolve to one match, not produce ambiguity.
+	aitenant := &maasv1alpha1.AITenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "team-delta",
+			Namespace: testAITenantNamespace,
+		},
+	}
+
+	model := &maasv1alpha1.MaaSModelRef{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "model-ns"},
+		Spec: maasv1alpha1.MaaSModelSpec{
+			ModelRef: maasv1alpha1.ModelReference{Kind: "LLMInferenceService", Name: "test-llmisvc"},
+		},
+	}
+
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(aitenant).
+		WithStatusSubresource(&maasv1alpha1.AITenant{}).
+		Build()
+
+	aitenant.Status = maasv1alpha1.AITenantStatus{
+		GatewayRef: maasv1alpha1.TenantGatewayRef{
+			Name:      "delta-gateway",
+			Namespace: "gateway-ns",
+		},
+	}
+	if err := c.Status().Update(ctx, aitenant); err != nil {
+		t.Fatalf("failed to update AITenant status: %v", err)
+	}
+
+	r := &MaaSModelRefReconciler{
+		Client:            c,
+		Scheme:            scheme,
+		GatewayName:       testGatewayName,
+		GatewayNamespace:  testGatewayNamespace,
+		AITenantNamespace: testAITenantNamespace,
+	}
+	h := &llmisvcHandler{r: r}
+
+	gwNS := gatewayapiv1.Namespace("gateway-ns")
+	section1 := gatewayapiv1.SectionName("listener-1")
+	section2 := gatewayapiv1.SectionName("listener-2")
+	route := &gatewayapiv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "model-ns"},
+		Spec: gatewayapiv1.HTTPRouteSpec{
+			CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+				ParentRefs: []gatewayapiv1.ParentReference{
+					{Name: "delta-gateway", Namespace: &gwNS, SectionName: &section1},
+					{Name: "delta-gateway", Namespace: &gwNS, SectionName: &section2},
+				},
+			},
+		},
+	}
+
+	ref, err := h.r.resolveGatewayRef(ctx, logr.Discard(), model, route)
+	if err != nil {
+		t.Fatalf("resolveGatewayRef() error = %v, want nil for duplicate parentRefs same tenant", err)
+	}
+	if ref.Name != "delta-gateway" {
+		t.Errorf("resolveGatewayRef() gateway name = %q, want %q", ref.Name, "delta-gateway")
+	}
+	if model.Status.ResolvedTenantRef != "team-delta" {
+		t.Errorf("resolveGatewayRef() ResolvedTenantRef = %q, want %q", model.Status.ResolvedTenantRef, "team-delta")
 	}
 }
 

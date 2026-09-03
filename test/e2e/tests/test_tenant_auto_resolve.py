@@ -165,7 +165,6 @@ class TestTenantAutoResolve:
         try:
             apply_gateway_fixture(case["gateway_name"], fixture_label=fixture_label)
             wait_for_gateway_programmed(case["gateway_name"])
-            apply_gateway_access_label(case["tenant_ns"], case["gateway_name"])
 
             from multitenancy_helpers import ensure_namespace
             ensure_namespace(case["tenant_ns"])
@@ -193,12 +192,9 @@ class TestTenantAutoResolve:
                 "resolvedTenantRef should be empty when no tenant matches"
             )
             conditions = status.get("conditions") or []
-            has_error_condition = any(
-                c.get("status") == "False" or "no AITenant found" in (c.get("message") or "")
-                for c in conditions
-            )
-            assert has_error_condition, (
-                f"Expected a condition indicating failed tenant resolution, got: {conditions}"
+            messages = [c.get("message") or "" for c in conditions]
+            assert any("no AITenant found" in m for m in messages), (
+                f"Expected a condition message reporting failed tenant resolution, got: {conditions}"
             )
 
         finally:

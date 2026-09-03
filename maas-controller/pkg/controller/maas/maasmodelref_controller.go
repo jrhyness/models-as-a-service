@@ -106,6 +106,27 @@ func modelRefNameIndexer(obj client.Object) []string {
 	return []string{model.Spec.ModelRef.Name}
 }
 
+const tenantAssociationIndex = ".tenantAssociation"
+const tenantAssociationUnresolved = "_unresolved_"
+
+// tenantAssociationIndexer indexes MaaSModelRefs by their effective tenant:
+//   - spec.tenantRef if set (explicit reference)
+//   - status.resolvedTenantRef if spec.tenantRef is empty (auto-resolved)
+//   - sentinel "_unresolved_" if both are empty (not yet resolved)
+func tenantAssociationIndexer(obj client.Object) []string {
+	model, ok := obj.(*maasv1alpha1.MaaSModelRef)
+	if !ok {
+		return nil
+	}
+	if model.Spec.TenantRef != "" {
+		return []string{model.Spec.TenantRef}
+	}
+	if model.Status.ResolvedTenantRef != "" {
+		return []string{model.Status.ResolvedTenantRef}
+	}
+	return []string{tenantAssociationUnresolved}
+}
+
 // Reconcile is part of the main kubernetes reconciliation loop
 func (r *MaaSModelRefReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithValues("MaaSModelRef", req.NamespacedName)
@@ -160,6 +181,11 @@ func (r *MaaSModelRefReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			// Set status to Pending (not Failed). The HTTPRoute watch will trigger reconciliation when the route is created.
 			model.Status.Endpoint = ""
 			r.updateStatus(ctx, model, "Pending", "Waiting for HTTPRoute to be created", statusSnapshot)
+			return ctrl.Result{}, nil
+		}
+		if errors.Is(err, ErrTenantResolutionPending) {
+			model.Status.Endpoint = ""
+			r.updateStatus(ctx, model, "Pending", "Waiting for tenant resolution: "+err.Error(), statusSnapshot)
 			return ctrl.Result{}, nil
 		}
 		log.Error(err, "failed to reconcile HTTPRoute")
@@ -512,6 +538,9 @@ func (r *MaaSModelRefReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &maasv1alpha1.MaaSModelRef{}, modelRefNameIndex, modelRefNameIndexer); err != nil {
 		return fmt.Errorf("failed to create field index %s: %w", modelRefNameIndex, err)
 	}
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &maasv1alpha1.MaaSModelRef{}, tenantAssociationIndex, tenantAssociationIndexer); err != nil {
+		return fmt.Errorf("failed to create field index %s: %w", tenantAssociationIndex, err)
+	}
 
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&maasv1alpha1.MaaSModelRef{}, builder.WithPredicates(predicate.Or(
@@ -727,32 +756,46 @@ func (r *MaaSModelRefReconciler) mapMaaSAuthPolicyToMaaSModelRefs(ctx context.Co
 // mapAITenantToMaaSModelRefs returns reconcile requests for MaaSModelRefs that
 // may need re-reconciliation when an AITenant changes. This enables auto-resolution
 // of tenantRef from HTTPRoute gateway parentRefs.
+//
+// Uses the tenantAssociation field index to avoid listing every MaaSModelRef
+// in the cluster: queries for models associated with this tenant (cases 1+2)
+// and for unresolved models (case 3).
 func (r *MaaSModelRefReconciler) mapAITenantToMaaSModelRefs(ctx context.Context, obj client.Object) []reconcile.Request {
 	tenant, ok := obj.(*maasv1alpha1.AITenant)
 	if !ok {
 		return nil
 	}
-	var models maasv1alpha1.MaaSModelRefList
-	if err := r.List(ctx, &models); err != nil {
-		logr.FromContextOrDiscard(ctx).Error(err, "failed to list MaaSModelRefs for AITenant watch")
+	log := logr.FromContextOrDiscard(ctx)
+
+	seen := make(map[types.NamespacedName]struct{})
+	var requests []reconcile.Request
+	appendModels := func(models *maasv1alpha1.MaaSModelRefList) {
+		for _, m := range models.Items {
+			key := types.NamespacedName{Name: m.Name, Namespace: m.Namespace}
+			if _, dup := seen[key]; dup {
+				continue
+			}
+			seen[key] = struct{}{}
+			requests = append(requests, reconcile.Request{NamespacedName: key})
+		}
+	}
+
+	// Cases 1+2: models explicitly referencing or auto-resolved to this tenant
+	var associated maasv1alpha1.MaaSModelRefList
+	if err := r.List(ctx, &associated, client.MatchingFields{tenantAssociationIndex: tenant.Name}); err != nil {
+		log.Error(err, "failed to list MaaSModelRefs by tenant association", "tenant", tenant.Name)
 		return nil
 	}
-	var requests []reconcile.Request
-	for _, m := range models.Items {
-		switch {
-		case m.Spec.TenantRef == tenant.Name:
-			// Explicitly references this tenant
-		case m.Spec.TenantRef == "" && m.Status.ResolvedTenantRef == tenant.Name:
-			// Auto-resolved to this tenant (gateway may have changed)
-		case m.Spec.TenantRef == "" && m.Status.ResolvedTenantRef == "":
-			// Not yet resolved — this new/updated tenant might be the match
-		default:
-			continue
-		}
-		requests = append(requests, reconcile.Request{
-			NamespacedName: types.NamespacedName{Name: m.Name, Namespace: m.Namespace},
-		})
+	appendModels(&associated)
+
+	// Case 3: models not yet resolved — this new/updated tenant might be the match
+	var unresolved maasv1alpha1.MaaSModelRefList
+	if err := r.List(ctx, &unresolved, client.MatchingFields{tenantAssociationIndex: tenantAssociationUnresolved}); err != nil {
+		log.Error(err, "failed to list unresolved MaaSModelRefs for AITenant watch")
+		return nil
 	}
+	appendModels(&unresolved)
+
 	return requests
 }
 
@@ -821,7 +864,7 @@ func (r *MaaSModelRefReconciler) resolveGatewayRef(ctx context.Context, log logr
 func (r *MaaSModelRefReconciler) resolveGatewayRefFromHTTPRoute(ctx context.Context, log logr.Logger, model *maasv1alpha1.MaaSModelRef, route *gatewayapiv1.HTTPRoute) (maasv1alpha1.TenantGatewayRef, error) {
 	if len(route.Spec.ParentRefs) == 0 {
 		model.Status.ResolvedTenantRef = ""
-		return maasv1alpha1.TenantGatewayRef{}, fmt.Errorf("HTTPRoute %s/%s has no gateway parentRefs; cannot auto-resolve tenant", route.Namespace, route.Name)
+		return maasv1alpha1.TenantGatewayRef{}, fmt.Errorf("%w: HTTPRoute %s/%s has no gateway parentRefs", ErrTenantResolutionPending, route.Namespace, route.Name)
 	}
 
 	tenantList := &maasv1alpha1.AITenantList{}
@@ -830,11 +873,12 @@ func (r *MaaSModelRefReconciler) resolveGatewayRefFromHTTPRoute(ctx context.Cont
 	}
 
 	type gatewayKey struct{ name, namespace string }
-	tenantByGateway := make(map[gatewayKey]string, len(tenantList.Items))
+	tenantsByGateway := make(map[gatewayKey][]string, len(tenantList.Items))
 	for _, tenant := range tenantList.Items {
 		ref := tenant.Status.GatewayRef
 		if ref.Name != "" && ref.Namespace != "" {
-			tenantByGateway[gatewayKey{ref.Name, ref.Namespace}] = tenant.Name
+			k := gatewayKey{ref.Name, ref.Namespace}
+			tenantsByGateway[k] = append(tenantsByGateway[k], tenant.Name)
 		}
 	}
 
@@ -843,6 +887,7 @@ func (r *MaaSModelRefReconciler) resolveGatewayRefFromHTTPRoute(ctx context.Cont
 		ref    maasv1alpha1.TenantGatewayRef
 	}
 	var matches []match
+	seenTenants := make(map[string]struct{})
 
 	for _, parentRef := range route.Spec.ParentRefs {
 		if !parentRefTargetsGateway(parentRef) {
@@ -855,7 +900,11 @@ func (r *MaaSModelRefReconciler) resolveGatewayRefFromHTTPRoute(ctx context.Cont
 			gwNamespace = string(*parentRef.Namespace)
 		}
 
-		if tenantName, ok := tenantByGateway[gatewayKey{gwName, gwNamespace}]; ok {
+		for _, tenantName := range tenantsByGateway[gatewayKey{gwName, gwNamespace}] {
+			if _, dup := seenTenants[tenantName]; dup {
+				continue
+			}
+			seenTenants[tenantName] = struct{}{}
 			matches = append(matches, match{
 				tenant: tenantName,
 				ref:    maasv1alpha1.TenantGatewayRef{Name: gwName, Namespace: gwNamespace},

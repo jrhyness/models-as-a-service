@@ -161,6 +161,7 @@ func newTestReconciler(objects ...client.Object) (*MaaSModelRefReconciler, clien
 		WithObjects(allObjects...).
 		WithStatusSubresource(&maasv1alpha1.MaaSModelRef{}).
 		WithIndex(&maasv1alpha1.MaaSModelRef{}, modelRefNameIndex, modelRefNameIndexer).
+		WithIndex(&maasv1alpha1.MaaSModelRef{}, tenantAssociationIndex, tenantAssociationIndexer).
 		WithIndex(&maasv1alpha1.MaaSSubscription{}, modelRefIndexKey, subscriptionModelRefIndexer).
 		Build()
 	return &MaaSModelRefReconciler{
