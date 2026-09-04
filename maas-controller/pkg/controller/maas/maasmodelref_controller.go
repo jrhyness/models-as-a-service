@@ -842,6 +842,7 @@ func (r *MaaSModelRefReconciler) resolveGatewayRef(ctx context.Context, log logr
 		}
 		if err := r.Get(ctx, key, aitenant); err != nil {
 			if apierrors.IsNotFound(err) {
+				model.Status.ResolvedTenantRef = ""
 				return maasv1alpha1.TenantGatewayRef{}, fmt.Errorf("AITenant %q not found in namespace %s", model.Spec.TenantRef, r.AITenantNamespace)
 			}
 			return maasv1alpha1.TenantGatewayRef{}, fmt.Errorf("failed to get AITenant %q: %w", model.Spec.TenantRef, err)

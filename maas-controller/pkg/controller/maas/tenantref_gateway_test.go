@@ -124,6 +124,9 @@ func TestResolveGatewayRef_WithTenantRef_NotFound(t *testing.T) {
 			ModelRef:  maasv1alpha1.ModelReference{Kind: "LLMInferenceService", Name: "test-llmisvc"},
 			TenantRef: "nonexistent",
 		},
+		Status: maasv1alpha1.MaaSModelStatus{
+			ResolvedTenantRef: "stale-tenant",
+		},
 	}
 
 	c := fake.NewClientBuilder().
@@ -146,6 +149,9 @@ func TestResolveGatewayRef_WithTenantRef_NotFound(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "not found") {
 		t.Errorf("resolveGatewayRef() error = %v, want error containing 'not found'", err)
+	}
+	if model.Status.ResolvedTenantRef != "" {
+		t.Errorf("resolveGatewayRef() ResolvedTenantRef = %q, want empty after NotFound", model.Status.ResolvedTenantRef)
 	}
 }
 
