@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"net"
 	"time"
 )
 
@@ -39,6 +40,8 @@ func Generate(instanceName string) (tls.Certificate, error) {
 		Subject: pkix.Name{
 			Organization: []string{instanceName},
 		},
+		DNSNames:              []string{"localhost", instanceName},
+		IPAddresses:           []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
 		NotBefore:             now.UTC(),
 		NotAfter:              now.Add(Duration + RenewalBuffer).UTC(),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
