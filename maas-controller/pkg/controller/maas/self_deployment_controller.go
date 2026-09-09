@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -996,7 +997,7 @@ func (r *LifecycleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					Name:      r.DeploymentName,
 				}}}
 			}),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+			builder.WithPredicates(aitenantReadyChanged()),
 		).
 		// Re-reconcile when optional operator CRDs (e.g. Perses from COO) are installed
 		// so that resources previously skipped due to missing CRDs are applied immediately.
@@ -1050,6 +1051,33 @@ func (r *LifecycleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			})),
 		).
 		Complete(r)
+}
+
+// aitenantReadyChanged admits an AITenant event only when the Ready condition
+// status changes or generation changes. Create, Delete, and Generic events pass
+// by default so that adding or removing a tenant re-runs health aggregation.
+func aitenantReadyChanged() predicate.Predicate {
+	readyStatus := func(o client.Object) metav1.ConditionStatus {
+		at, ok := o.(*maasv1alpha1.AITenant)
+		if !ok {
+			return metav1.ConditionUnknown
+		}
+		if cond := apimeta.FindStatusCondition(at.Status.Conditions, maasv1alpha1.AITenantConditionReady); cond != nil {
+			return cond.Status
+		}
+		return metav1.ConditionUnknown
+	}
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectOld == nil || e.ObjectNew == nil {
+				return false
+			}
+			if readyStatus(e.ObjectOld) != readyStatus(e.ObjectNew) {
+				return true
+			}
+			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+		},
+	}
 }
 
 // crdInOptionalAPIGroup matches CRDs belonging to optional platform operator API groups
