@@ -878,7 +878,7 @@ func (r *LifecycleReconciler) syncTenantsHealth(ctx context.Context, cfg *maasv1
 	}
 
 	var allTenants maasv1alpha1.AITenantList
-	if err := r.List(ctx, &allTenants); err != nil {
+	if err := r.List(ctx, &allTenants, client.InNamespace(r.AITenantNamespace)); err != nil {
 		return fmt.Errorf("list AITenants for tenant health aggregation: %w", err)
 	}
 
