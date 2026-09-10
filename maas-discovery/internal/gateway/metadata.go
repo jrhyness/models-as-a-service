@@ -48,7 +48,10 @@ func ExtractMetadata(gateway map[string]any, name, namespace string) (*types.Gat
 		}
 	}
 
-	port, protocol, hostname := selectBestListener(specListenersRaw, statusListenersByName)
+	port, protocol, hostname, found := selectBestListener(specListenersRaw, statusListenersByName)
+	if !found {
+		return nil, errors.New("no ready listeners found on gateway")
+	}
 
 	externalHost := hostname
 	if externalHost == "" {
@@ -91,7 +94,8 @@ func ExtractMetadata(gateway map[string]any, name, namespace string) (*types.Gat
 
 // selectBestListener picks the best ready listener from a Gateway spec.
 // Prefers HTTPS/TLS over HTTP to avoid redirect-induced POST→GET conversion.
-func selectBestListener(specListeners []any, statusByName map[string]map[string]any) (int64, string, string) {
+// Returns found=false when no listener with attachedRoutes > 0 exists.
+func selectBestListener(specListeners []any, statusByName map[string]map[string]any) (int64, string, string, bool) {
 	var foundHTTP bool
 	var httpPort int64
 	var httpHostname string
@@ -124,7 +128,7 @@ func selectBestListener(specListeners []any, statusByName map[string]map[string]
 		listenerHostname, _ := specListener["hostname"].(string)
 
 		if listenerProtocol == protocolHTTPS || listenerProtocol == protocolTLS {
-			return listenerPort, listenerProtocol, listenerHostname
+			return listenerPort, listenerProtocol, listenerHostname, true
 		}
 
 		if listenerProtocol == protocolHTTP && !foundHTTP {
@@ -135,9 +139,9 @@ func selectBestListener(specListeners []any, statusByName map[string]map[string]
 	}
 
 	if foundHTTP {
-		return httpPort, protocolHTTP, httpHostname
+		return httpPort, protocolHTTP, httpHostname, true
 	}
-	return 443, protocolHTTPS, ""
+	return 0, "", "", false
 }
 
 // toInt64 converts an interface value to int64, handling both int64 and float64

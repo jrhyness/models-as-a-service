@@ -54,6 +54,9 @@ func run() error {
 
 	restConfig, restErr := getRestConfig(*kubeconfig)
 	if restErr != nil {
+		if *kubeconfig != "" {
+			return fmt.Errorf("loading kubeconfig %s: %w", *kubeconfig, restErr)
+		}
 		log.Warn("no kubeconfig available, using stub cache and default TLS profile for development", "error", restErr)
 	}
 
@@ -138,11 +141,9 @@ func buildCache(ctx context.Context, log *slog.Logger, restConfig *rest.Config, 
 		return nil, fmt.Errorf("creating informer cache: %w", err)
 	}
 
-	go func() {
-		if serr := ic.Start(ctx); serr != nil {
-			log.Error("informer cache error", "error", serr)
-		}
-	}()
+	if err := ic.Start(ctx); err != nil {
+		return nil, fmt.Errorf("starting informer cache: %w", err)
+	}
 
 	return ic, nil
 }

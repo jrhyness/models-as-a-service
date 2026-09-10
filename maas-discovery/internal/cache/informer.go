@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -18,6 +19,8 @@ import (
 	"github.com/opendatahub-io/models-as-a-service/maas-discovery/internal/gateway"
 	"github.com/opendatahub-io/models-as-a-service/maas-discovery/internal/types"
 )
+
+const rebuildDebounce = 100 * time.Millisecond
 
 var (
 	aiTenantGVR = schema.GroupVersionResource{
@@ -41,9 +44,10 @@ type InformerCache struct {
 	gatewayNamespace string
 	restConfig       *rest.Config
 
-	mu      sync.RWMutex
-	tenants []types.TenantInfo
-	synced  atomic.Bool
+	rebuildMu sync.Mutex
+	mu        sync.RWMutex
+	tenants   []types.TenantInfo
+	synced    atomic.Bool
 }
 
 // InformerCacheOptions configures an InformerCache.
@@ -77,9 +81,9 @@ func NewInformerCache(opts InformerCacheOptions) (*InformerCache, error) {
 	}, nil
 }
 
-// Start begins watching AITenant and Gateway resources, blocks until ctx is cancelled.
-// The cache reports Synced=true only after the initial list has completed and the
-// first tenant map has been built.
+// Start sets up informer watches, waits for the initial sync, performs the
+// first rebuild, and returns. Informers continue running in the background
+// until ctx is cancelled. Returns an error if setup or initial sync fails.
 func (ic *InformerCache) Start(ctx context.Context) error {
 	dynamicClient, err := dynamic.NewForConfig(ic.restConfig)
 	if err != nil {
@@ -96,14 +100,18 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 	tenantInformer := tenantFactory.ForResource(aiTenantGVR).Informer()
 	gatewayInformer := gatewayFactory.ForResource(gatewayGVR).Informer()
 
-	rebuildFn := func() {
-		ic.rebuildFromInformers(tenantInformer, gatewayInformer)
+	rebuildCh := make(chan struct{}, 1)
+	triggerRebuild := func() {
+		select {
+		case rebuildCh <- struct{}{}:
+		default:
+		}
 	}
 
 	handler := k8scache.ResourceEventHandlerFuncs{
-		AddFunc:    func(_ any) { rebuildFn() },
-		UpdateFunc: func(_, _ any) { rebuildFn() },
-		DeleteFunc: func(_ any) { rebuildFn() },
+		AddFunc:    func(_ any) { triggerRebuild() },
+		UpdateFunc: func(_, _ any) { triggerRebuild() },
+		DeleteFunc: func(_ any) { triggerRebuild() },
 	}
 
 	if _, err := tenantInformer.AddEventHandler(handler); err != nil {
@@ -135,12 +143,55 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 		}
 	}
 
-	rebuildFn()
+	// Drain any events queued during initial list before the authoritative rebuild.
+	drainChannel(rebuildCh)
+
+	ic.rebuildFromInformers(tenantInformer, gatewayInformer)
 	ic.synced.Store(true)
 	ic.log.Info("informer cache synced and ready")
 
-	<-ctx.Done()
+	// Debounced rebuild loop — coalesces bursts of events into a single rebuild.
+	go func() {
+		for {
+			select {
+			case <-rebuildCh:
+				t := time.NewTimer(rebuildDebounce)
+				drainLoop(ctx, rebuildCh, t)
+				ic.rebuildFromInformers(tenantInformer, gatewayInformer)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	return nil
+}
+
+func drainChannel(ch <-chan struct{}) {
+	for {
+		select {
+		case <-ch:
+		default:
+			return
+		}
+	}
+}
+
+func drainLoop(ctx context.Context, ch <-chan struct{}, t *time.Timer) {
+	for {
+		select {
+		case <-ch:
+			if !t.Stop() {
+				<-t.C
+			}
+			t.Reset(rebuildDebounce)
+		case <-t.C:
+			return
+		case <-ctx.Done():
+			t.Stop()
+			return
+		}
+	}
 }
 
 // List returns the current tenant list.
@@ -156,8 +207,12 @@ func (ic *InformerCache) Synced() bool {
 }
 
 // rebuildFromInformers reads the current state from the informer stores and rebuilds
-// the in-memory tenant list.
+// the in-memory tenant list. Serialized by rebuildMu to prevent stale data from a
+// slower concurrent rebuild overwriting a newer one.
 func (ic *InformerCache) rebuildFromInformers(tenantInformer, gatewayInformer k8scache.SharedIndexInformer) {
+	ic.rebuildMu.Lock()
+	defer ic.rebuildMu.Unlock()
+
 	tenantObjs := tenantInformer.GetStore().List()
 	gatewayObjs := gatewayInformer.GetStore().List()
 

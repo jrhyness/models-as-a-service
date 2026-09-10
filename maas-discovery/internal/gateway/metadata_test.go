@@ -183,7 +183,21 @@ func TestExtractMetadata_NoReadyListeners(t *testing.T) {
 	)
 
 	_, err := gateway.ExtractMetadata(gw, "gw", "ns")
-	assert.Error(t, err)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no ready listeners")
+}
+
+func TestExtractMetadata_NoReadyListenersWithAddresses(t *testing.T) {
+	gw := makeGateway(
+		[]any{httpsListener("gw.example.com", int64(443))},
+		[]any{readyStatus("https", int64(0))},
+		[]any{map[string]any{"value": "lb.example.com", "type": "Hostname"}},
+	)
+
+	_, err := gateway.ExtractMetadata(gw, "gw", "ns")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no ready listeners",
+		"should not produce a valid URL when no listener has attached routes")
 }
 
 func TestExtractMetadata_Float64Port(t *testing.T) {
