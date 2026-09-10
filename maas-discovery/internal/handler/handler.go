@@ -34,8 +34,13 @@ func (h *Handler) Healthz(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
-// Readyz handles GET /readyz.
+// Readyz handles GET /readyz. Returns 503 until the cache has completed
+// its initial sync, then 200.
 func (h *Handler) Readyz(c *gin.Context) {
+	if !h.cache.Synced() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not ready", "reason": "cache not synced"})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 

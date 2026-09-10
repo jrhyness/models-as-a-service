@@ -60,6 +60,21 @@ func TestReadyz(t *testing.T) {
 	assert.JSONEq(t, `{"status":"ok"}`, w.Body.String())
 }
 
+func TestReadyzNotReady(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	fc := &fakeTenantCache{synced: false}
+	h := handler.New(fc)
+	r := gin.New()
+	h.RegisterRoutes(r)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+	assert.Contains(t, w.Body.String(), "not ready")
+}
+
 func TestNotFound(t *testing.T) {
 	r := newTestRouter()
 
@@ -83,15 +98,21 @@ func TestMethodNotAllowed(t *testing.T) {
 
 type fakeTenantCache struct {
 	tenants []types.TenantInfo
+	synced  bool
 }
 
 func (f *fakeTenantCache) List() []types.TenantInfo {
 	return f.tenants
 }
 
+func (f *fakeTenantCache) Synced() bool {
+	return f.synced
+}
+
 func TestListTenantsWithData(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	fc := &fakeTenantCache{
+		synced: true,
 		tenants: []types.TenantInfo{
 			{
 				Name: "test-tenant",
