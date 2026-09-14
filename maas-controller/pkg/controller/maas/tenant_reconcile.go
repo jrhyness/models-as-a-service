@@ -38,6 +38,7 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	maasv1alpha1 "github.com/opendatahub-io/models-as-a-service/maas-controller/api/maas/v1alpha1"
+	"github.com/opendatahub-io/models-as-a-service/maas-controller/pkg/oteljson"
 	"github.com/opendatahub-io/models-as-a-service/maas-controller/pkg/platform/tenantreconcile"
 )
 
@@ -71,7 +72,7 @@ func managementState(ann map[string]string) string {
 }
 
 func (r *TenantReconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := ctrl.LoggerFrom(ctx)
+	log := oteljson.FromContext(ctx)
 
 	var tenant maasv1alpha1.MaasTenantConfig
 	if err := r.Get(ctx, req.NamespacedName, &tenant); err != nil {
@@ -112,14 +113,31 @@ func (r *TenantReconciler) reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 	}
 
+	// Handle deletion before tenant identifier validation and the teardown guard:
+	// finalizer cleanup must proceed even when TenantIdentifierFor would fail or while
+	// LifecycleReconciler is tearing down MaaS (AITenant deletion waits on MaasTenantConfig).
+	if !tenant.DeletionTimestamp.IsZero() {
+		return r.handleDeletion(ctx, log, &tenant)
+	}
+
+	// Skip reconciliation during MaaS teardown to avoid blocking on gateway dependencies.
+	// When teardown is requested, LifecycleReconciler orchestrates cleanup independently.
+	// Try both controller namespace and app namespace (for deployments in operator infra namespace).
+	for _, depNS := range []string{r.ControllerNamespace, r.AppNamespace} {
+		if depNS == "" {
+			continue
+		}
+		var dep appsv1.Deployment
+		depKey := client.ObjectKey{Name: "maas-controller", Namespace: depNS}
+		if err := r.Get(ctx, depKey, &dep); err == nil && TeardownRequestedOnDeployment(&dep) {
+			log.Info("skipping MaasTenantConfig reconciliation during MaaS teardown", "deploymentNamespace", depNS)
+			return ctrl.Result{}, nil
+		}
+	}
+
 	usesCleanupFinalizer, err := tenantUsesCleanupFinalizer(&tenant)
 	if err != nil {
 		return ctrl.Result{}, err
-	}
-
-	// Handle deletion
-	if !tenant.DeletionTimestamp.IsZero() {
-		return r.handleDeletion(ctx, log, &tenant)
 	}
 
 	if usesCleanupFinalizer {
