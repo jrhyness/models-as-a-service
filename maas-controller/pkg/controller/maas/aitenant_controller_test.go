@@ -77,6 +77,60 @@ func TestApplyAITenantMetadata_PropagatesPayloadProcessingTypeAnnotation(t *test
 	g.Expect(ok).To(BeFalse())
 }
 
+func TestAITenantReconcile_RemovesPayloadProcessingTypeMirrorOnDeannotation(t *testing.T) {
+	g := NewWithT(t)
+	s := aitenantTestScheme(t)
+	ctx := context.Background()
+
+	aitenant := &maasv1alpha1.AITenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "praxis-sync",
+			Namespace: tenantreconcile.DefaultAITenantNamespace,
+			Annotations: map[string]string{
+				tenantreconcile.AnnotationPayloadProcessingType: tenantreconcile.PayloadProcessingTypePraxis,
+			},
+		},
+	}
+	cl := fake.NewClientBuilder().
+		WithScheme(s).
+		WithStatusSubresource(&maasv1alpha1.AITenant{}).
+		WithObjects(aitenant, existingAITenantGateway("praxis-sync")).
+		Build()
+	r := &AITenantReconciler{
+		Client:           cl,
+		Scheme:           s,
+		APIReader:        cl,
+		AppNamespace:     "opendatahub",
+		TenantNamespace:  "models-as-a-service",
+		GatewayNamespace: "openshift-ingress",
+	}
+
+	key := types.NamespacedName{Name: aitenant.Name, Namespace: aitenant.Namespace}
+	reconcileAITenantToActive(t, r, key)
+
+	configKey := client.ObjectKey{
+		Name:      maasv1alpha1.MaasTenantConfigInstanceName,
+		Namespace: "ai-tenant-praxis-sync",
+	}
+	var config maasv1alpha1.MaasTenantConfig
+	g.Expect(cl.Get(ctx, configKey, &config)).To(Succeed())
+	g.Expect(config.Annotations).To(HaveKeyWithValue(
+		tenantreconcile.AnnotationPayloadProcessingType,
+		tenantreconcile.PayloadProcessingTypePraxis,
+	))
+
+	g.Expect(cl.Get(ctx, key, aitenant)).To(Succeed())
+	delete(aitenant.Annotations, tenantreconcile.AnnotationPayloadProcessingType)
+	g.Expect(cl.Update(ctx, aitenant)).To(Succeed())
+
+	_, _, err := r.ensureTenantConfig(ctx, aitenant)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	g.Expect(cl.Get(ctx, configKey, &config)).To(Succeed())
+	_, ok := config.Annotations[tenantreconcile.AnnotationPayloadProcessingType]
+	g.Expect(ok).To(BeFalse())
+}
+
 func existingAITenantGateway(name string) *gatewayapiv1.Gateway {
 	return &gatewayapiv1.Gateway{
 		TypeMeta: metav1.TypeMeta{
