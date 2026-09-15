@@ -6,15 +6,13 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
+        <meta name="description" content="Proposed integration of subscription request priorities with llm-d flow control.">
       
       
-        <link rel="canonical" href="https://opendatahub-io.github.io/models-as-a-service/dev/reference/crds/maas-auth-policy/">
+      
+        <link rel="canonical" href="https://opendatahub-io.github.io/models-as-a-service/dev/architecture-internals/proposals/flow-control/">
       
       
-        <link rel="prev" href="../external-model/">
-      
-      
-        <link rel="next" href="../maas-subscription/">
       
       
         
@@ -25,7 +23,7 @@
     
     
       
-        <title>MaaSAuthPolicy - ODH Models-as-a-Service Documentation</title>
+        <title>MaaS Subscription Flow Control Design - ODH Models-as-a-Service Documentation</title>
       
     
     
@@ -76,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#maasauthpolicy" class="md-skip">
+        <a href="#maas-subscription-flow-control-design" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +111,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              MaaSAuthPolicy
+              MaaS Subscription Flow Control Design
             
           </span>
         </div>
@@ -363,7 +361,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../architecture-internals/controller-architecture/" class="md-tabs__link">
+        <a href="../../controller-architecture/" class="md-tabs__link">
           
   
   
@@ -379,13 +377,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../maas-api-overview/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../../reference/maas-api-overview/" class="md-tabs__link">
           
   
   
@@ -2556,7 +2552,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture-internals/controller-architecture/" class="md-nav__link">
+      <a href="../../controller-architecture/" class="md-nav__link">
         
   
   
@@ -2584,7 +2580,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture-internals/reconciliation-flow/" class="md-nav__link">
+      <a href="../../reconciliation-flow/" class="md-nav__link">
         
   
   
@@ -2612,7 +2608,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture-internals/authentication-internals/" class="md-nav__link">
+      <a href="../../authentication-internals/" class="md-nav__link">
         
   
   
@@ -2762,31 +2758,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
         
           
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
             
   
   
@@ -2804,7 +2797,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2822,7 +2815,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../maas-api-overview/" class="md-nav__link">
+      <a href="../../../reference/maas-api-overview/" class="md-nav__link">
         
   
   
@@ -2850,7 +2843,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api-reference/" class="md-nav__link">
+      <a href="../../../reference/api-reference/" class="md-nav__link">
         
   
   
@@ -2875,31 +2868,28 @@
                 
   
   
-    
   
   
-  
     
     
     
     
       
       
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
         
           
-          
         
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_3" >
         
           
-          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
             
   
   
@@ -2917,7 +2907,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_8_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2935,7 +2925,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../maas-model-ref/" class="md-nav__link">
+      <a href="../../../reference/crds/maas-model-ref/" class="md-nav__link">
         
   
   
@@ -2963,7 +2953,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../external-model/" class="md-nav__link">
+      <a href="../../../reference/crds/external-model/" class="md-nav__link">
         
   
   
@@ -2988,37 +2978,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    MaaSAuthPolicy
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../reference/crds/maas-auth-policy/" class="md-nav__link">
         
   
   
@@ -3034,114 +2997,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#maasauthpolicyspec" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        MaaSAuthPolicySpec
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#subjectspec" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        SubjectSpec
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#modelref-modelrefs-item" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        ModelRef (modelRefs item)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#groupreference" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GroupReference
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#meteringmetadata" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        MeteringMetadata
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#maasauthpolicystatus" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        MaaSAuthPolicyStatus
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#authpolicyrefstatus" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        AuthPolicyRefStatus
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#annotations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Annotations
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -3154,7 +3009,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../maas-subscription/" class="md-nav__link">
+      <a href="../../../reference/crds/maas-subscription/" class="md-nav__link">
         
   
   
@@ -3182,7 +3037,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../ai-tenant/" class="md-nav__link">
+      <a href="../../../reference/crds/ai-tenant/" class="md-nav__link">
         
   
   
@@ -3210,7 +3065,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../tenant/" class="md-nav__link">
+      <a href="../../../reference/crds/tenant/" class="md-nav__link">
         
   
   
@@ -3273,10 +3128,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#maasauthpolicyspec" class="md-nav__link">
+  <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
       
-        MaaSAuthPolicySpec
+        Overview
       
     </span>
   </a>
@@ -3284,10 +3139,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#subjectspec" class="md-nav__link">
+  <a href="#motivation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        SubjectSpec
+        Motivation
       
     </span>
   </a>
@@ -3295,10 +3150,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#modelref-modelrefs-item" class="md-nav__link">
+  <a href="#goals" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ModelRef (modelRefs item)
+        Goals
       
     </span>
   </a>
@@ -3306,10 +3161,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#groupreference" class="md-nav__link">
+  <a href="#non-goals" class="md-nav__link">
     <span class="md-ellipsis">
       
-        GroupReference
+        Non-Goals
       
     </span>
   </a>
@@ -3317,10 +3172,110 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#meteringmetadata" class="md-nav__link">
+  <a href="#proposed-design" class="md-nav__link">
     <span class="md-ellipsis">
       
-        MeteringMetadata
+        Proposed Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Proposed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#subscription-priority-and-fairness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subscription priority and fairness
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pool-discovery-and-objective-reconciliation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pool discovery and objective reconciliation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#request-classification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request classification
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#operator-ui-and-live-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operator UI and live updates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#availability-and-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Availability and compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#llm-d-scheduler-policy-controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        llm-d Scheduler Policy Controls
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="llm-d Scheduler Policy Controls">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#priority-holdback-what-domain-controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Priority holdback: What domain Controls
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#priority-tier-pricing-and-chargeback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Priority-Tier Pricing and Chargeback
       
     </span>
   </a>
@@ -3328,10 +3283,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#maasauthpolicystatus" class="md-nav__link">
+  <a href="#security-and-privacy-considerations" class="md-nav__link">
     <span class="md-ellipsis">
       
-        MaaSAuthPolicyStatus
+        Security and Privacy Considerations
       
     </span>
   </a>
@@ -3339,10 +3294,38 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#authpolicyrefstatus" class="md-nav__link">
+  <a href="#follow-up-tenant-request-priority-ranges" class="md-nav__link">
     <span class="md-ellipsis">
       
-        AuthPolicyRefStatus
+        Follow-up: Tenant Request-Priority Ranges
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Follow-up: Tenant Request-Priority Ranges">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#allowed-priority-values-instead-of-ranges" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Allowed Priority Values Instead of Ranges
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alternatives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternatives
       
     </span>
   </a>
@@ -3350,10 +3333,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#annotations" class="md-nav__link">
+  <a href="#risks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Annotations
+        Risks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stakeholder-impacts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stakeholder Impacts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
       
     </span>
   </a>
@@ -3380,253 +3385,526 @@
   
 
 
-<h1 id="maasauthpolicy">MaaSAuthPolicy</h1>
-<p>Defines who (groups/users) can access which models. Creates Kuadrant AuthPolicies that validate API keys via MaaS API callback and perform subscription selection.</p>
-<p><strong>Namespace requirement:</strong> Must be created in the tenant namespace:
-- Default tenant: <code>models-as-a-service</code>
-- Additional tenants: <code>ai-tenant-{tenantID}</code></p>
-<h2 id="maasauthpolicyspec">MaaSAuthPolicySpec</h2>
+<h1 id="maas-subscription-flow-control-design">MaaS Subscription Flow Control Design</h1>
+<div class="admonition note">
+<p class="admonition-title">Proposed design</p>
+<p>This document describes planned behavior and follow-up extensions. It is not documentation of an implemented feature.</p>
+</div>
+<p><strong>Author:</strong> Pierangelo Di Pilato</p>
+<p><strong>Date:</strong> 2026-09-08</p>
+<p><strong>Scope:</strong> Models-as-a-Service, AI Gateway, and llm-d request scheduling</p>
+<h2 id="overview">Overview</h2>
+<p>Integrate MaaS with Gateway API Inference Extension flow control. Use the AI tenant as the fairness key and the selected
+MaaS subscription as the logical objective key. Users authorized to manage subscriptions configure a subscription's
+request priority. When explicitly configured, the MaaS subscription controller reconciles an <code>InferenceObjective</code> for
+each distinct <code>InferencePool</code> backing the models in that subscription. Otherwise, requests use the scheduler's default
+priority without a generated objective.</p>
+<h2 id="motivation">Motivation</h2>
+<p>MaaS subscriptions already define model access, token rate limits, and billing metadata. Token rate limits constrain
+consumption over time, but do not determine which admitted requests should be dispatched first when inference capacity
+is scarce. Flow control adds request queuing, priority, and fairness at the inference scheduler.</p>
+<p>Non-MaaS Gateways already inject <code>x-gateway-inference-fairness-id</code> and <code>x-gateway-inference-objective</code> through
+AuthPolicy templates. Their defaults use the cluster issuer for fairness and the caller's service-account namespace, or
+an authenticated-user fallback, for the objective. MaaS needs these headers to reflect its tenant and subscription
+boundaries. Subscription administrators should not need to discover pools or manually maintain objectives in model
+namespaces.</p>
+<h2 id="goals">Goals</h2>
+<ul>
+<li>Configure scheduling priority once per subscription and apply it to every eligible model in that subscription.</li>
+<li>Group requests from the same AI tenant for fairness within each priority band.</li>
+<li>Reuse the existing flow-control headers and <code>InferenceObjective</code> API.</li>
+<li>Keep generated objectives synchronized with subscriptions and observed model topology.</li>
+<li>Derive flow-control identity from authorized tenant, subscription, and model context.</li>
+<li>Let authorized operators view, set, change, and clear request priority through the subscription UI.</li>
+</ul>
+<h2 id="non-goals">Non-Goals</h2>
+<ul>
+<li>Replace MaaS authorization, subscription selection, token rate limits, or billing.</li>
+<li>Introduce or change request <code>service_tier</code> handling. Its interaction with subscription selection, authorization, and
+  pricing requires a separate proposal; this integration derives scheduling priority from the selected subscription's
+  <code>requestPriority</code>, without a <code>service_tier</code> override.</li>
+<li>Introduce a new scheduler, per-user fairness, or per-model priority overrides within a subscription.</li>
+<li>Provide a global capacity allocation across independent pools or scheduler instances, or guarantee latency or minimum
+  capacity across priority bands.</li>
+<li>Add flow control to external providers or model routes without an <code>InferencePool</code>.</li>
+<li>Change the non-MaaS Gateway defaults.</li>
+</ul>
+<h2 id="proposed-design">Proposed Design</h2>
+<h3 id="subscription-priority-and-fairness">Subscription priority and fairness</h3>
+<p>Add an optional <code>MaaSSubscription.spec.requestPriority</code> field as the desired <code>InferenceObjective.spec.priority</code>. Use a
+signed <code>int32</code>, matching the objective API, and preserve the distinction between an omitted value and an explicit <code>0</code>
+(for example, using <code>*int32</code> in the Go API). Do not apply a CRD default that fills in this field. Higher values receive
+higher scheduling priority; negative values represent lower-than-default priority. Validate and preserve this value
+consistently across the subscription API and objective reconciliation.</p>
+<p>The existing <code>spec.priority</code> continues to control automatic subscription selection. <code>spec.requestPriority</code> controls
+request scheduling after a subscription has been selected. Updating either field does not change the other field's
+meaning, and request priority does not influence subscription selection. Explicit subscription selection and API-key
+subscription binding continue to follow the existing authorization rules.</p>
+<p>Subscriptions without <code>spec.requestPriority</code> create no <code>InferenceObjective</code>, but both canonical and legacy header pairs
+are still injected. The objective header carries the generated name for the subscription/pool pair. With no matching
+objective, llm-d applies scheduler priority <code>0</code>, regardless of subscription-selection priority. An explicit
+<code>spec.requestPriority: 0</code> creates an objective with priority <code>0</code> under that same name, following the same path as any
+other explicit value.</p>
+<p>For example, a subscription can have <code>spec.priority: 100</code> to make it preferred during automatic selection and
+<code>spec.requestPriority: 10</code> to schedule its requests at priority <code>10</code>.</p>
+<p>The documented default objective header value is the generated subscription/pool objective name, even when request
+priority is omitted. In that case the resource is intentionally absent and the scheduler defaults to priority <code>0</code>. When
+request priority is configured, the same header value matches the generated objective in the target pool's namespace.</p>
 <table>
 <thead>
 <tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
+<th>Flow-control input</th>
+<th>MaaS source</th>
+<th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>modelRefs</td>
-<td>[]ModelRef</td>
-<td>Yes</td>
-<td>List of <code>{name, namespace}</code> references to MaaSModelRef resources</td>
+<td><code>x-llm-d-inference-fairness-id</code></td>
+<td>Stable, unambiguous identity of the resolved <code>AITenant</code></td>
+<td>All callers and subscriptions of that tenant share a fairness identity.</td>
 </tr>
 <tr>
-<td>subjects</td>
-<td>SubjectSpec</td>
-<td>Yes</td>
-<td>Who has access (OR logic—any match grants access)</td>
+<td><code>x-llm-d-inference-objective</code></td>
+<td>Generated objective name for the authorized subscription and target pool</td>
+<td>Always injected; resolves the configured priority, or scheduler priority <code>0</code> when no objective exists.</td>
 </tr>
 <tr>
-<td>meteringMetadata</td>
-<td>MeteringMetadata</td>
-<td>No</td>
-<td>Billing and tracking information</td>
+<td><code>InferenceObjective.spec.priority</code></td>
+<td>Explicit <code>MaaSSubscription.spec.requestPriority</code></td>
+<td>Applies the same request priority to every pool covered by the subscription.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="subjectspec">SubjectSpec</h2>
+<p>MaaS emits the canonical <code>x-llm-d-*</code> names defined by llm-d Router's <code>FlowFairnessIDKey</code> and <code>ObjectiveKey</code> constants
+alongside their legacy aliases to support older deployments. Each alias carries exactly the same trusted value as its
+canonical counterpart:</p>
 <table>
 <thead>
 <tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
+<th>Canonical header</th>
+<th>Legacy header</th>
+<th>Value</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>groups</td>
-<td>[]GroupReference</td>
-<td>No</td>
-<td>List of Kubernetes group names</td>
+<td><code>x-llm-d-inference-fairness-id</code></td>
+<td><code>x-gateway-inference-fairness-id</code></td>
+<td>Resolved AI tenant identity</td>
 </tr>
 <tr>
-<td>users</td>
-<td>[]string</td>
-<td>No</td>
-<td>List of Kubernetes user names</td>
+<td><code>x-llm-d-inference-objective</code></td>
+<td><code>x-gateway-inference-objective</code></td>
+<td>Generated subscription/pool objective name</td>
 </tr>
 </tbody>
 </table>
-<p>At least one of <code>groups</code> or <code>users</code> must be specified.</p>
-<h2 id="modelref-modelrefs-item">ModelRef (modelRefs item)</h2>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>name</td>
-<td>string</td>
-<td>Yes</td>
-<td>Name of the MaaSModelRef</td>
-</tr>
-<tr>
-<td>namespace</td>
-<td>string</td>
-<td>Yes</td>
-<td>Namespace where the MaaSModelRef lives</td>
-</tr>
-</tbody>
-</table>
-<h2 id="groupreference">GroupReference</h2>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>name</td>
-<td>string</td>
-<td>Yes</td>
-<td>Name of the group</td>
-</tr>
-</tbody>
-</table>
-<h2 id="meteringmetadata">MeteringMetadata</h2>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>organizationId</td>
-<td>string</td>
-<td>No</td>
-<td>Organization identifier for billing</td>
-</tr>
-<tr>
-<td>costCenter</td>
-<td>string</td>
-<td>No</td>
-<td>Cost center for billing attribution</td>
-</tr>
-<tr>
-<td>labels</td>
-<td>map[string]string</td>
-<td>No</td>
-<td>Additional labels for tracking</td>
-</tr>
-</tbody>
-</table>
-<h2 id="maasauthpolicystatus">MaaSAuthPolicyStatus</h2>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>phase</td>
-<td>string</td>
-<td>One of: <code>Pending</code>, <code>Active</code>, <code>Degraded</code>, <code>Failed</code>, <code>Invalid</code>. <code>Degraded</code> means some model references or AuthPolicies are unhealthy. <code>Invalid</code> means the spec is missing or structurally invalid.</td>
-</tr>
-<tr>
-<td>conditions</td>
-<td>[]Condition</td>
-<td>Latest observations of the policy's state</td>
-</tr>
-<tr>
-<td>authPolicies</td>
-<td>[]AuthPolicyRefStatus</td>
-<td>Underlying Kuadrant AuthPolicies and their state</td>
-</tr>
-</tbody>
-</table>
-<h2 id="authpolicyrefstatus">AuthPolicyRefStatus</h2>
-<p>Reports the status of each underlying Kuadrant AuthPolicy created by this MaaSAuthPolicy.</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>name</td>
-<td>string</td>
-<td>Name of the AuthPolicy resource</td>
-</tr>
-<tr>
-<td>namespace</td>
-<td>string</td>
-<td>Namespace of the AuthPolicy resource</td>
-</tr>
-<tr>
-<td>model</td>
-<td>string</td>
-<td>MaaSModelRef name this AuthPolicy targets</td>
-</tr>
-<tr>
-<td>modelNamespace</td>
-<td>string</td>
-<td>Namespace of the MaaSModelRef</td>
-</tr>
-<tr>
-<td>ready</td>
-<td>bool</td>
-<td>Whether the AuthPolicy resource is valid and healthy</td>
-</tr>
-<tr>
-<td>reason</td>
-<td>ConditionReason</td>
-<td>Machine-readable reason code (e.g. <code>Ready</code>, <code>NotReady</code>, <code>Unknown</code>)</td>
-</tr>
-<tr>
-<td>message</td>
-<td>string</td>
-<td>Human-readable description of the status</td>
-</tr>
-</tbody>
-</table>
-<h2 id="annotations">Annotations</h2>
-<p>MaaSAuthPolicy supports standard Kubernetes and OpenShift annotations for use by <code>kubectl</code>, the OpenShift console, and other tooling.</p>
-<table>
-<thead>
-<tr>
-<th>Annotation</th>
-<th>Description</th>
-<th>Example</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>openshift.io/display-name</code></td>
-<td>Human-readable display name</td>
-<td><code>"Premium Access Policy"</code></td>
-</tr>
-<tr>
-<td><code>openshift.io/description</code></td>
-<td>Free-text description</td>
-<td><code>"Grants premium-users group access to premium models"</code></td>
-</tr>
-</tbody>
-</table>
-<p><strong>Example:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maas.opendatahub.io/v1alpha1</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MaaSAuthPolicy</span>
+<p>The scheduler groups flows by <code>(fairness ID, priority)</code>. Two subscriptions belonging to one tenant at the same priority
+share a flow; creating additional subscriptions does not give that tenant additional fairness shares at that priority.
+Different priorities remain separate bands, and higher-priority traffic can delay lower-priority traffic indefinitely.
+Fairness applies where requests compete in the same flow-control scheduler; separate tenant Gateways alone do not
+establish a shared fairness domain. The fairness ID identifies the competing tenant, while the configured scheduler
+policy determines how flows share dispatch opportunities. The default global-strict policy does not provide tenant
+fairness; deployments requiring fair sharing must explicitly select an appropriate fairness policy.</p>
+<h3 id="pool-discovery-and-objective-reconciliation">Pool discovery and objective reconciliation</h3>
+<p>The MaaS subscription controller owns the desired objectives:</p>
+<ol>
+<li>Resolve the subscription's AI tenant using the existing tenant namespace association and validate that each
+   referenced model is exposed through that tenant's Gateway.</li>
+<li>Follow each <code>spec.modelRefs[]</code> entry to its <code>MaaSModelRef</code>. For <code>spec.modelRef.kind: LLMInferenceService</code>, read the
+   referenced service in the model reference's namespace.</li>
+<li>Discover the active pool through <code>LLMInferenceService.status.router.scheduler.inferencePool</code>, including its group,
+   kind, name, and namespace. Use this observed reference for both managed pools and explicitly referenced pools; do not
+   infer a generated pool name from the service name or assume that the subscription and pool share a namespace.</li>
+<li>When <code>spec.requestPriority</code> is explicitly set, reconcile one objective per distinct <code>(subscription, pool)</code> pair in
+   the pool's namespace, with <code>spec.poolRef.name</code>
+   pointing to that pool and <code>spec.priority</code> copied from the subscription's <code>spec.requestPriority</code>. Multiple model
+   references resolving to the same pool share that objective.</li>
+<li>Reconcile changes to request priority, model membership, tenant association, and observed pool references. Remove
+   obsolete objectives when request priority is cleared, a model leaves the subscription, its pool changes, or the
+   subscription is deleted. With request priority omitted, no objectives are desired.</li>
+</ol>
+<p>An <code>InferenceObjective</code> references one pool in its own namespace. Consequently, the bare subscription name cannot serve
+as every generated object's name: two models in the same namespace may use different pools, and subscriptions in
+different tenant namespaces may share a name. Generate deterministic, DNS-compatible names that include the tenant,
+subscription, and pool names, with a collision-resistant hash of their full resource identities. Truncate the readable
+name portions as needed to respect Kubernetes naming limits while preserving the hash. The subscription remains the
+logical objective; the pool-specific name is its representation in the inference API.</p>
+<p>For example, a subscription with <code>spec.requestPriority: 10</code> produces an objective for each referenced pool:
+The name below is a schematic placeholder; generated names include the pool-specific disambiguation described above.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">inference.networking.x-k8s.io/v1alpha2</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">InferenceObjective</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">premium-access</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">models-as-a-service</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="nt">openshift.io/display-name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Premium</span><span class="nv"> </span><span class="s">Access</span><span class="nv"> </span><span class="s">Policy&quot;</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">openshift.io/description</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Grants</span><span class="nv"> </span><span class="s">premium-users</span><span class="nv"> </span><span class="s">group</span><span class="nv"> </span><span class="s">access</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">premium</span><span class="nv"> </span><span class="s">models&quot;</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">  </span><span class="c1"># ...</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="c1"># longer than 63 chars names need to be handled through hashing see kmeta.ChildName algorithm</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maas-&lt;ai-tenant-name&gt;-&lt;maas-subscription&gt;</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;inference-pool-namespace&gt;</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nt">priority</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="nt">poolRef</span><span class="p">:</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;inference-pool-name&gt;</span>
 </code></pre></div>
+<p>Extend reconciliation watches to include relevant <code>LLMInferenceService</code> status changes, pools, and generated objectives.
+Track generated resources using controller ownership metadata that includes the subscription namespace, name, and UID.
+Extend the existing subscription cleanup finalizer for objectives in other namespaces, since cross-namespace owner
+references cannot provide garbage collection. Reconcile only resources owned by this integration; report naming or
+ownership conflicts instead of taking over unrelated objectives.</p>
+<h3 id="request-classification">Request classification</h3>
+<p>For every authorized inference request targeting a pool, the MaaS-generated AuthPolicy always injects all four headers:
+the canonical fairness and objective headers and their legacy aliases, after authentication, subscription selection, and
+model authorization. Their values come exclusively from the resolved tenant and subscription/pool identity. The
+objective header carries the generated resource name, not the numeric request priority, whether or not an objective
+resource is required. Clients cannot choose either scheduling identity by supplying their own headers.</p>
+<p>Extend the trusted subscription-selection metadata returned by maas-api to expose the resolved objective identity for
+the requested model. The controller must publish the model-to-objective-name mapping in subscription status even when
+request priority is unset and no objective resource is created, so maas-api can consume it through its existing informer
+cache. This keeps naming and pool discovery in the control plane and avoids a Kubernetes lookup on every inference
+request. The AuthPolicy consumes this metadata for both path-based and body-based model routing.</p>
+<p>All four headers must be set with replacement semantics, removing all client-supplied values, including duplicate or
+differently cased occurrences, before injecting trusted values. MaaS emits exactly one value per header, with identical
+values within each canonical/legacy pair. A requested subscription is only a selection input; it becomes an objective
+after MaaS validates access, model membership, and tenant association. Requests without a valid subscription must not
+obtain a scheduling identity through a fallback to arbitrary client headers. Existing authentication, authorization, and
+rate-limit enforcement remain in the request path.</p>
+<h3 id="operator-ui-and-live-updates">Operator UI and live updates</h3>
+<p>The subscription UI must expose a distinct <strong>Request priority</strong> control to authorized operators. Operators can view,
+set, change, or clear the value without recreating the subscription. An unset field displays <strong>Scheduler default (0)</strong>;
+the UI must preserve that unset state rather than saving an explicit <code>0</code>. Subscription-selection priority remains a
+separate setting with a separate description.</p>
+<p>Expose the configured request priority and per-model objective references and reconciliation state through the API used
+by the UI. Subscription details must let operators inspect generated objective names and their pool associations without
+inspecting raw traffic. Show pending or failed reconciliation separately from the configured value; when request
+priority is unset, indicate that no objective is required. Reconciliation status reports controller progress, not
+confirmation that every EPP instance has observed the update.</p>
+<p>Changing an explicit request priority updates existing objectives in place. Objective names must not depend on the
+numeric priority, so header values remain stable while EPP observes the updated objective priority. Setting a previously
+unset value creates objectives; clearing the field removes generated objectives while retaining the mappings and all
+four injected headers. EPP then falls back to priority <code>0</code>. Subsequent requests use the new behavior after controller,
+informer, and EPP propagation, using the same subscription and credentials without a restart or subscription recreation.</p>
+<h3 id="availability-and-compatibility">Availability and compatibility</h3>
+<p>Creating objectives and injecting headers requires an installed, compatible <code>InferenceObjective</code> API and flow control
+enabled in the target inference scheduler. MaaS manages subscription classification and objective lifecycle; KServe and
+the inference serving stack retain ownership of pools, scheduler deployment, and scheduling configuration.</p>
+<p>llm-d Router supports the canonical <code>x-llm-d-inference-objective</code> and <code>x-llm-d-inference-fairness-id</code> headers defined in
+its
+<a href="https://github.com/llm-d/llm-d-router/blob/main/pkg/epp/metadata/consts.go">header constants</a>. MaaS emits both
+canonical names and their legacy aliases so existing deployments that consume the older names receive the same
+scheduling identities. Newer routers prefer canonical values, while older routers consume the legacy values. Both pairs
+must be derived from the same trusted metadata and injected together, including when request priority is unset. Header
+compatibility does not replace the requirement for the objective API and scheduler flow-control support.</p>
+<p>Report per-model flow-control reconciliation state in subscription status. A missing observed pool for a service that is
+still reconciling is pending and retried; an external model or a route deliberately lacking an inference scheduler is
+not applicable. When request priority is unset, absence of an objective is expected and must not be reported as an
+objective reconciliation failure. Objective creation or update failures for explicit request priorities must be visible
+without preventing reconciliation of the subscription's other models.</p>
+<p>The existing scheduler defaults to priority <code>0</code> when an objective cannot be resolved. Controller and informer
+propagation are asynchronous, so updates may temporarily use the old priority or that default. This integration does not
+promise atomic changes across all pools. Missing objectives must not bypass MaaS access control or token rate limits,
+and MaaS must not report successful flow-control reconciliation while required objectives are missing.</p>
+<p>Deployments without the optional inference APIs must continue to support existing MaaS functionality. Enabling flow
+control should explicitly report unsupported or pending models rather than imply that priority is enforced for every
+backend.</p>
+<h3 id="llm-d-scheduler-policy-controls">llm-d Scheduler Policy Controls</h3>
+<p>The llm-d Router/Scheduler implementation and configuration are the authority for the behavior described here.
+<code>requestPriority</code> selects a band; the EPP's <code>flowControl</code> configuration determines dispatch eligibility, fairness,
+request ordering, and overload handling. Model owners own these controls. The initial MaaS API exposes request
+classification without adding subscription-level configuration for scheduler plugins.</p>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>Scheduling effect</th>
+<th>Implication for MaaS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>priority-holdback-policy</code></td>
+<td>Gives lower-priority bands lower saturation ceilings. A gated band's requests remain queued.</td>
+<td>Preserves headroom for higher tiers before full saturation; it does not reserve a fixed GPU share.</td>
+</tr>
+<tr>
+<td><code>soft-reflective-ceiling-policy</code></td>
+<td>Alternates lower-band dispatch eligibility as saturation rises, using rank and band count.</td>
+<td>Provides gradual throttling across dispatch cycles, without guaranteeing service to lower bands.</td>
+</tr>
+<tr>
+<td><code>round-robin-fairness-policy</code></td>
+<td>Alternates dispatch opportunities among active flows within a band.</td>
+<td>With tenant fairness IDs, fairness is measured in turns, not tokens or GPU time.</td>
+</tr>
+<tr>
+<td><code>program-aware-fairness</code></td>
+<td>Uses accumulated weighted token consumption, decay, and queue wait to favor underserved flows.</td>
+<td>Can account for differences in request cost between tenants; usage accounting depends on completion data.</td>
+</tr>
+<tr>
+<td><code>global-strict-fairness-policy</code></td>
+<td>Selects the best request across flows according to the ordering policy; this is the default.</td>
+<td>Tenant IDs alone do not ensure fair sharing or protection from high-volume tenants.</td>
+</tr>
+<tr>
+<td><code>edf-ordering-policy</code> / <code>slo-deadline-ordering-policy</code></td>
+<td>Orders requests by queue-expiry deadline or a supplied TTFT deadline.</td>
+<td>Urgency affects request order within the selected band and fairness policy.</td>
+</tr>
+<tr>
+<td>Band <code>maxRequests</code> / <code>maxBytes</code> and queue TTLs</td>
+<td>Bound buffering and waiting; separate defaults can be configured for negative-priority bands.</td>
+<td>High-priority traffic is still subject to resource limits and expiry.</td>
+</tr>
+<tr>
+<td><code>enableEviction</code></td>
+<td>Enables demand-driven termination of eligible lower-priority in-flight requests; disabled by default.</td>
+<td>Negative-priority requests can be interrupted to reclaim capacity for higher-priority demand.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="priority-holdback-what-domain-controls">Priority holdback: What <code>domain</code> Controls</h4>
+<p><code>domain</code> is a parameter of the <code>priority-holdback-policy</code> plugin. It determines how numerical priorities are mapped to
+dispatch ceilings between <code>minCeiling</code> and <code>maxCeiling</code>. It is configured by the pool administrator in the scheduler,
+separately from a subscription's <code>requestPriority</code>.</p>
+<p>A ceiling is a saturation threshold: when measured pool saturation reaches or exceeds a band's ceiling, dispatch from
+that band pauses and its requests remain queued. For example, a ceiling of <code>0.65</code> allows dispatch below saturation
+<code>0.65</code>. The value refers to the configured saturation detector's signal; it is not a reservation of 65% of GPU capacity.</p>
+<ul>
+<li><strong><code>domain: rank</code></strong> uses only the ordering of priority levels. It spaces ceilings evenly from highest to lowest rank,
+  regardless of numerical gaps. This fits priorities used as tier labels, such as premium, standard, and batch.</li>
+<li><strong><code>domain: value</code></strong> uses the numerical distance between priority levels. A priority close to the lowest value receives
+  a ceiling close to <code>minCeiling</code>. This fits configurations where numerical spacing is intended to affect holdback.</li>
+</ul>
+<p>For three registered priorities <code>100</code>, <code>10</code>, and <code>0</code>, with <code>minCeiling: 0.4</code> and <code>maxCeiling: 0.9</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Request priority</th>
+<th>Position</th>
+<th>Ceiling with <code>domain: rank</code></th>
+<th>Ceiling with <code>domain: value</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>100</code></td>
+<td>Highest</td>
+<td><code>0.90</code></td>
+<td><code>0.90</code></td>
+</tr>
+<tr>
+<td><code>10</code></td>
+<td>Middle</td>
+<td><code>0.65</code></td>
+<td><code>0.45</code></td>
+</tr>
+<tr>
+<td><code>0</code></td>
+<td>Lowest</td>
+<td><code>0.40</code></td>
+<td><code>0.40</code></td>
+</tr>
+</tbody>
+</table>
+<p>With <code>rank</code>, the middle band gets the midpoint between <code>0.40</code> and <code>0.90</code>: <code>0.65</code>. With <code>value</code>, priority <code>10</code> is only
+10% of the way from <code>0</code> to <code>100</code>, so its ceiling is <code>0.40 + 0.10 * (0.90 - 0.40) = 0.45</code>.</p>
+<p>At saturation <code>0.50</code>, priority <code>10</code> is eligible under <code>rank</code> but held in queue under <code>value</code>. Priority <code>100</code> is eligible
+in both cases, and priority <code>0</code> is held in both. Eligibility still respects dispatch order: priority <code>10</code> gets a turn
+only when higher-priority work does not take that opportunity.</p>
+<p>Both modes give the highest band <code>maxCeiling</code> and, with multiple bands, the lowest band <code>minCeiling</code>. With a single
+registered priority, its ceiling is <code>maxCeiling</code>. Ceilings are computed from the priority levels known to the scheduler;
+adding or removing bands can change the mapping. A subscription's priority number therefore does not define a fixed
+capacity entitlement. Equally spaced priorities, such as <code>10</code>, <code>0</code>, and <code>-10</code>, produce the same ceilings in both modes.</p>
+<p>Dispatch still examines higher-priority bands first and stops when a band's ceiling blocks dispatch. Opening a lower
+band's ceiling does not guarantee a turn if higher-priority demand continues. These policies do not provide minimum
+capacity guarantees across priority bands. The saturation detector also matters: utilization-based detection consumes
+backend telemetry, while concurrency-based detection uses in-flight request or token accounting. Missing or stale
+telemetry can halt dispatch with the utilization detector.</p>
+<p>With in-flight eviction enabled, the existing sheddable filter admits only negative-priority victims, and reclamation
+requires victim priority to be below the blocked demand's priority. Victims are ordered by lowest priority, then newest
+dispatch time. Setting a negative <code>requestPriority</code> therefore permits interruption under that configuration; it does not
+merely place requests later in the queue. This behavior must be explained to subscription operators.</p>
+<p>If SLO deadline ordering is enabled, <code>x-llm-d-slo-ttft-ms</code> and its legacy alias can influence scheduling order. A
+follow-up must define trusted derivation or validation and bounds for these values before exposing subscription SLO
+controls. Protecting objective and fairness headers does not govern additional scheduling inputs. Tenant
+request-priority ranges complement scheduler policies by restricting which bands a subscription may select.</p>
+<h2 id="priority-tier-pricing-and-chargeback">Priority-Tier Pricing and Chargeback</h2>
+<p>The existing per-model <code>billingRate.perToken</code> on a subscription can incorporate the price of its priority tier. For
+example, an online subscription with higher <code>requestPriority</code> can carry a higher per-token rate than a batch
+subscription. This requires no additional priority-specific pricing field. MaaS does not automatically adjust the
+billing rate when request priority changes; administrators or a separate pricing policy must manage that relationship.</p>
+<p>For charges based on the configured rate, token usage and the applicable rate are sufficient; recording request
+priority is not a prerequisite. Historical attribution must preserve the applicable rate or an immutable pricing-policy
+version alongside usage. Looking up a subscription's current rate cannot reliably price earlier requests after a rate
+change. Durable rate attribution and charge calculation are separate billing concerns outside the initial flow-control
+implementation.</p>
+<p>An optional follow-up could record the request priority observed by MaaS and the objective identity for auditing and
+troubleshooting. These values must come from trusted request-time metadata, and the existing subscription-selection
+<code>priority</code> must not be confused with <code>requestPriority</code>. Objective names remain stable across priority changes, so they
+alone cannot reconstruct historical scheduling priority.</p>
+<p>If a future charging contract depends on the priority actually applied by EPP rather than the configured billing rate,
+it would additionally require scheduler-side priority reporting correlated with usage. Gateway metadata alone cannot
+establish applied priority during propagation delays or scheduler fallback. This is an optional extension, not a
+requirement for pricing through <code>billingRate.perToken</code>.</p>
+<p>The optional Envoy/OTel usage-log path can discard events when the collector is unavailable, and missing token usage
+currently falls back to zero. Before using it as an authoritative billing record, billing work must address durable
+delivery, duplicate handling, and incomplete usage, including interrupted streams. It must also define pricing changes,
+retry attribution, and charging rules for rejected requests and preempted negative-priority work. Pricing and billing
+enforcement remain outside the initial flow-control implementation.</p>
+<h2 id="security-and-privacy-considerations">Security and Privacy Considerations</h2>
+<p>Only users authorized to edit subscriptions may set their request priority. Since priorities can compete across tenants
+sharing a pool, platform administrators must govern which priority values tenant administrators can assign; fairness
+within a band does not constrain a tenant that assigns itself a higher band.</p>
+<blockquote>
+<p><strong>Current scope:</strong> Sharing inference pools across AI tenants is not currently supported, so cross-tenant priority
+escalation within a shared pool does not affect the supported deployment model. The initial implementation can
+proceed without tenant-level priority ranges. When cross-tenant pool sharing is introduced, the
+<a href="#follow-up-tenant-request-priority-ranges">tenant request-priority range follow-up</a> should define and enforce these
+boundaries. Subscription priorities still govern contention within each tenant.</p>
+</blockquote>
+<p>The controller requires read access to services and pools and permission to manage objectives in model namespaces.
+Preserve tenant-to-model Gateway validation before writing these resources, and carry the required RBAC changes into
+both the AI Gateway and ODH parent operators. Restrict direct objective edits to the platform's authorized
+administrators. Internal headers and status mappings must not contain API keys or other credentials.</p>
+<h2 id="follow-up-tenant-request-priority-ranges">Follow-up: Tenant Request-Priority Ranges</h2>
+<p>A future extension could let platform administrators configure an allowed request-priority range on <code>AITenant</code>, for
+example <code>spec.requestPriorityRange.min</code> and <code>spec.requestPriorityRange.max</code> (illustrative field names). Tenant
+administrators could then choose subscription request priorities within inclusive bounds set by the platform. This would
+constrain priority escalation on shared pools while preserving subscription-level control and the existing objective
+mapping. Managing the bounds must require platform-level authorization so tenant administrators cannot raise their own
+limits.</p>
+<p>The <a href="#allowed-priority-values-instead-of-ranges">allowed-values alternative</a> preserves the same batch-versus-online
+subscription flexibility while restricting choices to a discrete set. The follow-up should evaluate both approaches.</p>
+<p>The follow-up should define validation of subscription creation and updates, reconciliation when tenant bounds change,
+and UI display of the allowed range. It must also decide how to handle existing subscriptions outside a newly narrowed
+range and the scheduler's effective priority <code>0</code> for subscriptions that omit <code>requestPriority</code>, particularly when <code>0</code>
+falls outside the range. Rejecting invalid values should provide actionable feedback rather than silently clamping them.
+These policy and migration choices are deferred; tenant-level ranges are not required for this design's initial
+implementation because sharing inference pools across AI tenants is not currently supported. Priority governance
+should be addressed as part of the follow-up design for enabling cross-tenant pool sharing.</p>
+<h3 id="allowed-priority-values-instead-of-ranges">Allowed Priority Values Instead of Ranges</h3>
+<p>For future cross-tenant pool sharing, platform administrators could grant each <code>AITenant</code> a discrete set of allowed
+<code>requestPriority</code> values instead of a continuous range. Tenant administrators would retain subscription-level control:
+for example, a tenant allowed <code>-10</code>, <code>0</code>, and <code>10</code> could assign <code>-10</code> to a batch subscription and <code>10</code> to an online
+subscription. This does not impose one fixed priority on all of a tenant's subscriptions.</p>
+<p>A discrete set limits the priority bands tenants can introduce, making holdback behavior easier to govern, particularly
+with <code>domain: rank</code>. It offers less numerical flexibility than ranges and requires maintaining tenant entitlements and
+validating subscription updates. The initial numeric subscription API can remain unchanged; named tiers could be added
+separately if needed. As with ranges, the follow-up must define how entitlement changes affect existing subscriptions
+and how omitted request priority, with effective scheduler priority <code>0</code>, is handled.</p>
+<h2 id="alternatives">Alternatives</h2>
+<table>
+<thead>
+<tr>
+<th>Alternative</th>
+<th>Tradeoff</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Manually create objectives in each model namespace</td>
+<td>Reuses the API but requires subscription administrators to discover pools and maintain cross-namespace resources as subscriptions change.</td>
+</tr>
+<tr>
+<td>Use the subscription as the fairness key</td>
+<td>Gives tenants with more subscriptions more independent fairness shares at the same priority.</td>
+</tr>
+<tr>
+<td>Use the AI tenant as both fairness and objective key</td>
+<td>Cannot express different subscription priorities within one tenant.</td>
+</tr>
+<tr>
+<td>Use only token rate limits</td>
+<td>Controls consumption over a time window but does not prioritize queued requests competing for inference capacity.</td>
+</tr>
+<tr>
+<td>Reuse <code>spec.priority</code> for request scheduling</td>
+<td>Avoids a new field, but couples subscription selection with scheduling and changes the effect of existing nonzero priorities. Separate <code>spec.requestPriority</code> keeps these decisions independent.</td>
+</tr>
+<tr>
+<td>Reference an operator-defined priority tier</td>
+<td>A named tier such as <code>premium</code> could map to a centrally governed numeric priority, limiting tenant self-escalation. It introduces another configuration resource and makes tier changes affect all referencing subscriptions. Consider if centrally managed tiers become a requirement.</td>
+</tr>
+<tr>
+<td>Share objectives by pool and numeric priority</td>
+<td>Subscriptions with the same request priority could reuse one objective per pool while retaining tenant fairness headers. This reduces object count but requires shared ownership and cleanup, and priority changes must switch the subscription's objective mapping. Per-subscription objectives keep ownership direct and names stable across priority changes.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="risks">Risks</h2>
+<ul>
+<li><strong>Resource growth:</strong> Objective count grows with the number of distinct subscription/pool pairs. Watches and cleanup
+  must avoid full-cluster reconciliation for every change.</li>
+<li><strong>Topology mismatch:</strong> Body-based routing and pool changes must use the same resolved backend for classification and
+  forwarding. Routes that can select multiple pools need an explicit mapping strategy before claiming support.</li>
+<li><strong>Scheduling expectations:</strong> Priority controls dispatch under contention; it is not a latency guarantee, and
+  lower-priority traffic can starve.</li>
+</ul>
+<p>Implementation validation must cover multiple pools in one namespace, equal subscription names across tenants, multiple
+models sharing a pool, request-priority and pool changes, subscription deletion, missing optional APIs, forged headers,
+and both path-based and body-based model resolution. End-to-end tests must demonstrate tenant fairness within one
+priority band using an explicitly configured fairness policy, and priority ordering under contention with flow control
+enabled. Test the selected pool policy configuration, including dispatch gating and negative-priority interruption when
+eviction is enabled. Verify that omitted <code>spec.requestPriority</code> creates no objective, overwrites all four headers with
+trusted values, and uses scheduler priority <code>0</code> while retaining tenant fairness. Test conflicting canonical/legacy
+values, spoofed values, duplicate headers, and case variants, with request priority both set and unset. Explicit <code>0</code>
+must create an objective and inject its name. Verify negative values, independence from subscription selection, and
+set/change/clear transitions using the same subscription and credentials. Test UI viewing and editing, default display,
+and per-model reconciliation details, along with the identical values within each canonical/legacy pair on both newer
+and older supported routers. After propagation, verify subsequent requests carry the correct objective name and tenant
+fairness identity, including when request priority is unset, and EPP applies the corresponding priority.</p>
+<h2 id="stakeholder-impacts">Stakeholder Impacts</h2>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Key Contacts</th>
+<th>Date</th>
+<th>Impacted?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MaaS / AI Gateway</td>
+<td>TBD</td>
+<td>TBD</td>
+<td>Yes — objective reconciliation, subscription metadata, and AuthPolicy headers</td>
+</tr>
+<tr>
+<td>Dashboard</td>
+<td>TBD</td>
+<td>TBD</td>
+<td>Yes — request priority in MaaSSubscription pages</td>
+</tr>
+<tr>
+<td>Documentation</td>
+<td>TBD</td>
+<td>TBD</td>
+<td>Yes — subscription request priority semantics documentation</td>
+</tr>
+</tbody>
+</table>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://github.com/opendatahub-io/architecture-context/blob/main/architecture/rhoai.next/models-as-a-service.md">MaaS architecture context</a></li>
+<li><a href="https://github.com/opendatahub-io/models-as-a-service/blob/main/maas-controller/api/maas/v1alpha1/maassubscription_types.go">MaaS subscription API</a></li>
+<li><a href="https://github.com/opendatahub-io/models-as-a-service/blob/main/maas-controller/pkg/controller/maas/maassubscription_controller.go">MaaS subscription controller</a></li>
+<li><a href="https://github.com/opendatahub-io/models-as-a-service/blob/main/maas-api/internal/subscription/selector.go">MaaS subscription selection</a></li>
+<li><a href="https://github.com/opendatahub-io/models-as-a-service/blob/main/maas-controller/pkg/controller/maas/maasauthpolicy_controller.go">MaaS AuthPolicy generation</a></li>
+<li><a href="https://github.com/opendatahub-io/kserve/blob/main/pkg/apis/serving/v1alpha2/llm_inference_service_types.go">LLMInferenceService API and observed scheduler status</a></li>
+<li><a href="https://github.com/opendatahub-io/kserve/blob/main/config/llmisvc/gateway-inference-extension.yaml">InferenceObjective schema bundled with KServe</a></li>
+<li><a href="https://llm-d.ai/docs/0.8/api-reference/epp-http-headers">llm-d EPP HTTP headers reference</a></li>
+<li><a href="https://github.com/llm-d/llm-d-router/blob/main/pkg/epp/metadata/consts.go">llm-d Router header constants</a></li>
+<li><a href="https://github.com/llm-d/llm-d-router/blob/main/apix/config/v1alpha1/endpointpickerconfig_types.go">llm-d flow-control configuration API</a></li>
+<li><a href="https://github.com/llm-d/llm-d-router/blob/main/pkg/epp/flowcontrol/controller/internal/processor.go">llm-d dispatch and priority gating</a></li>
+<li><a href="https://github.com/llm-d/llm-d-router/blob/main/pkg/epp/framework/plugins/flowcontrol/usagelimits/priorityholdback/priority_holdback.go">llm-d priority holdback policy</a></li>
+<li><a href="https://github.com/llm-d/llm-d-router/blob/main/pkg/epp/framework/plugins/flowcontrol/usagelimits/softreflectiveceiling/policy.go">llm-d soft reflective ceiling policy</a></li>
+<li><a href="https://github.com/llm-d/llm-d-router/tree/main/pkg/epp/framework/plugins/flowcontrol/fairness">llm-d fairness policies</a></li>
+<li><a href="https://github.com/llm-d/llm-d-router/blob/main/pkg/epp/framework/plugins/flowcontrol/ordering/slodeadline/slo_deadline.go">llm-d SLO deadline ordering</a></li>
+<li><a href="https://github.com/llm-d/llm-d-router/blob/main/pkg/epp/flowcontrol/controller/internal/reclamation.go">llm-d in-flight reclamation</a></li>
+<li><a href="https://github.com/opendatahub-io/models-as-a-service/blob/main/maas-api/internal/subscription/types.go">MaaS subscription-selection metadata</a></li>
+<li><a href="https://github.com/opendatahub-io/models-as-a-service/blob/main/maas-controller/pkg/platform/tenantreconcile/postrender.go">MaaS telemetry-label generation</a></li>
+<li><a href="https://github.com/opendatahub-io/models-as-a-service/blob/main/deployment/components/observability/usage-logs/envoy-otel-access-log.yaml">MaaS structured usage logs</a></li>
+<li><a href="https://github.com/llm-d/llm-d-router/blob/main/pkg/epp/requestcontrol/director.go">llm-d request-priority resolution</a></li>
+</ul>
 
 
 
@@ -3649,7 +3927,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="June 16, 2026 18:37:57 UTC">June 16, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 14, 2026 13:40:15 UTC">September 14, 2026</span>
   </span>
 
     
@@ -3659,7 +3937,7 @@
     <span class="md-icon" title="Created">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 18, 2026 15:47:11 UTC">March 18, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 14, 2026 13:40:15 UTC">September 14, 2026</span>
   </span>
 
     
