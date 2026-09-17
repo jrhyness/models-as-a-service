@@ -23,4 +23,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: maas-discovery
-  namespace: opendatahub
+  namespace: maas-discovery
