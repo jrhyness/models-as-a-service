@@ -3,21 +3,6 @@ kind: ClusterRole
 metadata:
   name: maas-discovery
 rules:
-# AITenant CRs (informer cache)
-- apiGroups: ["maas.opendatahub.io"]
-  resources: ["aitenants"]
-  verbs: ["get", "list", "watch"]
-
-# Gateway CRs (informer cache)
-- apiGroups: ["gateway.networking.k8s.io"]
-  resources: ["gateways"]
-  verbs: ["get", "list", "watch"]
-
-# MaaSAuthPolicy for future RBAC filtering
-- apiGroups: ["maas.opendatahub.io"]
-  resources: ["maasauthpolicies"]
-  verbs: ["get", "list", "watch"]
-
 # Namespace read access for future RBAC filtering
 - apiGroups: [""]
   resources: ["namespaces"]

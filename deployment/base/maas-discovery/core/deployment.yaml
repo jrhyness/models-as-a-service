@@ -70,5 +70,5 @@ spec:
         secret:
           secretName: maas-discovery-tls
           defaultMode: 420
-          optional: true
+          optional: false
       terminationGracePeriodSeconds: 30

@@ -80,6 +80,9 @@ func run() error {
 
 	gin.SetMode(gin.ReleaseMode)
 	engine := gin.New()
+	if err := engine.SetTrustedProxies(nil); err != nil {
+		return fmt.Errorf("setting trusted proxies: %w", err)
+	}
 	engine.Use(gin.Recovery())
 	engine.Use(middleware.RequestID())
 	engine.Use(middleware.AccessLogger(log))

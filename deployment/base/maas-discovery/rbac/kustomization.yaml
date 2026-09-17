@@ -8,3 +8,5 @@ resources:
 - serviceaccount.yaml
 - clusterrole.yaml
 - clusterrolebinding.yaml
+- role-ai-tenants.yaml
+- role-openshift-ingress.yaml
