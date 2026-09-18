@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: maas-discovery
 spec:
-  replicas: 2
+  replicas: 1
   template:
     spec:
       serviceAccountName: maas-discovery
