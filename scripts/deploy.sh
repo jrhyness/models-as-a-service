@@ -835,7 +835,10 @@ EOF
   fi
   if [[ "$discovery_patched" == "true" ]]; then
     log_info "  Restarting maas-controller to pick up discovery settings..."
-    kubectl rollout restart deployment/maas-controller -n "$NAMESPACE" || log_warn "Failed to restart maas-controller (non-fatal)"
+    kubectl rollout restart deployment/maas-controller -n "$NAMESPACE" || {
+      log_error "Failed to restart maas-controller after discovery ConfigMap patch"
+      return 1
+    }
   fi
 
   log_info "  Waiting for maas-controller to be ready..."

@@ -869,7 +869,8 @@ func parseReplicasEnv(envVar string) *int32 {
 		return nil
 	}
 	v, err := strconv.ParseInt(s, 10, 32)
-	if err != nil {
+	if err != nil || v < 0 {
+		setupLog.Info("ignoring invalid replica count", "env", envVar, "value", s)
 		return nil
 	}
 	r := int32(v)

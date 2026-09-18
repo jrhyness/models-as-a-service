@@ -1070,7 +1070,11 @@ func (r *LifecycleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				}}}
 			}),
 			builder.WithPredicates(predicate.NewPredicateFuncs(func(o client.Object) bool {
-				return o.GetName() == discoveryDeploymentName && o.GetNamespace() == r.DeploymentNS
+				discoveryNS := r.DiscoveryNamespace
+				if discoveryNS == "" {
+					discoveryNS = r.DeploymentNS
+				}
+				return o.GetName() == discoveryDeploymentName && o.GetNamespace() == discoveryNS
 			})),
 		).
 		Complete(r)
