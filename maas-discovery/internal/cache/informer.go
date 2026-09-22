@@ -33,6 +33,11 @@ var (
 		Version:  "v1",
 		Resource: "gateways",
 	}
+	routeGVR = schema.GroupVersionResource{
+		Group:    "route.openshift.io",
+		Version:  "v1",
+		Resource: "routes",
+	}
 )
 
 // InformerCache implements TenantCache backed by dynamic informer watches
@@ -100,6 +105,13 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 	tenantInformer := tenantFactory.ForResource(aiTenantGVR).Informer()
 	gatewayInformer := gatewayFactory.ForResource(gatewayGVR).Informer()
 
+	// Route informer (OpenShift only) — provides external hostnames for gateways
+	// whose status.addresses only contain internal service names.
+	routeFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(
+		dynamicClient, 0, ic.gatewayNamespace, nil,
+	)
+	routeInformer := routeFactory.ForResource(routeGVR).Informer()
+
 	rebuildCh := make(chan struct{}, 1)
 	triggerRebuild := func() {
 		select {
@@ -120,6 +132,9 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 	if _, err := gatewayInformer.AddEventHandler(handler); err != nil {
 		return fmt.Errorf("adding Gateway event handler: %w", err)
 	}
+	if _, err := routeInformer.AddEventHandler(handler); err != nil {
+		return fmt.Errorf("adding Route event handler: %w", err)
+	}
 
 	ic.log.Info("starting informer watches",
 		"tenantNamespace", ic.tenantNamespace,
@@ -128,9 +143,11 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 	stopCh := ctx.Done()
 	tenantFactory.Start(stopCh)
 	gatewayFactory.Start(stopCh)
+	routeFactory.Start(stopCh)
 
 	tenantSynced := tenantFactory.WaitForCacheSync(stopCh)
 	gatewaySynced := gatewayFactory.WaitForCacheSync(stopCh)
+	routeSynced := routeFactory.WaitForCacheSync(stopCh)
 
 	for gvr, ok := range tenantSynced {
 		if !ok {
@@ -143,10 +160,20 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 		}
 	}
 
+	var routesAvailable bool
+	for _, ok := range routeSynced {
+		if ok {
+			routesAvailable = true
+		}
+	}
+	if !routesAvailable {
+		ic.log.Info("OpenShift Route API not available, gateway external hostname resolution via Routes disabled")
+	}
+
 	// Drain any events queued during initial list before the authoritative rebuild.
 	drainChannel(rebuildCh)
 
-	ic.rebuildFromInformers(tenantInformer, gatewayInformer)
+	ic.rebuildFromInformers(tenantInformer, gatewayInformer, routeInformer)
 	ic.synced.Store(true)
 	ic.log.Info("informer cache synced and ready")
 
@@ -157,7 +184,7 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 			case <-rebuildCh:
 				t := time.NewTimer(rebuildDebounce)
 				drainLoop(ctx, rebuildCh, t)
-				ic.rebuildFromInformers(tenantInformer, gatewayInformer)
+				ic.rebuildFromInformers(tenantInformer, gatewayInformer, routeInformer)
 			case <-ctx.Done():
 				return
 			}
@@ -209,7 +236,7 @@ func (ic *InformerCache) Synced() bool {
 // rebuildFromInformers reads the current state from the informer stores and rebuilds
 // the in-memory tenant list. Serialized by rebuildMu to prevent stale data from a
 // slower concurrent rebuild overwriting a newer one.
-func (ic *InformerCache) rebuildFromInformers(tenantInformer, gatewayInformer k8scache.SharedIndexInformer) {
+func (ic *InformerCache) rebuildFromInformers(tenantInformer, gatewayInformer, routeInformer k8scache.SharedIndexInformer) {
 	ic.rebuildMu.Lock()
 	defer ic.rebuildMu.Unlock()
 
@@ -230,7 +257,16 @@ func (ic *InformerCache) rebuildFromInformers(tenantInformer, gatewayInformer k8
 		}
 	}
 
-	result := BuildTenantInfos(tenants, gateways, ic.gatewayNamespace, ic.log)
+	var routes []unstructured.Unstructured
+	if routeInformer != nil {
+		for _, obj := range routeInformer.GetStore().List() {
+			if u, ok := obj.(*unstructured.Unstructured); ok {
+				routes = append(routes, *u)
+			}
+		}
+	}
+
+	result := BuildTenantInfos(tenants, gateways, routes, ic.gatewayNamespace, ic.log)
 
 	ic.mu.Lock()
 	ic.tenants = result
@@ -244,6 +280,7 @@ func (ic *InformerCache) rebuildFromInformers(tenantInformer, gatewayInformer k8
 func BuildTenantInfos(
 	tenants []unstructured.Unstructured,
 	gateways []unstructured.Unstructured,
+	routes []unstructured.Unstructured,
 	gatewayNamespace string,
 	log *slog.Logger,
 ) []types.TenantInfo {
@@ -251,6 +288,8 @@ func BuildTenantInfos(
 	for i := range gateways {
 		gwByName[gateways[i].GetName()] = &gateways[i]
 	}
+
+	routeHosts := gateway.BuildRouteHostMap(routes)
 
 	result := make([]types.TenantInfo, 0, len(tenants))
 	for i := range tenants {
@@ -274,7 +313,7 @@ func BuildTenantInfos(
 			continue
 		}
 
-		meta, err := gateway.ExtractMetadata(gw.Object, gwName, gatewayNamespace)
+		meta, err := gateway.ExtractMetadata(gw.Object, gwName, gatewayNamespace, routeHosts)
 		if err != nil {
 			log.Warn("gateway metadata extraction failed, returning partial data",
 				"tenant", name, "gateway", gwName, "error", err)
