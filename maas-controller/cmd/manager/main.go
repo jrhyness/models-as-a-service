@@ -1334,7 +1334,6 @@ func main() {
 		ObservabilityManifestsPath:  observabilityManifestsPath,
 		UsageLogsManifestPath:       usageLogsManifestPath,
 		MonitoringNamespace:         monitoringNamespace,
-		GatewayName:                 gatewayName,
 		GatewayNamespace:            gatewayNamespace,
 		DiscoveryGatewayName:        envOrDefault("MAAS_DISCOVERY_GATEWAY_NAME", "data-science-gateway"),
 		DiscoveryEnabled:            os.Getenv("MAAS_DISCOVERY_ENABLED") == "true",
