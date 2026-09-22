@@ -89,6 +89,12 @@ spec:
                 key: maas-discovery-image
                 name: maas-parameters
                 optional: true
+          - name: MAAS_DISCOVERY_GATEWAY_NAME
+            valueFrom:
+              configMapKeyRef:
+                key: maas-discovery-gateway-name
+                name: maas-parameters
+                optional: true
           - name: MAAS_DISCOVERY_ENABLED
             valueFrom:
               configMapKeyRef:
