@@ -37,6 +37,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 		discoveryNS  = "odh-ai-gateway-infra"
 		aitenantNS   = "ai-tenants"
 		gatewayNS    = "openshift-ingress"
+		gatewayName  = "maas-default-gateway"
 		testImage    = "quay.io/test/odh-maas-discovery:v1"
 	)
 
@@ -72,6 +73,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
+			GatewayName:           gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -97,6 +99,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
+			GatewayName:           gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -132,6 +135,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
+			GatewayName:           gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -170,6 +174,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
+			GatewayName:           gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -205,6 +210,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
+			GatewayName:           gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -282,6 +288,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
+			GatewayName:           gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      false,
 			DiscoveryManifestPath: manifestPath,
@@ -322,6 +329,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
+			GatewayName:           gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      false,
 			DiscoveryManifestPath: manifestPath,
@@ -470,4 +478,297 @@ func TestBuildDiscoveryCrossNamespaceRBAC(t *testing.T) {
 	g.Expect(ok).To(BeTrue())
 	g.Expect(subj["namespace"]).To(Equal("opendatahub"))
 	g.Expect(subj["name"]).To(Equal(discoveryDeploymentName))
+}
+
+func TestBuildDiscoveryGatewayResources(t *testing.T) {
+	g := NewWithT(t)
+
+	resources := buildDiscoveryGatewayResources("odh-ai-gateway-infra", "maas-default-gateway", "openshift-ingress")
+	g.Expect(resources).To(HaveLen(2))
+
+	dr := resources[0]
+	g.Expect(dr.GetKind()).To(Equal("DestinationRule"))
+	g.Expect(dr.GetName()).To(Equal(discoveryDestinationRuleName))
+	g.Expect(dr.GetNamespace()).To(Equal("openshift-ingress"))
+
+	host, _, _ := unstructured.NestedString(dr.Object, "spec", "host")
+	g.Expect(host).To(Equal("maas-discovery.odh-ai-gateway-infra.svc.cluster.local"))
+
+	tlsMode, _, _ := unstructured.NestedString(dr.Object, "spec", "trafficPolicy", "portLevelSettings", "0", "tls", "mode")
+	g.Expect(tlsMode).To(BeEmpty(), "portLevelSettings is a slice, access via NestedSlice instead")
+
+	pls, found, _ := unstructured.NestedSlice(dr.Object, "spec", "trafficPolicy", "portLevelSettings")
+	g.Expect(found).To(BeTrue())
+	g.Expect(pls).To(HaveLen(1))
+	entry, ok := pls[0].(map[string]any)
+	g.Expect(ok).To(BeTrue())
+	tlsMap, ok := entry["tls"].(map[string]any)
+	g.Expect(ok).To(BeTrue())
+	g.Expect(tlsMap["mode"]).To(Equal("SIMPLE"))
+	g.Expect(tlsMap["insecureSkipVerify"]).To(BeTrue())
+
+	ap := resources[1]
+	g.Expect(ap.GetKind()).To(Equal("AuthPolicy"))
+	g.Expect(ap.GetName()).To(Equal(discoveryAuthPolicyName))
+	g.Expect(ap.GetNamespace()).To(Equal("odh-ai-gateway-infra"))
+
+	targetName, _, _ := unstructured.NestedString(ap.Object, "spec", "targetRef", "name")
+	g.Expect(targetName).To(Equal(discoveryHTTPRouteName))
+
+	targetKind, _, _ := unstructured.NestedString(ap.Object, "spec", "targetRef", "kind")
+	g.Expect(targetKind).To(Equal("HTTPRoute"))
+
+	audiences, found, _ := unstructured.NestedStringSlice(ap.Object, "spec", "rules", "authentication", "openshift-identities", "kubernetesTokenReview", "audiences")
+	g.Expect(found).To(BeTrue())
+	g.Expect(audiences).To(ContainElements("https://kubernetes.default.svc", "maas-default-gateway-sa"))
+}
+
+func TestPatchDiscoveryHTTPRouteParentRef(t *testing.T) {
+	t.Run("patches parentRef gateway name and namespace", func(t *testing.T) {
+		g := NewWithT(t)
+
+		route := &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "gateway.networking.k8s.io/v1",
+			"kind":       "HTTPRoute",
+			"metadata":   map[string]any{"name": discoveryHTTPRouteName},
+			"spec": map[string]any{
+				"parentRefs": []any{
+					map[string]any{
+						"name":      "data-science-gateway",
+						"namespace": "openshift-ingress",
+					},
+				},
+			},
+		}}
+
+		patchDiscoveryHTTPRouteParentRef(route, "my-gateway", "my-ns")
+
+		parentRefs, _, _ := unstructured.NestedSlice(route.Object, "spec", "parentRefs")
+		g.Expect(parentRefs).To(HaveLen(1))
+		ref, ok := parentRefs[0].(map[string]any)
+		g.Expect(ok).To(BeTrue())
+		g.Expect(ref["name"]).To(Equal("my-gateway"))
+		g.Expect(ref["namespace"]).To(Equal("my-ns"))
+	})
+
+	t.Run("skips non-HTTPRoute resources", func(t *testing.T) {
+		g := NewWithT(t)
+
+		svc := &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Service",
+			"metadata":   map[string]any{"name": discoveryHTTPRouteName},
+		}}
+
+		patchDiscoveryHTTPRouteParentRef(svc, "my-gateway", "my-ns")
+		g.Expect(svc.GetKind()).To(Equal("Service"))
+	})
+
+	t.Run("skips other HTTPRoutes", func(t *testing.T) {
+		g := NewWithT(t)
+
+		route := &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "gateway.networking.k8s.io/v1",
+			"kind":       "HTTPRoute",
+			"metadata":   map[string]any{"name": "some-other-route"},
+			"spec": map[string]any{
+				"parentRefs": []any{
+					map[string]any{
+						"name":      "original-gw",
+						"namespace": "original-ns",
+					},
+				},
+			},
+		}}
+
+		patchDiscoveryHTTPRouteParentRef(route, "my-gateway", "my-ns")
+
+		parentRefs, _, _ := unstructured.NestedSlice(route.Object, "spec", "parentRefs")
+		ref, ok := parentRefs[0].(map[string]any)
+		g.Expect(ok).To(BeTrue())
+		g.Expect(ref["name"]).To(Equal("original-gw"))
+	})
+}
+
+func TestEnsureDiscoveryServiceGatewayResources(t *testing.T) {
+	const (
+		controllerNS = "opendatahub"
+		discoveryNS  = "odh-ai-gateway-infra"
+		aitenantNS   = "ai-tenants"
+		gatewayNS    = "openshift-ingress"
+		gwName       = "maas-default-gateway"
+		testImage    = "quay.io/test/maas-discovery:v1"
+	)
+
+	gvkDestinationRule := schema.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "DestinationRule"}
+	gvkAuthPolicy := schema.GroupVersionKind{Group: "kuadrant.io", Version: "v1", Kind: "AuthPolicy"}
+	gvkHTTPRoute := schema.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "HTTPRoute"}
+
+	manifestPath := discoveryManifestPath(t)
+
+	t.Run("enabled creates DestinationRule in gateway namespace", func(t *testing.T) {
+		g := NewWithT(t)
+		s := lifecycleTestScheme(t)
+
+		cfg := &maasv1alpha1.Config{
+			ObjectMeta: metav1.ObjectMeta{Name: maasv1alpha1.ConfigInstanceName, UID: types.UID("cfg-uid")},
+		}
+
+		cl := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg).Build()
+		r := &LifecycleReconciler{
+			Client:                cl,
+			Scheme:                s,
+			DeploymentNS:          controllerNS,
+			AITenantNamespace:     aitenantNS,
+			GatewayName:           gwName,
+			GatewayNamespace:      gatewayNS,
+			DiscoveryEnabled:      true,
+			DiscoveryManifestPath: manifestPath,
+			DiscoveryImage:        testImage,
+			DiscoveryNamespace:    discoveryNS,
+		}
+
+		err := r.ensureDiscoveryService(context.Background(), ctrl.Log)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		got := &unstructured.Unstructured{}
+		got.SetGroupVersionKind(gvkDestinationRule)
+		g.Expect(cl.Get(context.Background(), client.ObjectKey{Name: discoveryDestinationRuleName, Namespace: gatewayNS}, got)).
+			To(Succeed(), "DestinationRule should be created in gateway namespace")
+
+		host, _, _ := unstructured.NestedString(got.Object, "spec", "host")
+		g.Expect(host).To(Equal("maas-discovery." + discoveryNS + ".svc.cluster.local"))
+	})
+
+	t.Run("enabled creates AuthPolicy in discovery namespace", func(t *testing.T) {
+		g := NewWithT(t)
+		s := lifecycleTestScheme(t)
+
+		cfg := &maasv1alpha1.Config{
+			ObjectMeta: metav1.ObjectMeta{Name: maasv1alpha1.ConfigInstanceName, UID: types.UID("cfg-uid")},
+		}
+
+		cl := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg).Build()
+		r := &LifecycleReconciler{
+			Client:                cl,
+			Scheme:                s,
+			DeploymentNS:          controllerNS,
+			AITenantNamespace:     aitenantNS,
+			GatewayName:           gwName,
+			GatewayNamespace:      gatewayNS,
+			DiscoveryEnabled:      true,
+			DiscoveryManifestPath: manifestPath,
+			DiscoveryImage:        testImage,
+			DiscoveryNamespace:    discoveryNS,
+		}
+
+		err := r.ensureDiscoveryService(context.Background(), ctrl.Log)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		got := &unstructured.Unstructured{}
+		got.SetGroupVersionKind(gvkAuthPolicy)
+		g.Expect(cl.Get(context.Background(), client.ObjectKey{Name: discoveryAuthPolicyName, Namespace: discoveryNS}, got)).
+			To(Succeed(), "AuthPolicy should be created in discovery namespace")
+
+		targetName, _, _ := unstructured.NestedString(got.Object, "spec", "targetRef", "name")
+		g.Expect(targetName).To(Equal(discoveryHTTPRouteName))
+	})
+
+	t.Run("enabled patches HTTPRoute parentRef", func(t *testing.T) {
+		g := NewWithT(t)
+		s := lifecycleTestScheme(t)
+
+		cfg := &maasv1alpha1.Config{
+			ObjectMeta: metav1.ObjectMeta{Name: maasv1alpha1.ConfigInstanceName, UID: types.UID("cfg-uid")},
+		}
+
+		cl := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg).Build()
+		r := &LifecycleReconciler{
+			Client:                cl,
+			Scheme:                s,
+			DeploymentNS:          controllerNS,
+			AITenantNamespace:     aitenantNS,
+			GatewayName:           gwName,
+			GatewayNamespace:      gatewayNS,
+			DiscoveryEnabled:      true,
+			DiscoveryManifestPath: manifestPath,
+			DiscoveryImage:        testImage,
+			DiscoveryNamespace:    discoveryNS,
+		}
+
+		err := r.ensureDiscoveryService(context.Background(), ctrl.Log)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		got := &unstructured.Unstructured{}
+		got.SetGroupVersionKind(gvkHTTPRoute)
+		g.Expect(cl.Get(context.Background(), client.ObjectKey{Name: discoveryHTTPRouteName, Namespace: discoveryNS}, got)).
+			To(Succeed(), "HTTPRoute should be created")
+
+		parentRefs, found, _ := unstructured.NestedSlice(got.Object, "spec", "parentRefs")
+		g.Expect(found).To(BeTrue())
+		ref, ok := parentRefs[0].(map[string]any)
+		g.Expect(ok).To(BeTrue())
+		g.Expect(ref["name"]).To(Equal(gwName))
+		g.Expect(ref["namespace"]).To(Equal(gatewayNS))
+	})
+
+	t.Run("disabled deletes gateway resources", func(t *testing.T) {
+		g := NewWithT(t)
+		s := lifecycleTestScheme(t)
+
+		cfg := &maasv1alpha1.Config{
+			ObjectMeta: metav1.ObjectMeta{Name: maasv1alpha1.ConfigInstanceName, UID: types.UID("cfg-uid")},
+		}
+
+		ownedDR := &unstructured.Unstructured{}
+		ownedDR.SetGroupVersionKind(gvkDestinationRule)
+		ownedDR.SetName(discoveryDestinationRuleName)
+		ownedDR.SetNamespace(gatewayNS)
+		ownedDR.SetOwnerReferences([]metav1.OwnerReference{{
+			APIVersion: "maas.opendatahub.io/v1alpha1",
+			Kind:       "Config",
+			Name:       maasv1alpha1.ConfigInstanceName,
+			UID:        cfg.UID,
+			Controller: ptr.To(true),
+		}})
+
+		ownedAP := &unstructured.Unstructured{}
+		ownedAP.SetGroupVersionKind(gvkAuthPolicy)
+		ownedAP.SetName(discoveryAuthPolicyName)
+		ownedAP.SetNamespace(discoveryNS)
+		ownedAP.SetOwnerReferences([]metav1.OwnerReference{{
+			APIVersion: "maas.opendatahub.io/v1alpha1",
+			Kind:       "Config",
+			Name:       maasv1alpha1.ConfigInstanceName,
+			UID:        cfg.UID,
+			Controller: ptr.To(true),
+		}})
+
+		cl := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg, ownedDR, ownedAP).Build()
+		r := &LifecycleReconciler{
+			Client:                cl,
+			Scheme:                s,
+			DeploymentNS:          controllerNS,
+			AITenantNamespace:     aitenantNS,
+			GatewayName:           gwName,
+			GatewayNamespace:      gatewayNS,
+			DiscoveryEnabled:      false,
+			DiscoveryManifestPath: manifestPath,
+			DiscoveryImage:        testImage,
+			DiscoveryNamespace:    discoveryNS,
+		}
+
+		err := r.ensureDiscoveryService(context.Background(), ctrl.Log)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		got := &unstructured.Unstructured{}
+		got.SetGroupVersionKind(gvkDestinationRule)
+		err = cl.Get(context.Background(), client.ObjectKey{Name: discoveryDestinationRuleName, Namespace: gatewayNS}, got)
+		g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "owned DestinationRule should be deleted")
+
+		got = &unstructured.Unstructured{}
+		got.SetGroupVersionKind(gvkAuthPolicy)
+		err = cl.Get(context.Background(), client.ObjectKey{Name: discoveryAuthPolicyName, Namespace: discoveryNS}, got)
+		g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "owned AuthPolicy should be deleted")
+	})
 }

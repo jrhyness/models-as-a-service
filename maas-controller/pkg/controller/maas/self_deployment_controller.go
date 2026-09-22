@@ -89,6 +89,7 @@ type LifecycleReconciler struct {
 	ObservabilityManifestsPath  string
 	MonitoringNamespace         string
 	UsageLogsManifestPath       string
+	GatewayName                 string
 	DiscoveryEnabled            bool
 	DiscoveryManifestPath       string
 	DiscoveryImage              string
