@@ -78,7 +78,7 @@ func (r *LifecycleReconciler) ensureDiscoveryService(ctx context.Context, log lo
 	crossNS := buildDiscoveryCrossNamespaceRBAC(discoveryNS, r.AITenantNamespace, r.GatewayNamespace)
 	resources = append(resources, crossNS...)
 
-	gwResources := buildDiscoveryGatewayResources(discoveryNS, r.GatewayNamespace)
+	gwResources := buildDiscoveryGatewayResources(discoveryNS, r.GatewayNamespace, r.ClusterAudience)
 	resources = append(resources, gwResources...)
 
 	for i := range resources {
@@ -293,6 +293,11 @@ func buildDiscoveryCrossNamespaceRBAC(controllerNS, aitenantNS, gatewayNS string
 				Resources: []string{"gateways"},
 				Verbs:     []string{"get", "list", "watch"},
 			},
+			{
+				APIGroups: []string{"route.openshift.io"},
+				Resources: []string{"routes"},
+				Verbs:     []string{"get", "list", "watch"},
+			},
 		},
 	})
 
@@ -331,9 +336,9 @@ func patchDiscoveryHTTPRouteParentRef(res *unstructured.Unstructured, gatewayNam
 	_ = unstructured.SetNestedSlice(res.Object, parentRefs, "spec", "parentRefs")
 }
 
-func buildDiscoveryGatewayResources(discoveryNS, gatewayNS string) []unstructured.Unstructured {
+func buildDiscoveryGatewayResources(discoveryNS, gatewayNS, clusterAudience string) []unstructured.Unstructured {
 	dr := buildDiscoveryDestinationRule(discoveryNS, gatewayNS)
-	ap := buildDiscoveryAuthPolicy(discoveryNS)
+	ap := buildDiscoveryAuthPolicy(discoveryNS, clusterAudience)
 	return []unstructured.Unstructured{dr, ap}
 }
 
@@ -364,7 +369,10 @@ func buildDiscoveryDestinationRule(discoveryNS, gatewayNS string) unstructured.U
 	}}
 }
 
-func buildDiscoveryAuthPolicy(discoveryNS string) unstructured.Unstructured {
+func buildDiscoveryAuthPolicy(discoveryNS, clusterAudience string) unstructured.Unstructured {
+	if clusterAudience == "" {
+		clusterAudience = "https://kubernetes.default.svc"
+	}
 	return unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "kuadrant.io/v1",
 		"kind":       "AuthPolicy",
@@ -382,9 +390,7 @@ func buildDiscoveryAuthPolicy(discoveryNS string) unstructured.Unstructured {
 				"authentication": map[string]any{
 					"openshift-identities": map[string]any{
 						"kubernetesTokenReview": map[string]any{
-							"audiences": []any{
-								"https://kubernetes.default.svc",
-							},
+							"audiences": []any{clusterAudience},
 						},
 					},
 				},
