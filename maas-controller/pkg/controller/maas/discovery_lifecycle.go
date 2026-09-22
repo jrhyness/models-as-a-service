@@ -78,7 +78,7 @@ func (r *LifecycleReconciler) ensureDiscoveryService(ctx context.Context, log lo
 	crossNS := buildDiscoveryCrossNamespaceRBAC(discoveryNS, r.AITenantNamespace, r.GatewayNamespace)
 	resources = append(resources, crossNS...)
 
-	gwResources := buildDiscoveryGatewayResources(discoveryNS, r.GatewayName, r.GatewayNamespace)
+	gwResources := buildDiscoveryGatewayResources(discoveryNS, r.GatewayNamespace)
 	resources = append(resources, gwResources...)
 
 	for i := range resources {
@@ -91,7 +91,7 @@ func (r *LifecycleReconciler) ensureDiscoveryService(ctx context.Context, log lo
 			return fmt.Errorf("patch discovery args: %w", err)
 		}
 		patchDiscoveryReplicas(res, r.DiscoveryReplicas)
-		patchDiscoveryHTTPRouteParentRef(res, r.GatewayName, r.GatewayNamespace)
+		patchDiscoveryHTTPRouteParentRef(res, r.DiscoveryGatewayName, r.GatewayNamespace)
 
 		if err := controllerutil.SetControllerReference(&cfg, res, r.Scheme); err != nil {
 			return fmt.Errorf("set controller reference on %s %s: %w", res.GetKind(), res.GetName(), err)
@@ -331,9 +331,9 @@ func patchDiscoveryHTTPRouteParentRef(res *unstructured.Unstructured, gatewayNam
 	_ = unstructured.SetNestedSlice(res.Object, parentRefs, "spec", "parentRefs")
 }
 
-func buildDiscoveryGatewayResources(discoveryNS, gatewayName, gatewayNS string) []unstructured.Unstructured {
+func buildDiscoveryGatewayResources(discoveryNS, gatewayNS string) []unstructured.Unstructured {
 	dr := buildDiscoveryDestinationRule(discoveryNS, gatewayNS)
-	ap := buildDiscoveryAuthPolicy(gatewayName, discoveryNS)
+	ap := buildDiscoveryAuthPolicy(discoveryNS)
 	return []unstructured.Unstructured{dr, ap}
 }
 
@@ -364,7 +364,7 @@ func buildDiscoveryDestinationRule(discoveryNS, gatewayNS string) unstructured.U
 	}}
 }
 
-func buildDiscoveryAuthPolicy(gatewayName, discoveryNS string) unstructured.Unstructured {
+func buildDiscoveryAuthPolicy(discoveryNS string) unstructured.Unstructured {
 	return unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "kuadrant.io/v1",
 		"kind":       "AuthPolicy",
@@ -384,7 +384,6 @@ func buildDiscoveryAuthPolicy(gatewayName, discoveryNS string) unstructured.Unst
 						"kubernetesTokenReview": map[string]any{
 							"audiences": []any{
 								"https://kubernetes.default.svc",
-								gatewayName + "-sa",
 							},
 						},
 					},
