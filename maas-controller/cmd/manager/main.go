@@ -1331,7 +1331,6 @@ func main() {
 		ObservabilityManifestsPath:  observabilityManifestsPath,
 		UsageLogsManifestPath:       usageLogsManifestPath,
 		MonitoringNamespace:         monitoringNamespace,
-		GatewayName:                 gatewayName,
 		GatewayNamespace:            gatewayNamespace,
 		DiscoveryEnabled:            os.Getenv("MAAS_DISCOVERY_ENABLED") == "true",
 		DiscoveryManifestPath:       discoveryManifestPath,
