@@ -1339,7 +1339,7 @@ func main() {
 		DiscoveryEnabled:            os.Getenv("MAAS_DISCOVERY_ENABLED") == "true",
 		DiscoveryManifestPath:       discoveryManifestPath,
 		DiscoveryImage:              os.Getenv("RELATED_IMAGE_ODH_MAAS_DISCOVERY_IMAGE"),
-		DiscoveryNamespace:          infraNamespace,
+		DiscoveryNamespace:          controllerNamespace,
 		DiscoveryReplicas:           parseReplicasEnv("MAAS_DISCOVERY_REPLICAS"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SelfDeployment")
