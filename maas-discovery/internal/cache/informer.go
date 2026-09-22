@@ -192,6 +192,8 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 			}
 			routeInformer = nil
 		}
+	} else {
+		ic.log.Info("OpenShift Route API not available, gateway external hostname resolution via Routes disabled")
 	}
 
 	// Drain any events queued during initial list before the authoritative rebuild.
