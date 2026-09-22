@@ -37,7 +37,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 		discoveryNS  = "odh-ai-gateway-infra"
 		aitenantNS   = "ai-tenants"
 		gatewayNS    = "openshift-ingress"
-		gatewayName  = "maas-default-gateway"
+		gatewayName  = "data-science-gateway"
 		testImage    = "quay.io/test/odh-maas-discovery:v1"
 	)
 
@@ -73,7 +73,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			GatewayName:           gatewayName,
+			DiscoveryGatewayName:  gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -99,7 +99,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			GatewayName:           gatewayName,
+			DiscoveryGatewayName:  gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -135,7 +135,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			GatewayName:           gatewayName,
+			DiscoveryGatewayName:  gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -174,7 +174,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			GatewayName:           gatewayName,
+			DiscoveryGatewayName:  gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -210,7 +210,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			GatewayName:           gatewayName,
+			DiscoveryGatewayName:  gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -288,7 +288,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			GatewayName:           gatewayName,
+			DiscoveryGatewayName:  gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      false,
 			DiscoveryManifestPath: manifestPath,
@@ -329,7 +329,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			GatewayName:           gatewayName,
+			DiscoveryGatewayName:  gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      false,
 			DiscoveryManifestPath: manifestPath,
@@ -483,7 +483,7 @@ func TestBuildDiscoveryCrossNamespaceRBAC(t *testing.T) {
 func TestBuildDiscoveryGatewayResources(t *testing.T) {
 	g := NewWithT(t)
 
-	resources := buildDiscoveryGatewayResources("odh-ai-gateway-infra", "maas-default-gateway", "openshift-ingress")
+	resources := buildDiscoveryGatewayResources("odh-ai-gateway-infra", "openshift-ingress")
 	g.Expect(resources).To(HaveLen(2))
 
 	dr := resources[0]
@@ -520,7 +520,7 @@ func TestBuildDiscoveryGatewayResources(t *testing.T) {
 
 	audiences, found, _ := unstructured.NestedStringSlice(ap.Object, "spec", "rules", "authentication", "openshift-identities", "kubernetesTokenReview", "audiences")
 	g.Expect(found).To(BeTrue())
-	g.Expect(audiences).To(ContainElements("https://kubernetes.default.svc", "maas-default-gateway-sa"))
+	g.Expect(audiences).To(ConsistOf("https://kubernetes.default.svc"))
 }
 
 func TestPatchDiscoveryHTTPRouteParentRef(t *testing.T) {
@@ -596,7 +596,7 @@ func TestEnsureDiscoveryServiceGatewayResources(t *testing.T) {
 		discoveryNS  = "odh-ai-gateway-infra"
 		aitenantNS   = "ai-tenants"
 		gatewayNS    = "openshift-ingress"
-		gwName       = "maas-default-gateway"
+		gwName       = "data-science-gateway"
 		testImage    = "quay.io/test/maas-discovery:v1"
 	)
 
@@ -620,7 +620,7 @@ func TestEnsureDiscoveryServiceGatewayResources(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			GatewayName:           gwName,
+			DiscoveryGatewayName:  gwName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -654,7 +654,7 @@ func TestEnsureDiscoveryServiceGatewayResources(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			GatewayName:           gwName,
+			DiscoveryGatewayName:  gwName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -688,7 +688,7 @@ func TestEnsureDiscoveryServiceGatewayResources(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			GatewayName:           gwName,
+			DiscoveryGatewayName:  gwName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -750,7 +750,7 @@ func TestEnsureDiscoveryServiceGatewayResources(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			GatewayName:           gwName,
+			DiscoveryGatewayName:  gwName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      false,
 			DiscoveryManifestPath: manifestPath,

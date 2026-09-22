@@ -162,6 +162,7 @@ PAYLOAD_PROCESSING_IMAGE="${PAYLOAD_PROCESSING_IMAGE:-}"
 MAAS_DISCOVERY_IMAGE="${MAAS_DISCOVERY_IMAGE:-}"
 MAAS_DISCOVERY_ENABLED="${MAAS_DISCOVERY_ENABLED:-}"
 MAAS_DISCOVERY_REPLICAS="${MAAS_DISCOVERY_REPLICAS:-}"
+MAAS_DISCOVERY_GATEWAY_NAME="${MAAS_DISCOVERY_GATEWAY_NAME:-}"
 FORCE_OVERWRITE="${FORCE_OVERWRITE:-false}"
 EXTERNAL_OIDC="${EXTERNAL_OIDC:-false}"
 POSTGRES_CONNECTION="${POSTGRES_CONNECTION:-}"
@@ -257,6 +258,9 @@ ADVANCED OPTIONS (PR Testing):
   --maas-discovery-replicas <n>
       Number of discovery service replicas (default: 2)
 
+  --maas-discovery-gateway-name <name>
+      Platform gateway for the discovery HTTPRoute (default: data-science-gateway)
+
   --ai-gateway-operator-image <image>
       Custom ai-gateway-operator image (PR/stable testing, operator mode only)
       Patches RELATED_IMAGE_ODH_AI_GATEWAY_OPERATOR_IMAGE on the ODH operator CSV
@@ -277,6 +281,7 @@ ENVIRONMENT VARIABLES:
   MAAS_DISCOVERY_IMAGE      Custom MaaS discovery service image
   MAAS_DISCOVERY_ENABLED    Enable discovery service (true/false, default: false)
   MAAS_DISCOVERY_REPLICAS   Discovery service replica count (default: 2)
+  MAAS_DISCOVERY_GATEWAY_NAME Platform gateway name (default: data-science-gateway)
   AI_GATEWAY_OPERATOR_IMAGE Custom ai-gateway-operator image (operator mode only)
   OPERATOR_CATALOG          Custom operator catalog
   OPERATOR_IMAGE            Custom operator image
@@ -430,6 +435,11 @@ parse_arguments() {
       --maas-discovery-replicas)
         require_flag_value "$1" "${2:-}"
         MAAS_DISCOVERY_REPLICAS="$2"
+        shift 2
+        ;;
+      --maas-discovery-gateway-name)
+        require_flag_value "$1" "${2:-}"
+        MAAS_DISCOVERY_GATEWAY_NAME="$2"
         shift 2
         ;;
       --ai-gateway-operator-image)
@@ -711,6 +721,7 @@ main() {
     local cm_discovery_image="${MAAS_DISCOVERY_IMAGE:-}"
     local cm_discovery_enabled="${MAAS_DISCOVERY_ENABLED:-}"
     local cm_discovery_replicas="${MAAS_DISCOVERY_REPLICAS:-}"
+    local cm_discovery_gateway_name="${MAAS_DISCOVERY_GATEWAY_NAME:-}"
 
     log_info "  Phase 1: Applying MaaS CRDs and waiting until Established (controller creates Config after CRD is ready)..."
     if ! install_maas_controller_crds_and_wait "${project_root}/deployment/base/maas-controller/crd"; then
@@ -747,6 +758,7 @@ configMapGenerator:
 $([ -n "$cm_discovery_image" ] && echo "      - maas-discovery-image=${cm_discovery_image}")
 $([ -n "$cm_discovery_enabled" ] && echo "      - maas-discovery-enabled=${cm_discovery_enabled}")
 $([ -n "$cm_discovery_replicas" ] && echo "      - maas-discovery-replicas=${cm_discovery_replicas}")
+$([ -n "$cm_discovery_gateway_name" ] && echo "      - maas-discovery-gateway-name=${cm_discovery_gateway_name}")
 generatorOptions:
   disableNameSuffixHash: true
 # Re-run the serverName replacement at the parent level so it picks up the
@@ -809,7 +821,7 @@ EOF
   # Patch maas-parameters ConfigMap with discovery overrides when set via CLI/env.
   # The controller reads these at startup via configMapKeyRef env vars.
   local discovery_patched=false
-  if [[ -n "${MAAS_DISCOVERY_ENABLED:-}" || -n "${MAAS_DISCOVERY_IMAGE:-}" || -n "${MAAS_DISCOVERY_REPLICAS:-}" ]]; then
+  if [[ -n "${MAAS_DISCOVERY_ENABLED:-}" || -n "${MAAS_DISCOVERY_IMAGE:-}" || -n "${MAAS_DISCOVERY_REPLICAS:-}" || -n "${MAAS_DISCOVERY_GATEWAY_NAME:-}" ]]; then
     log_info "  Patching maas-parameters ConfigMap with discovery settings..."
     local patch_json="{\"data\":{"
     local first=true
@@ -825,6 +837,11 @@ EOF
     if [[ -n "${MAAS_DISCOVERY_REPLICAS:-}" ]]; then
       [[ "$first" == "false" ]] && patch_json+=","
       patch_json+="\"maas-discovery-replicas\":\"${MAAS_DISCOVERY_REPLICAS}\""
+      first=false
+    fi
+    if [[ -n "${MAAS_DISCOVERY_GATEWAY_NAME:-}" ]]; then
+      [[ "$first" == "false" ]] && patch_json+=","
+      patch_json+="\"maas-discovery-gateway-name\":\"${MAAS_DISCOVERY_GATEWAY_NAME}\""
     fi
     patch_json+="}}"
     if kubectl patch configmap maas-parameters -n "$NAMESPACE" --type=merge -p "$patch_json"; then
