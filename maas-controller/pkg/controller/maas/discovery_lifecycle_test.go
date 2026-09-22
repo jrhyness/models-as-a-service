@@ -483,7 +483,7 @@ func TestBuildDiscoveryCrossNamespaceRBAC(t *testing.T) {
 func TestBuildDiscoveryGatewayResources(t *testing.T) {
 	g := NewWithT(t)
 
-	resources := buildDiscoveryGatewayResources("odh-ai-gateway-infra", "openshift-ingress")
+	resources := buildDiscoveryGatewayResources("odh-ai-gateway-infra", "openshift-ingress", "https://test-audience.example.com")
 	g.Expect(resources).To(HaveLen(2))
 
 	dr := resources[0]
@@ -520,7 +520,7 @@ func TestBuildDiscoveryGatewayResources(t *testing.T) {
 
 	audiences, found, _ := unstructured.NestedStringSlice(ap.Object, "spec", "rules", "authentication", "openshift-identities", "kubernetesTokenReview", "audiences")
 	g.Expect(found).To(BeTrue())
-	g.Expect(audiences).To(ConsistOf("https://kubernetes.default.svc"))
+	g.Expect(audiences).To(ConsistOf("https://test-audience.example.com"))
 }
 
 func TestPatchDiscoveryHTTPRouteParentRef(t *testing.T) {

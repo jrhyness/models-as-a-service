@@ -95,6 +95,7 @@ type LifecycleReconciler struct {
 	DiscoveryImage              string
 	DiscoveryNamespace          string
 	DiscoveryReplicas           *int32
+	ClusterAudience             string
 }
 
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;update;patch
