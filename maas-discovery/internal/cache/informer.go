@@ -11,6 +11,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/rest"
@@ -107,10 +108,14 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 
 	// Route informer (OpenShift only) — provides external hostnames for gateways
 	// whose status.addresses only contain internal service names.
-	routeFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(
-		dynamicClient, 0, ic.gatewayNamespace, nil,
-	)
-	routeInformer := routeFactory.ForResource(routeGVR).Informer()
+	var routeInformer k8scache.SharedIndexInformer
+	routesAvailable := routeAPIAvailable(ic.restConfig)
+	if routesAvailable {
+		routeFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(
+			dynamicClient, 0, ic.gatewayNamespace, nil,
+		)
+		routeInformer = routeFactory.ForResource(routeGVR).Informer()
+	}
 
 	rebuildCh := make(chan struct{}, 1)
 	triggerRebuild := func() {
@@ -132,22 +137,26 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 	if _, err := gatewayInformer.AddEventHandler(handler); err != nil {
 		return fmt.Errorf("adding Gateway event handler: %w", err)
 	}
-	if _, err := routeInformer.AddEventHandler(handler); err != nil {
-		return fmt.Errorf("adding Route event handler: %w", err)
+	if routeInformer != nil {
+		if _, err := routeInformer.AddEventHandler(handler); err != nil {
+			return fmt.Errorf("adding Route event handler: %w", err)
+		}
 	}
 
 	ic.log.Info("starting informer watches",
 		"tenantNamespace", ic.tenantNamespace,
-		"gatewayNamespace", ic.gatewayNamespace)
+		"gatewayNamespace", ic.gatewayNamespace,
+		"routesAvailable", routesAvailable)
 
 	stopCh := ctx.Done()
 	tenantFactory.Start(stopCh)
 	gatewayFactory.Start(stopCh)
-	routeFactory.Start(stopCh)
+	if routeInformer != nil {
+		go routeInformer.Run(stopCh)
+	}
 
 	tenantSynced := tenantFactory.WaitForCacheSync(stopCh)
 	gatewaySynced := gatewayFactory.WaitForCacheSync(stopCh)
-	routeSynced := routeFactory.WaitForCacheSync(stopCh)
 
 	for gvr, ok := range tenantSynced {
 		if !ok {
@@ -160,14 +169,11 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 		}
 	}
 
-	var routesAvailable bool
-	for _, ok := range routeSynced {
-		if ok {
-			routesAvailable = true
+	if routeInformer != nil {
+		if !k8scache.WaitForCacheSync(stopCh, routeInformer.HasSynced) {
+			ic.log.Warn("Route informer sync failed, continuing without Route data")
+			routeInformer = nil
 		}
-	}
-	if !routesAvailable {
-		ic.log.Info("OpenShift Route API not available, gateway external hostname resolution via Routes disabled")
 	}
 
 	// Drain any events queued during initial list before the authoritative rebuild.
@@ -343,4 +349,27 @@ func resolveGatewayName(tenant *unstructured.Unstructured) string {
 		return tenant.GetName()
 	}
 	return name
+}
+
+// routeAPIAvailable checks whether the route.openshift.io/v1 API group is
+// registered on the cluster. Returns false on vanilla Kubernetes.
+func routeAPIAvailable(cfg *rest.Config) bool {
+	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
+	if err != nil {
+		return false
+	}
+	_, resources, err := dc.ServerGroupsAndResources()
+	if err != nil {
+		return false
+	}
+	for _, rl := range resources {
+		if rl.GroupVersion == "route.openshift.io/v1" {
+			for _, r := range rl.APIResources {
+				if r.Name == "routes" {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
