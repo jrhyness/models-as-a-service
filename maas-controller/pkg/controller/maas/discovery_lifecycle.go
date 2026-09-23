@@ -230,11 +230,6 @@ func buildDiscoveryCrossNamespaceRBAC(controllerNS, aitenantNS, gatewayNS string
 				Resources: []string{"aitenants"},
 				Verbs:     []string{"get", "list", "watch"},
 			},
-			{
-				APIGroups: []string{maasv1alpha1.GroupVersion.Group},
-				Resources: []string{"maasauthpolicies"},
-				Verbs:     []string{"get", "list", "watch"},
-			},
 		},
 	})
 
