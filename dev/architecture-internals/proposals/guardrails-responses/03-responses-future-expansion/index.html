@@ -8,31 +8,27 @@
       
       
       
-        <link rel="canonical" href="https://opendatahub-io.github.io/models-as-a-service/dev/reference/crds/maas-subscription/">
+        <link rel="canonical" href="https://opendatahub-io.github.io/models-as-a-service/dev/architecture-internals/proposals/guardrails-responses/03-responses-future-expansion/">
       
       
-        <link rel="prev" href="../maas-auth-policy/">
-      
-      
-        <link rel="next" href="../ai-tenant/">
       
       
         
       
       
-      <link rel="icon" href="../../../assets/favicon.ico">
+      <link rel="icon" href="../../../../assets/favicon.ico">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
-        <title>MaaSSubscription - ODH Models-as-a-Service Documentation</title>
+        <title>Responses: future expansion and capability discovery - ODH Models-as-a-Service Documentation</title>
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -51,7 +47,7 @@
       
     
     
-    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -76,7 +72,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#maassubscription" class="md-skip">
+        <a href="#responses-future-expansion-and-capability-discovery" class="md-skip">
           Skip to content
         </a>
       
@@ -94,9 +90,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../../.." title="ODH Models-as-a-Service Documentation" class="md-header__button md-logo" aria-label="ODH Models-as-a-Service Documentation" data-md-component="logo">
+    <a href="../../../.." title="ODH Models-as-a-Service Documentation" class="md-header__button md-logo" aria-label="ODH Models-as-a-Service Documentation" data-md-component="logo">
       
-  <img src="../../../assets/favicon.ico" alt="logo">
+  <img src="../../../../assets/favicon.ico" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -113,7 +109,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              MaaSSubscription
+              Responses: future expansion and capability discovery
             
           </span>
         </div>
@@ -233,7 +229,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../.." class="md-tabs__link">
+        <a href="../../../.." class="md-tabs__link">
           
   
   
@@ -253,7 +249,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../concepts/architecture/" class="md-tabs__link">
+        <a href="../../../../concepts/architecture/" class="md-tabs__link">
           
   
   
@@ -273,7 +269,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../quickstart/" class="md-tabs__link">
+        <a href="../../../../quickstart/" class="md-tabs__link">
           
   
   
@@ -300,7 +296,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../configuration-and-management/quota-and-access-configuration/" class="md-tabs__link">
+        <a href="../../../../configuration-and-management/quota-and-access-configuration/" class="md-tabs__link">
           
   
   
@@ -323,7 +319,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../observability/" class="md-tabs__link">
+        <a href="../../../../observability/" class="md-tabs__link">
           
   
   
@@ -343,7 +339,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../user-guide/api-key-management/" class="md-tabs__link">
+        <a href="../../../../user-guide/api-key-management/" class="md-tabs__link">
           
   
   
@@ -363,7 +359,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../architecture-internals/controller-architecture/" class="md-tabs__link">
+        <a href="../../../controller-architecture/" class="md-tabs__link">
           
   
   
@@ -379,13 +375,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../maas-api-overview/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../../../reference/maas-api-overview/" class="md-tabs__link">
           
   
   
@@ -419,9 +413,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../../.." title="ODH Models-as-a-Service Documentation" class="md-nav__button md-logo" aria-label="ODH Models-as-a-Service Documentation" data-md-component="logo">
+    <a href="../../../.." title="ODH Models-as-a-Service Documentation" class="md-nav__button md-logo" aria-label="ODH Models-as-a-Service Documentation" data-md-component="logo">
       
-  <img src="../../../assets/favicon.ico" alt="logo">
+  <img src="../../../../assets/favicon.ico" alt="logo">
 
     </a>
     ODH Models-as-a-Service Documentation
@@ -502,7 +496,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../.." class="md-nav__link">
+      <a href="../../../.." class="md-nav__link">
         
   
   
@@ -530,7 +524,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../release-notes/" class="md-nav__link">
+      <a href="../../../../release-notes/" class="md-nav__link">
         
   
   
@@ -612,7 +606,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../migration/tier-to-subscription/" class="md-nav__link">
+      <a href="../../../../migration/tier-to-subscription/" class="md-nav__link">
         
   
   
@@ -640,7 +634,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../migration/upgrade-to-3.4/" class="md-nav__link">
+      <a href="../../../../migration/upgrade-to-3.4/" class="md-nav__link">
         
   
   
@@ -668,7 +662,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../migration/upgrade-to-3.5/" class="md-nav__link">
+      <a href="../../../../migration/upgrade-to-3.5/" class="md-nav__link">
         
   
   
@@ -765,7 +759,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/architecture/" class="md-nav__link">
+      <a href="../../../../concepts/architecture/" class="md-nav__link">
         
   
   
@@ -793,7 +787,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/multi-tenancy/" class="md-nav__link">
+      <a href="../../../../concepts/multi-tenancy/" class="md-nav__link">
         
   
   
@@ -821,7 +815,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/personas/" class="md-nav__link">
+      <a href="../../../../concepts/personas/" class="md-nav__link">
         
   
   
@@ -849,7 +843,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/subscription-overview/" class="md-nav__link">
+      <a href="../../../../concepts/subscription-overview/" class="md-nav__link">
         
   
   
@@ -877,7 +871,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/model-reference/" class="md-nav__link">
+      <a href="../../../../concepts/model-reference/" class="md-nav__link">
         
   
   
@@ -905,7 +899,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/auth-modes/" class="md-nav__link">
+      <a href="../../../../concepts/auth-modes/" class="md-nav__link">
         
   
   
@@ -933,7 +927,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/api-key-authentication/" class="md-nav__link">
+      <a href="../../../../concepts/api-key-authentication/" class="md-nav__link">
         
   
   
@@ -961,7 +955,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../concepts/model-access-control/" class="md-nav__link">
+      <a href="../../../../concepts/model-access-control/" class="md-nav__link">
         
   
   
@@ -1050,7 +1044,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../quickstart/" class="md-nav__link">
+      <a href="../../../../quickstart/" class="md-nav__link">
         
   
   
@@ -1132,7 +1126,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/prerequisites/" class="md-nav__link">
+      <a href="../../../../install/prerequisites/" class="md-nav__link">
         
   
   
@@ -1160,7 +1154,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/platform-setup/" class="md-nav__link">
+      <a href="../../../../install/platform-setup/" class="md-nav__link">
         
   
   
@@ -1250,7 +1244,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/maas-setup/" class="md-nav__link">
+      <a href="../../../../install/maas-setup/" class="md-nav__link">
         
   
   
@@ -1278,7 +1272,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/model-setup/" class="md-nav__link">
+      <a href="../../../../install/model-setup/" class="md-nav__link">
         
   
   
@@ -1306,7 +1300,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/external-model-setup/" class="md-nav__link">
+      <a href="../../../../install/external-model-setup/" class="md-nav__link">
         
   
   
@@ -1334,7 +1328,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/validation/" class="md-nav__link">
+      <a href="../../../../install/validation/" class="md-nav__link">
         
   
   
@@ -1362,7 +1356,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/multi-tenant-setup/" class="md-nav__link">
+      <a href="../../../../install/multi-tenant-setup/" class="md-nav__link">
         
   
   
@@ -1390,7 +1384,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/multi-tenant-validation/" class="md-nav__link">
+      <a href="../../../../install/multi-tenant-validation/" class="md-nav__link">
         
   
   
@@ -1418,7 +1412,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../install/troubleshooting/" class="md-nav__link">
+      <a href="../../../../install/troubleshooting/" class="md-nav__link">
         
   
   
@@ -1569,7 +1563,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/quota-and-access-configuration/" class="md-nav__link">
+      <a href="../../../../configuration-and-management/quota-and-access-configuration/" class="md-nav__link">
         
   
   
@@ -1597,7 +1591,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/api-key-administration/" class="md-nav__link">
+      <a href="../../../../configuration-and-management/api-key-administration/" class="md-nav__link">
         
   
   
@@ -1625,7 +1619,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/infra-namespace-migration/" class="md-nav__link">
+      <a href="../../../../configuration-and-management/infra-namespace-migration/" class="md-nav__link">
         
   
   
@@ -1653,7 +1647,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/namespace-rbac/" class="md-nav__link">
+      <a href="../../../../configuration-and-management/namespace-rbac/" class="md-nav__link">
         
   
   
@@ -1681,7 +1675,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/tenant-rbac/" class="md-nav__link">
+      <a href="../../../../configuration-and-management/tenant-rbac/" class="md-nav__link">
         
   
   
@@ -1709,7 +1703,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/troubleshooting-external-model-rbac/" class="md-nav__link">
+      <a href="../../../../configuration-and-management/troubleshooting-external-model-rbac/" class="md-nav__link">
         
   
   
@@ -1737,7 +1731,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/tls-configuration/" class="md-nav__link">
+      <a href="../../../../configuration-and-management/tls-configuration/" class="md-nav__link">
         
   
   
@@ -1765,7 +1759,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/gateway-patterns/" class="md-nav__link">
+      <a href="../../../../configuration-and-management/gateway-patterns/" class="md-nav__link">
         
   
   
@@ -1855,7 +1849,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/model-setup/" class="md-nav__link">
+      <a href="../../../../configuration-and-management/model-setup/" class="md-nav__link">
         
   
   
@@ -1883,7 +1877,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/model-listing-flow/" class="md-nav__link">
+      <a href="../../../../configuration-and-management/model-listing-flow/" class="md-nav__link">
         
   
   
@@ -1973,7 +1967,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../advanced-administration/subscription-cardinality/" class="md-nav__link">
+      <a href="../../../../advanced-administration/subscription-cardinality/" class="md-nav__link">
         
   
   
@@ -2001,7 +1995,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../advanced-administration/telemetry-defaults-and-cardinality/" class="md-nav__link">
+      <a href="../../../../advanced-administration/telemetry-defaults-and-cardinality/" class="md-nav__link">
         
   
   
@@ -2029,7 +2023,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../advanced-administration/limitador-persistence/" class="md-nav__link">
+      <a href="../../../../advanced-administration/limitador-persistence/" class="md-nav__link">
         
   
   
@@ -2057,7 +2051,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../configuration-and-management/authorino-caching/" class="md-nav__link">
+      <a href="../../../../configuration-and-management/authorino-caching/" class="md-nav__link">
         
   
   
@@ -2085,7 +2079,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../advanced-administration/external-oidc/" class="md-nav__link">
+      <a href="../../../../advanced-administration/external-oidc/" class="md-nav__link">
         
   
   
@@ -2113,7 +2107,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../advanced-administration/controller-performance-tuning/" class="md-nav__link">
+      <a href="../../../../advanced-administration/controller-performance-tuning/" class="md-nav__link">
         
   
   
@@ -2210,7 +2204,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../observability/" class="md-nav__link">
+      <a href="../../../../observability/" class="md-nav__link">
         
   
   
@@ -2238,7 +2232,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../observability/setup/" class="md-nav__link">
+      <a href="../../../../observability/setup/" class="md-nav__link">
         
   
   
@@ -2266,7 +2260,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../observability/otel-json-stdout/" class="md-nav__link">
+      <a href="../../../../observability/otel-json-stdout/" class="md-nav__link">
         
   
   
@@ -2294,7 +2288,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../observability/metrics-and-dashboards/" class="md-nav__link">
+      <a href="../../../../observability/metrics-and-dashboards/" class="md-nav__link">
         
   
   
@@ -2322,7 +2316,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../observability/operations/" class="md-nav__link">
+      <a href="../../../../observability/operations/" class="md-nav__link">
         
   
   
@@ -2411,7 +2405,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../user-guide/api-key-management/" class="md-nav__link">
+      <a href="../../../../user-guide/api-key-management/" class="md-nav__link">
         
   
   
@@ -2439,7 +2433,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../user-guide/model-discovery/" class="md-nav__link">
+      <a href="../../../../user-guide/model-discovery/" class="md-nav__link">
         
   
   
@@ -2467,7 +2461,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../user-guide/inference/" class="md-nav__link">
+      <a href="../../../../user-guide/inference/" class="md-nav__link">
         
   
   
@@ -2556,7 +2550,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture-internals/controller-architecture/" class="md-nav__link">
+      <a href="../../../controller-architecture/" class="md-nav__link">
         
   
   
@@ -2584,7 +2578,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture-internals/reconciliation-flow/" class="md-nav__link">
+      <a href="../../../reconciliation-flow/" class="md-nav__link">
         
   
   
@@ -2612,7 +2606,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture-internals/authentication-internals/" class="md-nav__link">
+      <a href="../../../authentication-internals/" class="md-nav__link">
         
   
   
@@ -2694,7 +2688,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/testing-guide/" class="md-nav__link">
+      <a href="../../../../contributing/testing-guide/" class="md-nav__link">
         
   
   
@@ -2722,7 +2716,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../contributing/release-strategy/" class="md-nav__link">
+      <a href="../../../../contributing/release-strategy/" class="md-nav__link">
         
   
   
@@ -2762,31 +2756,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
         
           
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
             
   
   
@@ -2804,7 +2795,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2822,7 +2813,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../maas-api-overview/" class="md-nav__link">
+      <a href="../../../../reference/maas-api-overview/" class="md-nav__link">
         
   
   
@@ -2850,7 +2841,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api-reference/" class="md-nav__link">
+      <a href="../../../../reference/api-reference/" class="md-nav__link">
         
   
   
@@ -2875,31 +2866,28 @@
                 
   
   
-    
   
   
-  
     
     
     
     
       
       
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
         
           
-          
         
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8_3" >
         
           
-          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
             
   
   
@@ -2917,7 +2905,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_8_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2935,7 +2923,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../maas-model-ref/" class="md-nav__link">
+      <a href="../../../../reference/crds/maas-model-ref/" class="md-nav__link">
         
   
   
@@ -2963,7 +2951,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../external-model/" class="md-nav__link">
+      <a href="../../../../reference/crds/external-model/" class="md-nav__link">
         
   
   
@@ -2991,7 +2979,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../maas-auth-policy/" class="md-nav__link">
+      <a href="../../../../reference/crds/maas-auth-policy/" class="md-nav__link">
         
   
   
@@ -3016,37 +3004,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    MaaSSubscription
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../../reference/crds/maas-subscription/" class="md-nav__link">
         
   
   
@@ -3062,81 +3023,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#maassubscriptionspec" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        MaaSSubscriptionSpec
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ownerspec" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        OwnerSpec
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#modelsubscriptionref" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        ModelSubscriptionRef
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tokenratelimit" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TokenRateLimit
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#annotations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Annotations
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -3149,7 +3035,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../ai-tenant/" class="md-nav__link">
+      <a href="../../../../reference/crds/ai-tenant/" class="md-nav__link">
         
   
   
@@ -3177,7 +3063,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../tenant/" class="md-nav__link">
+      <a href="../../../../reference/crds/tenant/" class="md-nav__link">
         
   
   
@@ -3240,10 +3126,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#maassubscriptionspec" class="md-nav__link">
+  <a href="#future-storage-bindings" class="md-nav__link">
     <span class="md-ellipsis">
       
-        MaaSSubscriptionSpec
+        Future storage bindings
       
     </span>
   </a>
@@ -3251,10 +3137,60 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ownerspec" class="md-nav__link">
+  <a href="#future-kserve-capability-discovery-for-maas" class="md-nav__link">
     <span class="md-ellipsis">
       
-        OwnerSpec
+        Future KServe capability discovery for MaaS
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Future KServe capability discovery for MaaS">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#concrete-automatic-discovery-path-for-llminferenceservice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Concrete automatic discovery path for LLMInferenceService
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#discovery-and-publication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discovery and publication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#maas-consumption-and-precedence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MaaS consumption and precedence
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deferred-agentic-flows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deferred agentic flows
       
     </span>
   </a>
@@ -3262,32 +3198,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#modelsubscriptionref" class="md-nav__link">
+  <a href="#reviews" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ModelSubscriptionRef
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tokenratelimit" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        TokenRateLimit
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#annotations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Annotations
+        Reviews
       
     </span>
   </a>
@@ -3314,173 +3228,263 @@
   
 
 
-<h1 id="maassubscription">MaaSSubscription</h1>
-<p>Defines a subscription plan with per-model token rate limits. Creates Kuadrant TokenRateLimitPolicies enforced by Limitador. Must be created in the <code>models-as-a-service</code> namespace.</p>
-<h2 id="maassubscriptionspec">MaaSSubscriptionSpec</h2>
+<h1 id="responses-future-expansion-and-capability-discovery">Responses: future expansion and capability discovery</h1>
 <table>
 <thead>
 <tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
+<th></th>
+<th></th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>owner</td>
-<td>OwnerSpec</td>
-<td>Yes</td>
-<td>Who owns this subscription</td>
+<td>Status</td>
+<td>Proposed</td>
 </tr>
 <tr>
-<td>modelRefs</td>
-<td>[]ModelSubscriptionRef</td>
-<td>Yes</td>
-<td>Models included with per-model token rate limits (each specifies <code>name</code> and <code>namespace</code>)</td>
-</tr>
-<tr>
-<td>tokenMetadata</td>
-<td>TokenMetadata</td>
-<td>No</td>
-<td>Metadata for token attribution and metering</td>
-</tr>
-<tr>
-<td>priority</td>
-<td>int32</td>
-<td>No</td>
-<td>Subscription priority when user has multiple (higher = higher priority; default: 0)</td>
-</tr>
-<tr>
-<td>inferencePriority</td>
-<td>int32</td>
-<td>No</td>
-<td>Scheduling priority for inference requests made under this subscription (signed; higher = scheduled first, negative = below the scheduler default). Independent of <code>priority</code>, which only selects among subscriptions. Omitting the field creates no InferenceObjective and the scheduler applies priority <code>0</code>; setting it explicitly to <code>0</code> creates an InferenceObjective with priority <code>0</code>.</td>
+<td>Authors</td>
+<td>Pierangelo Di Pilato, Christina Xu, Marius Ion Danciu</td>
 </tr>
 </tbody>
 </table>
-<h2 id="ownerspec">OwnerSpec</h2>
+<p>These proposals are separate from the initial Responses enablement contract. Per-tenant storage overrides, database provisioning,
+automatic capability discovery and agentic bindings are future work; they are not prerequisites for the initial tenant API.</p>
+<p>Read alongside:</p>
+<ul>
+<li><a href="../01-guardrails-responses-high-level-design/">Responses and guardrails: high-level design</a></li>
+<li><a href="../02-guardrails-low-level-details/">Guardrails: API, Praxis compilation and reconciliation</a></li>
+<li>
+<p><a href="../02-responses-low-level-details/">Responses: enablement, storage and request lifecycle</a></p>
+</li>
+<li>
+<p><a href="../04-guardrails-future-expansion/">Guardrails: future expansion</a></p>
+</li>
+</ul>
+<p>In this document:</p>
+<ul>
+<li><a href="#future-storage-bindings">Future storage bindings</a></li>
+<li><a href="#future-kserve-capability-discovery-for-maas">Future KServe capability discovery for MaaS</a></li>
+<li><a href="#deferred-agentic-flows">Deferred agentic flows</a></li>
+<li><a href="#reviews">Reviews</a></li>
+</ul>
+<h2 id="future-storage-bindings">Future storage bindings</h2>
+<p>The initial <a href="../02-responses-low-level-details/#responses-enablement-and-lifecycle">Responses storage contract</a>
+uses a shared, Secret-based Responses connection through <code>PlatformDefault</code>. The alternatives below extend binding
+selection or provisioning; they do not replace the existing MaaS API connection convention.</p>
+<p><code>storage.mode</code> leaves room for later alternatives:</p>
 <table>
 <thead>
 <tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
+<th>Mode</th>
+<th>Initial or future contract</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>groups</td>
-<td>[]GroupReference</td>
-<td>No</td>
-<td>Kubernetes group names that own this subscription</td>
+<td><code>PlatformDefault</code></td>
+<td>Initial mode and default when storage mode is omitted: use the shared infrastructure Responses connection and CA binding</td>
 </tr>
 <tr>
-<td>users</td>
-<td>[]string</td>
-<td>No</td>
-<td>Kubernetes user names that own this subscription</td>
+<td><code>ExternalPostgres</code></td>
+<td>Future per-<code>AITenant</code> override: explicitly select a separately provisioned connection Secret and CA; database operations remain external</td>
+</tr>
+<tr>
+<td><code>ManagedPostgres</code></td>
+<td>Future development option: explicitly provision database/credentials/PVC; not part of the initial implementation or an implicit database-operator installation</td>
 </tr>
 </tbody>
 </table>
-<h2 id="modelsubscriptionref">ModelSubscriptionRef</h2>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>name</td>
-<td>string</td>
-<td>Yes</td>
-<td>Name of the MaaSModelRef</td>
-</tr>
-<tr>
-<td>namespace</td>
-<td>string</td>
-<td>Yes</td>
-<td>Namespace where the MaaSModelRef lives</td>
-</tr>
-<tr>
-<td>tokenRateLimits</td>
-<td>[]TokenRateLimit</td>
-<td>Yes</td>
-<td>Token-based rate limits for this model (at least one required)</td>
-</tr>
-<tr>
-<td>billingRate</td>
-<td>BillingRate</td>
-<td>No</td>
-<td>Cost per token</td>
-</tr>
-</tbody>
-</table>
-<h2 id="tokenratelimit">TokenRateLimit</h2>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>limit</td>
-<td>int64</td>
-<td>Yes</td>
-<td>Maximum number of tokens allowed</td>
-</tr>
-<tr>
-<td>window</td>
-<td>string</td>
-<td>Yes</td>
-<td>Time window (e.g., <code>1m</code>, <code>1h</code>, <code>24h</code>). Allowed units: <code>s</code>, <code>m</code>, <code>h</code> (1–9999). Pattern: <code>^[1-9]\d{0,3}(s\|m\|h)$</code>. <strong>Breaking change:</strong> <code>d</code> (days) is no longer accepted; use hours instead (e.g., <code>24h</code> not <code>1d</code>).</td>
-</tr>
-</tbody>
-</table>
-<h2 id="annotations">Annotations</h2>
-<p>MaaSSubscription supports standard Kubernetes and OpenShift annotations for use by <code>kubectl</code>, the OpenShift console, and other tooling.</p>
-<table>
-<thead>
-<tr>
-<th>Annotation</th>
-<th>Description</th>
-<th>Example</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>openshift.io/display-name</code></td>
-<td>Human-readable display name</td>
-<td><code>"Premium Subscription"</code></td>
-</tr>
-<tr>
-<td><code>openshift.io/description</code></td>
-<td>Free-text description</td>
-<td><code>"Premium-tier subscription with 1000 tokens/min rate limit"</code></td>
-</tr>
-</tbody>
-</table>
-<p><strong>Example:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">maas.opendatahub.io/v1alpha1</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MaaSSubscription</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">premium-subscription</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">models-as-a-service</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="nt">openshift.io/display-name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Premium</span><span class="nv"> </span><span class="s">Subscription&quot;</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">openshift.io/description</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Premium-tier</span><span class="nv"> </span><span class="s">subscription</span><span class="nv"> </span><span class="s">with</span><span class="nv"> </span><span class="s">1000</span><span class="nv"> </span><span class="s">tokens/min</span><span class="nv"> </span><span class="s">rate</span><span class="nv"> </span><span class="s">limit&quot;</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">  </span><span class="c1"># ...</span>
+<p>These modes describe how the runtime obtains its database binding, not who operates PostgreSQL. A future database claim
+that only publishes a customer-provided connection is still an external binding; it does not make the database managed
+by MaaS or AI Gateway. The deferred <code>ManagedPostgres</code> label above is reserved for actual database resource provisioning
+and lifecycle ownership. Whether to retain that separate development option is a future API decision.</p>
+<p>The following fragment illustrates a future per-<code>AITenant</code> override, not an initially supported configuration:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">AITenant</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">responses</span><span class="p">:</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">storage</span><span class="p">:</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">      </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ExternalPostgres</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">      </span><span class="nt">externalPostgres</span><span class="p">:</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">        </span><span class="nt">connectionSecretRef</span><span class="p">:</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">responses-database</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">          </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DB_CONNECTION_URL</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">        </span><span class="nt">caBundleRef</span><span class="p">:</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">responses-database-ca</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">          </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ca.crt</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">      </span><span class="nt">deletionPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Retain</span>
 </code></pre></div>
+<p>Override references resolve in the <code>AITenant</code> namespace and require platform authorization and restricted projection
+into the runtime. Once supported, an explicit override takes precedence over the platform default; an invalid override
+fails closed and never falls back to shared storage. Rotation activates a new runtime generation without disclosing
+credentials. Changing a database target is an explicit migration, including when switching between default and override.</p>
+<h2 id="future-kserve-capability-discovery-for-maas">Future KServe capability discovery for MaaS</h2>
+<p>This is a separate, proposed KServe integration deliverable. It is not required to introduce explicit MaaS capability
+configuration, and none of the status fields below exist in the inspected KServe API. Keep the initial three modes
+<code>ChatCompletions</code>, <code>Native</code> and <code>Unsupported</code>; discovery supplies compatibility evidence, not another enablement switch.</p>
+<p>The inspected KServe <code>LLMInferenceService</code> v1alpha2 status already exposes addresses, router/workload observations and
+applied configuration references. These provide places to associate observations with a deployed service, but do not
+establish which model APIs are supported. This integration is scoped exclusively to <code>LLMInferenceService</code>; Do not assume
+an LLMInferenceService uses a particular engine or the mere presence of a <code>/v1/responses</code> route establishes Responses
+feature coverage.</p>
+<h3 id="concrete-automatic-discovery-path-for-llminferenceservice">Concrete automatic discovery path for LLMInferenceService</h3>
+<p>Automatic discovery is feasible without asking model publishers to duplicate the task declaration. The strongest signal
+comes from the loaded engine itself. For example, vLLM's server obtains <code>engine_client.get_supported_tasks()</code> and uses
+the result when constructing its API application. This is an existing internal engine interface, not a universal HTTP
+metadata endpoint.
+See <a href="https://docs.vllm.ai/en/stable/api/vllm/entrypoints/openai/api_server/">vLLM server initialization</a>.</p>
+<p>For a supported vLLM image/version, propose the following integration:</p>
+<ol>
+<li>A small in-process reporting extension reads the initialized engine's supported tasks, resolved model identity and
+   enabled API handlers. It also checks API prerequisites such as an available chat template and enabled tool parser.
+   Report after model loading, and refresh on reload. A sidecar can relay a protected report but cannot inspect another
+   process's Python state; it needs an explicit engine endpoint or shared report file.</li>
+<li>KServe associates the report with the actual ready workloads behind the <code>LLMInferenceService</code>, using its workload
+   references and resolved model/base configuration. It verifies workload identity and revision, then publishes the
+   normalized capability observation in the service's proposed status. Engine pods need not receive Kubernetes status
+   write credentials; KServe remains the status writer.</li>
+<li>MaaS watches that status and computes effective Responses availability from the configured mode, observed backend
+   capability and Praxis adapter support. Unsupported generation makes Responses unavailable automatically, without
+   asking the user to change a defaulted mode or rewriting their spec. Explicit <code>Unsupported</code> always remains
+   restrictive.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Engine evidence</th>
+<th>Normalized result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Loaded engine supports generation and usable Chat Completions handler/template</td>
+<td>Chat Completions supported; eligible for Praxis translation, subject to feature compatibility</td>
+</tr>
+<tr>
+<td>Authoritative loaded-engine task set excludes generation</td>
+<td>Chat Completions/Responses generation unsupported; embedding or reranking remains independently discoverable</td>
+</tr>
+<tr>
+<td>Embedding task and enabled embedding handler</td>
+<td>Embeddings supported; do not infer the absence of other tasks</td>
+</tr>
+<tr>
+<td>Scoring/classification task</td>
+<td>Reranking is only a candidate until the adapter confirms the rerank API and required model behavior</td>
+</tr>
+<tr>
+<td>Native Responses handler and confirmed feature support</td>
+<td>Native Responses generation supported for that subset; does not select <code>Native</code> automatically or certify persistence</td>
+</tr>
+<tr>
+<td>Unknown engine, incomplete report, or stale workload/model revision</td>
+<td>Unknown; no inferred negative capability and no claim of verified support</td>
+</tr>
+</tbody>
+</table>
+<p>An earlier implementation can inspect resolved container arguments and configuration for known runtime versions, or
+perform bounded conformance probes, without modifying the engine. Explicit settings can establish some facts; automatic
+runner selection, custom entrypoints, missing chat templates and runtime model conversion make generic argument parsing
+incomplete. Architecture names in model metadata are hints, not the final answer. Avoid scraping startup logs as the
+stable discovery contract. The engine report is the preferred automatic path; configuration/probe adapters are fallback
+sources with explicit provenance and confidence, as detailed below.</p>
+<h3 id="discovery-and-publication">Discovery and publication</h3>
+<p>KServe could publish normalized capability observations in <code>LLMInferenceService.status.capabilities</code>, using an engine
+adapter and the resolved service configuration:</p>
+<ol>
+<li>Resolve the effective runtime configuration after <code>baseRefs</code> merging, including the loaded model identity, task and
+   serving options. A versioned, approved runtime profile can declare candidate APIs and their limitations; model
+   architecture metadata or command-line heuristics alone remain hints.</li>
+<li>Prefer a runtime-provided, model-specific capability report through a documented, authenticated metadata interface.
+   Where none exists, a trusted adapter can interpret known engine configuration for a pinned version. Do not invent a
+   universal discovery endpoint or execute model repository code to inspect capabilities.</li>
+<li>Optionally confirm advertised APIs with explicitly authorized, bounded synthetic conformance probes. Probes can
+   consume inference capacity and must not use customer content, create retained conversations, invoke tools or become
+   normal readiness traffic. A timeout or inaccessible endpoint is <code>Unknown</code>, not <code>Unsupported</code>.</li>
+<li>Publish per-capability <code>Supported</code>, <code>Unsupported</code> or <code>Unknown</code>, plus evidence source, observation time and the
+   service, workload/runtime and model revisions to which it applies. Aggregate across every replica/backend eligible
+   for the route; incompatible rolling revisions must not produce an optimistic service-wide capability claim.</li>
+</ol>
+<p>Illustrative <strong>proposed status</strong> for an embedding-only service, not an apply-ready resource or existing KServe schema:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LLMInferenceService</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">status</span><span class="p">:</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">capabilities</span><span class="p">:</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">observedGeneration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">12</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">runtimeRevision</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RENDER_RUNTIME_REVISION</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">modelRevision</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RENDER_MODEL_REVISION</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RuntimeReport</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">apis</span><span class="p">:</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="nt">chatCompletions</span><span class="p">:</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">        </span><span class="nt">support</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Unsupported</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">      </span><span class="nt">responses</span><span class="p">:</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">        </span><span class="nt">support</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Unsupported</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">      </span><span class="nt">embeddings</span><span class="p">:</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">        </span><span class="nt">support</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Supported</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">      </span><span class="nt">rerank</span><span class="p">:</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">        </span><span class="nt">support</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Unknown</span>
+</code></pre></div>
+<p>A native Responses report should distinguish request-generation support from individual features such as streaming,
+modalities and tools. Backend-native persistence is not a prerequisite for Praxis-managed persistence and is not a
+substitute for it. KServe reports backend facts; it must not publish MaaS adapter modes, guardrail policy or tenant
+entitlements as runtime capabilities. Final field names and versioning require a KServe API review.</p>
+<h3 id="maas-consumption-and-precedence">MaaS consumption and precedence</h3>
+<p>MaaS reads observations through its resolved <code>modelRef</code>, checks resource UID and observed runtime/model revision, then
+combines them with the configured mode and the selected Praxis adapter's capabilities. It records the effective result
+and provenance in model status and recompiles affected plans on changes. It does not rewrite <code>spec</code> or probe the backend
+on the inference path.</p>
+<table>
+<thead>
+<tr>
+<th>Model setting and observation</th>
+<th>Proposed behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Explicit <code>Unsupported</code></td>
+<td>Always keep Responses unavailable, even if KServe reports generation support</td>
+</tr>
+<tr>
+<td>Explicit or defaulted <code>ChatCompletions</code>; chat generation supported</td>
+<td>Admit only the Responses subset supported by Praxis translation and the loaded model</td>
+</tr>
+<tr>
+<td>Explicit or defaulted <code>ChatCompletions</code>; chat generation unsupported</td>
+<td>Reject activation for Responses and surface incompatibility; keep unrelated model APIs available</td>
+</tr>
+<tr>
+<td>Explicit <code>Native</code>; native generation supported</td>
+<td>Validate the requested feature subset; retain Praxis ownership/storage and policy enforcement</td>
+</tr>
+<tr>
+<td>Explicit <code>Native</code>; native generation unsupported</td>
+<td>Reject activation; do not silently change adapter mode</td>
+</tr>
+<tr>
+<td>Discovery not integrated/available</td>
+<td>Retain the initial declaration/default and existing compatibility-validation contract; do not claim automatic verification</td>
+</tr>
+<tr>
+<td>Discovery required for this deployment, but observation unknown/stale</td>
+<td>Keep affected Responses plans unavailable pending fresh evidence; do not turn a probe failure into a supported or unsupported assertion</td>
+</tr>
+</tbody>
+</table>
+<p>A reported embedding/reranking capability alone does not prove generation is unsupported: a service can support multiple
+tasks. Require a reliable negative chat-generation observation to invalidate <code>ChatCompletions</code> on that basis. Do not
+silently upgrade the default to <code>Native</code> when KServe reports native support. If a future API wants discovery to select
+the mode automatically, define that opt-in separately rather than changing this default's meaning.</p>
+<p>Invalidation must cover model reloads, mutable configuration updates, serving arguments, image/runtime revisions,
+replica rollouts and endpoint changes, not only changes to the top-level resource generation. KServe remains the writer
+of its observations; MaaS applies its own access and feature policy. ExternalModel providers need a separate discovery
+adapter or explicit declarations; this KServe proposal does not imply automatic external-provider discovery.</p>
+<h2 id="deferred-agentic-flows">Deferred agentic flows</h2>
+<p>The supplied <code>full-flow-agentic.yaml</code> and <code>agentic-loop.yaml</code> remain references for existing file-search and MCP
+execution using <code>iterative_request_router</code> and the corresponding callout/dispatch filters. File search and MCP are
+outside the initial tenant API; their bindings, authorization and guarded iteration require separate deliverables. This
+design does not introduce additional filter types or speculative configuration fields for them.</p>
+<h2 id="reviews">Reviews</h2>
+<p>See the shared <a href="../01-guardrails-responses-high-level-design/#reviews">review record</a> in the high-level design.</p>
 
 
 
@@ -3503,7 +3507,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 21, 2026 20:56:13 UTC">September 21, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 21, 2026 11:50:04 UTC">September 21, 2026</span>
   </span>
 
     
@@ -3513,7 +3517,7 @@
     <span class="md-icon" title="Created">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="March 18, 2026 15:47:11 UTC">March 18, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 21, 2026 11:50:04 UTC">September 21, 2026</span>
   </span>
 
     
@@ -3568,10 +3572,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "search.suggest", "search.boost", "navigation.instant"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "search.suggest", "search.boost", "navigation.instant"], "search": "../../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
