@@ -37,7 +37,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 		discoveryNS  = "odh-ai-gateway-infra"
 		aitenantNS   = "ai-tenants"
 		gatewayNS    = "openshift-ingress"
-		testImage    = "quay.io/test/maas-discovery:v1"
+		testImage    = "quay.io/test/odh-maas-discovery:v1"
 	)
 
 	gvkDeployment := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}

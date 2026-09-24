@@ -248,7 +248,7 @@ ADVANCED OPTIONS (PR Testing):
 
   --maas-discovery-image <image>
       Custom MaaS discovery service container image (PR testing)
-      Example: quay.io/opendatahub/maas-discovery:pr-789
+      Example: quay.io/opendatahub/odh-maas-discovery:pr-789
 
   --enable-discovery
       Enable the MaaS discovery service (disabled by default)
