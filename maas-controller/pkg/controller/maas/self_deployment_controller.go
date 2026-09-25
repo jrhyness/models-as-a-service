@@ -94,6 +94,7 @@ type LifecycleReconciler struct {
 	DiscoveryEnabled            bool
 	DiscoveryManifestPath       string
 	DiscoveryImage              string
+	DiscoveryLogLevel           string
 	DiscoveryNamespace          string
 	DiscoveryReplicas           *int32
 	ClusterAudience             string
