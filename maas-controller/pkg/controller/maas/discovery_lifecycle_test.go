@@ -416,6 +416,89 @@ func TestPatchDiscoveryImage(t *testing.T) {
 	})
 }
 
+func TestPatchDiscoveryArgs(t *testing.T) {
+	t.Run("patches namespace args and appends log-level when missing", func(t *testing.T) {
+		g := NewWithT(t)
+
+		dep := &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
+			"metadata":   map[string]any{"name": discoveryDeploymentName},
+			"spec": map[string]any{
+				"template": map[string]any{
+					"spec": map[string]any{
+						"containers": []any{
+							map[string]any{
+								"name": discoveryContainerName,
+								"args": []any{
+									"--tls-cert=/tls/tls.crt",
+									"--aitenant-namespace=old-ai-tenants",
+									"--gateway-namespace=old-gateway",
+								},
+							},
+						},
+					},
+				},
+			},
+		}}
+
+		err := patchDiscoveryArgs(dep, "ai-tenants", "openshift-ingress", "debug")
+		g.Expect(err).NotTo(HaveOccurred())
+
+		containers, found, err := unstructured.NestedSlice(dep.Object, "spec", "template", "spec", "containers")
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(found).To(BeTrue())
+		cm, ok := containers[0].(map[string]any)
+		g.Expect(ok).To(BeTrue())
+		args, ok := cm["args"].([]any)
+		g.Expect(ok).To(BeTrue())
+
+		g.Expect(args).To(ContainElement("--aitenant-namespace=ai-tenants"))
+		g.Expect(args).To(ContainElement("--gateway-namespace=openshift-ingress"))
+		g.Expect(args).To(ContainElement("--log-level=debug"))
+	})
+
+	t.Run("replaces existing log-level", func(t *testing.T) {
+		g := NewWithT(t)
+
+		dep := &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
+			"metadata":   map[string]any{"name": discoveryDeploymentName},
+			"spec": map[string]any{
+				"template": map[string]any{
+					"spec": map[string]any{
+						"containers": []any{
+							map[string]any{
+								"name": discoveryContainerName,
+								"args": []any{
+									"--aitenant-namespace=ai-tenants",
+									"--gateway-namespace=openshift-ingress",
+									"--log-level=info",
+								},
+							},
+						},
+					},
+				},
+			},
+		}}
+
+		err := patchDiscoveryArgs(dep, "ai-tenants", "openshift-ingress", "error")
+		g.Expect(err).NotTo(HaveOccurred())
+
+		containers, found, err := unstructured.NestedSlice(dep.Object, "spec", "template", "spec", "containers")
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(found).To(BeTrue())
+		cm, ok := containers[0].(map[string]any)
+		g.Expect(ok).To(BeTrue())
+		args, ok := cm["args"].([]any)
+		g.Expect(ok).To(BeTrue())
+
+		g.Expect(args).To(ContainElement("--log-level=error"))
+		g.Expect(args).NotTo(ContainElement("--log-level=info"))
+	})
+}
+
 func TestPatchDiscoveryReplicas(t *testing.T) {
 	t.Run("patches replicas when set", func(t *testing.T) {
 		g := NewWithT(t)
@@ -521,6 +604,18 @@ func TestBuildDiscoveryGatewayResources(t *testing.T) {
 	audiences, found, _ := unstructured.NestedStringSlice(ap.Object, "spec", "rules", "authentication", "openshift-identities", "kubernetesTokenReview", "audiences")
 	g.Expect(found).To(BeTrue())
 	g.Expect(audiences).To(ConsistOf("https://test-audience.example.com"))
+
+	usernameSelector, found, err := unstructured.NestedString(ap.Object,
+		"spec", "rules", "response", "success", "headers", "X-MaaS-Username", "plain", "selector")
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(found).To(BeTrue())
+	g.Expect(usernameSelector).To(Equal("auth.identity.user.username"))
+
+	groupSelector, found, err := unstructured.NestedString(ap.Object,
+		"spec", "rules", "response", "success", "headers", "X-MaaS-Group", "plain", "selector")
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(found).To(BeTrue())
+	g.Expect(groupSelector).To(Equal("auth.identity.user.groups.@tostr"))
 }
 
 func TestPatchDiscoveryHTTPRouteParentRef(t *testing.T) {

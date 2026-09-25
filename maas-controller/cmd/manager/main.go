@@ -884,6 +884,21 @@ func envOrDefault(envVar, defaultVal string) string {
 	return defaultVal
 }
 
+func discoveryLogLevelOrDefault(envVar, defaultVal string) string {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv(envVar)))
+	if v == "" {
+		return defaultVal
+	}
+
+	switch v {
+	case "debug", "info", "warn", "error":
+		return v
+	default:
+		setupLog.Info("ignoring invalid discovery log level", "env", envVar, "value", v, "using", defaultVal)
+		return defaultVal
+	}
+}
+
 // resolveInfraNamespace determines the infrastructure namespace for maas-api and maas-db-config.
 // Note: PostgreSQL itself can be external (e.g., AWS RDS) - only maas-api and the connection secret deploy here.
 // If infraNs is "AUTO", derives the namespace from the controller namespace.
@@ -1337,6 +1352,7 @@ func main() {
 		DiscoveryEnabled:            os.Getenv("MAAS_DISCOVERY_ENABLED") == "true",
 		DiscoveryManifestPath:       "/deployment/base/maas-discovery",
 		DiscoveryImage:              os.Getenv("RELATED_IMAGE_ODH_MAAS_DISCOVERY_IMAGE"),
+		DiscoveryLogLevel:           discoveryLogLevelOrDefault("MAAS_DISCOVERY_LOG_LEVEL", "info"),
 		DiscoveryNamespace:          controllerNamespace,
 		DiscoveryReplicas:           parseReplicasEnv("MAAS_DISCOVERY_REPLICAS"),
 		ClusterAudience:             clusterAudience,

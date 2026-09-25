@@ -7,3 +7,7 @@ rules:
 - apiGroups: ["config.openshift.io"]
   resources: ["apiservers"]
   verbs: ["get", "list", "watch"]
+# Tenant visibility entitlement inputs (cluster-wide reads)
+- apiGroups: ["maas.opendatahub.io"]
+  resources: ["maasauthpolicies", "maassubscriptions"]
+  verbs: ["get", "list", "watch"]
