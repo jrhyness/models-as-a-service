@@ -66,7 +66,7 @@ func (r *LifecycleReconciler) ensureDiscoveryService(ctx context.Context, log lo
 	if !r.DiscoveryEnabled {
 		resources := buildDiscoveryStaticResources(discoveryNS)
 		resources = append(resources, buildDiscoveryCrossNamespaceRBAC(discoveryNS, r.AITenantNamespace, r.GatewayNamespace)...)
-		resources = append(resources, buildDiscoveryGatewayResources(discoveryNS, r.GatewayName, r.GatewayNamespace)...)
+		resources = append(resources, buildDiscoveryGatewayResources(discoveryNS, r.GatewayNamespace, r.ClusterAudience)...)
 		return r.teardownDiscoveryResources(ctx, log, &cfg, resources)
 	}
 
