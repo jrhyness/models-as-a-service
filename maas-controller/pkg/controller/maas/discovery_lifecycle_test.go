@@ -662,3 +662,145 @@ func TestBuildDiscoveryCrossNamespaceRBAC(t *testing.T) {
 	g.Expect(sameNS[2].GetName()).To(Equal(discoveryGatewayRBAC))
 	g.Expect(sameNS[3].GetName()).To(Equal(discoveryGatewayRBAC))
 }
+
+func TestBuildDiscoveryIngressNetworkPolicy(t *testing.T) {
+	g := NewWithT(t)
+
+	np := buildDiscoveryIngressNetworkPolicy("odh-ai-gateway-infra", "data-science-gateway", "openshift-ingress")
+	g.Expect(np.GetKind()).To(Equal("NetworkPolicy"))
+	g.Expect(np.GetName()).To(Equal(discoveryNetworkPolicyName))
+	g.Expect(np.GetNamespace()).To(Equal("odh-ai-gateway-infra"))
+
+	ingressRules, found, err := unstructured.NestedSlice(np.Object, "spec", "ingress")
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(found).To(BeTrue())
+	g.Expect(ingressRules).To(HaveLen(1))
+	rule, ok := ingressRules[0].(map[string]any)
+	g.Expect(ok).To(BeTrue())
+	fromEntries, ok := rule["from"].([]any)
+	g.Expect(ok).To(BeTrue())
+	g.Expect(fromEntries).To(HaveLen(1))
+	peer, ok := fromEntries[0].(map[string]any)
+	g.Expect(ok).To(BeTrue())
+	nsSelector, ok := peer["namespaceSelector"].(map[string]any)
+	g.Expect(ok).To(BeTrue())
+	nsMatchLabels, ok := nsSelector["matchLabels"].(map[string]any)
+	g.Expect(ok).To(BeTrue())
+	g.Expect(nsMatchLabels["kubernetes.io/metadata.name"]).To(Equal("openshift-ingress"))
+	podSelector, ok := peer["podSelector"].(map[string]any)
+	g.Expect(ok).To(BeTrue())
+	podMatchLabels, ok := podSelector["matchLabels"].(map[string]any)
+	g.Expect(ok).To(BeTrue())
+	g.Expect(podMatchLabels["gateway.networking.k8s.io/gateway-name"]).To(Equal("data-science-gateway"))
+}
+
+func TestEnsureDiscoveryServiceNetworkPolicy(t *testing.T) {
+	const (
+		controllerNS = "opendatahub"
+		discoveryNS  = "odh-ai-gateway-infra"
+		aitenantNS   = "ai-tenants"
+		gatewayNS    = "openshift-ingress"
+		gwName       = "data-science-gateway"
+		testImage    = "quay.io/test/maas-discovery:v1"
+	)
+
+	gvkNetworkPolicy := schema.GroupVersionKind{Group: "networking.k8s.io", Version: "v1", Kind: "NetworkPolicy"}
+
+	manifestPath := discoveryManifestPath(t)
+
+	t.Run("enabled creates gateway-scoped NetworkPolicy in discovery namespace", func(t *testing.T) {
+		g := NewWithT(t)
+		s := lifecycleTestScheme(t)
+
+		cfg := &maasv1alpha1.Config{
+			ObjectMeta: metav1.ObjectMeta{Name: maasv1alpha1.ConfigInstanceName, UID: types.UID("cfg-uid")},
+		}
+
+		cl := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg).Build()
+		r := &LifecycleReconciler{
+			Client:                cl,
+			Scheme:                s,
+			DeploymentNS:          controllerNS,
+			AITenantNamespace:     aitenantNS,
+			DiscoveryGatewayName:  gwName,
+			GatewayNamespace:      gatewayNS,
+			DiscoveryEnabled:      true,
+			DiscoveryManifestPath: manifestPath,
+			DiscoveryImage:        testImage,
+			DiscoveryNamespace:    discoveryNS,
+		}
+
+		err := r.ensureDiscoveryService(context.Background(), ctrl.Log)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		got := &unstructured.Unstructured{}
+		got.SetGroupVersionKind(gvkNetworkPolicy)
+		g.Expect(cl.Get(context.Background(), client.ObjectKey{Name: discoveryNetworkPolicyName, Namespace: discoveryNS}, got)).
+			To(Succeed(), "NetworkPolicy should be created in discovery namespace")
+
+		ingressRules, found, err := unstructured.NestedSlice(got.Object, "spec", "ingress")
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(found).To(BeTrue())
+		g.Expect(ingressRules).To(HaveLen(1))
+		rule, ok := ingressRules[0].(map[string]any)
+		g.Expect(ok).To(BeTrue())
+		fromEntries, ok := rule["from"].([]any)
+		g.Expect(ok).To(BeTrue())
+		g.Expect(fromEntries).To(HaveLen(1))
+		peer, ok := fromEntries[0].(map[string]any)
+		g.Expect(ok).To(BeTrue())
+		nsSelector, ok := peer["namespaceSelector"].(map[string]any)
+		g.Expect(ok).To(BeTrue())
+		nsMatchLabels, ok := nsSelector["matchLabels"].(map[string]any)
+		g.Expect(ok).To(BeTrue())
+		g.Expect(nsMatchLabels["kubernetes.io/metadata.name"]).To(Equal(gatewayNS))
+		podSelector, ok := peer["podSelector"].(map[string]any)
+		g.Expect(ok).To(BeTrue())
+		podMatchLabels, ok := podSelector["matchLabels"].(map[string]any)
+		g.Expect(ok).To(BeTrue())
+		g.Expect(podMatchLabels["gateway.networking.k8s.io/gateway-name"]).To(Equal(gwName))
+	})
+
+	t.Run("disabled deletes owned NetworkPolicy", func(t *testing.T) {
+		g := NewWithT(t)
+		s := lifecycleTestScheme(t)
+
+		cfg := &maasv1alpha1.Config{
+			ObjectMeta: metav1.ObjectMeta{Name: maasv1alpha1.ConfigInstanceName, UID: types.UID("cfg-uid")},
+		}
+
+		ownedNP := &unstructured.Unstructured{}
+		ownedNP.SetGroupVersionKind(gvkNetworkPolicy)
+		ownedNP.SetName(discoveryNetworkPolicyName)
+		ownedNP.SetNamespace(discoveryNS)
+		ownedNP.SetOwnerReferences([]metav1.OwnerReference{{
+			APIVersion: "maas.opendatahub.io/v1alpha1",
+			Kind:       "Config",
+			Name:       maasv1alpha1.ConfigInstanceName,
+			UID:        cfg.UID,
+			Controller: ptr.To(true),
+		}})
+
+		cl := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg, ownedNP).Build()
+		r := &LifecycleReconciler{
+			Client:                cl,
+			Scheme:                s,
+			DeploymentNS:          controllerNS,
+			AITenantNamespace:     aitenantNS,
+			DiscoveryGatewayName:  gwName,
+			GatewayNamespace:      gatewayNS,
+			DiscoveryEnabled:      false,
+			DiscoveryManifestPath: manifestPath,
+			DiscoveryImage:        testImage,
+			DiscoveryNamespace:    discoveryNS,
+		}
+
+		err := r.ensureDiscoveryService(context.Background(), ctrl.Log)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		got := &unstructured.Unstructured{}
+		got.SetGroupVersionKind(gvkNetworkPolicy)
+		err = cl.Get(context.Background(), client.ObjectKey{Name: discoveryNetworkPolicyName, Namespace: discoveryNS}, got)
+		g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "owned NetworkPolicy should be deleted")
+	})
+}

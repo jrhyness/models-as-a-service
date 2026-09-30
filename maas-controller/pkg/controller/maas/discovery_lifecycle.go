@@ -36,10 +36,11 @@ import (
 )
 
 const (
-	discoveryDeploymentName = "maas-discovery"
-	discoveryContainerName  = "maas-discovery"
-	discoveryAITenantRBAC   = "maas-discovery-aitenants"
-	discoveryGatewayRBAC    = "maas-discovery-gateway"
+	discoveryDeploymentName    = "maas-discovery"
+	discoveryContainerName     = "maas-discovery"
+	discoveryAITenantRBAC      = "maas-discovery-aitenants"
+	discoveryGatewayRBAC       = "maas-discovery-gateway"
+	discoveryNetworkPolicyName = "maas-discovery-ingress-from-gateway"
 )
 
 func (r *LifecycleReconciler) ensureDiscoveryService(ctx context.Context, log logr.Logger) error {
@@ -64,6 +65,7 @@ func (r *LifecycleReconciler) ensureDiscoveryService(ctx context.Context, log lo
 	if !r.DiscoveryEnabled {
 		resources := buildDiscoveryStaticResources(discoveryNS)
 		resources = append(resources, buildDiscoveryCrossNamespaceRBAC(discoveryNS, r.AITenantNamespace, r.GatewayNamespace)...)
+		resources = append(resources, buildDiscoveryIngressNetworkPolicy(discoveryNS, r.DiscoveryGatewayName, r.GatewayNamespace))
 		return r.teardownDiscoveryResources(ctx, log, &cfg, resources)
 	}
 
@@ -74,6 +76,9 @@ func (r *LifecycleReconciler) ensureDiscoveryService(ctx context.Context, log lo
 
 	crossNS := buildDiscoveryCrossNamespaceRBAC(discoveryNS, r.AITenantNamespace, r.GatewayNamespace)
 	resources = append(resources, crossNS...)
+
+	np := buildDiscoveryIngressNetworkPolicy(discoveryNS, r.DiscoveryGatewayName, r.GatewayNamespace)
+	resources = append(resources, np)
 	for i := range resources {
 		res := &resources[i]
 
@@ -228,6 +233,7 @@ func buildDiscoveryStaticResources(discoveryNS string) []unstructured.Unstructur
 		newDiscoveryResource("apps/v1", "Deployment", discoveryNS, discoveryDeploymentName),
 		newDiscoveryResource("v1", "Service", discoveryNS, discoveryDeploymentName),
 		newDiscoveryResource("v1", "ServiceAccount", discoveryNS, discoveryDeploymentName),
+		newDiscoveryResource("networking.k8s.io/v1", "NetworkPolicy", discoveryNS, discoveryNetworkPolicyName),
 		newDiscoveryResource("rbac.authorization.k8s.io/v1", "ClusterRole", "", discoveryDeploymentName),
 		newDiscoveryResource("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", "", discoveryDeploymentName),
 	}
@@ -317,6 +323,49 @@ func buildDiscoveryCrossNamespaceRBAC(controllerNS, aitenantNS, gatewayNS string
 	})
 
 	return []unstructured.Unstructured{aiTenantRole, aiTenantBinding, gatewayRole, gatewayBinding}
+}
+
+func buildDiscoveryIngressNetworkPolicy(discoveryNS, gatewayName, gatewayNS string) unstructured.Unstructured {
+	return unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "networking.k8s.io/v1",
+		"kind":       "NetworkPolicy",
+		"metadata": map[string]any{
+			"name":      discoveryNetworkPolicyName,
+			"namespace": discoveryNS,
+		},
+		"spec": map[string]any{
+			"podSelector": map[string]any{
+				"matchLabels": map[string]any{
+					"app.kubernetes.io/name": discoveryDeploymentName,
+				},
+			},
+			"policyTypes": []any{"Ingress"},
+			"ingress": []any{
+				map[string]any{
+					"from": []any{
+						map[string]any{
+							"namespaceSelector": map[string]any{
+								"matchLabels": map[string]any{
+									"kubernetes.io/metadata.name": gatewayNS,
+								},
+							},
+							"podSelector": map[string]any{
+								"matchLabels": map[string]any{
+									"gateway.networking.k8s.io/gateway-name": gatewayName,
+								},
+							},
+						},
+					},
+					"ports": []any{
+						map[string]any{
+							"protocol": "TCP",
+							"port":     int64(8443),
+						},
+					},
+				},
+			},
+		},
+	}}
 }
 
 func toUnstructured(obj any) unstructured.Unstructured {
