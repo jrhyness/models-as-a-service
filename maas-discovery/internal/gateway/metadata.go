@@ -14,13 +14,23 @@ const (
 	protocolHTTPS = "HTTPS"
 	protocolTLS   = "TLS"
 	protocolHTTP  = "HTTP"
+	schemeHTTPS   = "https"
+	schemeHTTP    = "http"
 )
+
+// RouteHostInfo stores externally reachable Route endpoint metadata for a
+// Gateway Service backend.
+type RouteHostInfo struct {
+	Host   string
+	Scheme string
+	Port   int64
+}
 
 // ExtractMetadata extracts connection metadata from a Gateway's unstructured object map.
 // On success it returns a fully populated GatewayMetadata. If the gateway is missing
 // status, listeners, or an external hostname, it returns an error. Callers should
 // degrade gracefully by keeping name/namespace and omitting externalUrl.
-func ExtractMetadata(gateway map[string]any, name, namespace string, routeHosts ...map[string]string) (*types.GatewayMetadata, error) {
+func ExtractMetadata(gateway map[string]any, name, namespace string, routeHosts ...map[string]RouteHostInfo) (*types.GatewayMetadata, error) {
 	spec, ok := gateway["spec"].(map[string]any)
 	if !ok {
 		return nil, errors.New("gateway spec not found")
@@ -72,28 +82,40 @@ func ExtractMetadata(gateway map[string]any, name, namespace string, routeHosts 
 
 	if strings.HasSuffix(externalHost, ".svc.cluster.local") {
 		svcName, _, _ := strings.Cut(externalHost, ".")
-		var resolved bool
+		effectiveScheme, effectivePort := listenerSchemeAndPort(protocol, port)
 		for _, rh := range routeHosts {
-			if host, ok := rh[svcName]; ok {
-				externalHost = host
-				resolved = true
-				break
+			if routeInfo, ok := rh[svcName]; ok {
+				externalHost = routeInfo.Host
+				if routeInfo.Scheme != "" {
+					effectiveScheme = routeInfo.Scheme
+				}
+				if routeInfo.Port != 0 {
+					effectivePort = routeInfo.Port
+				}
+				scheme := effectiveScheme
+				externalURL := fmt.Sprintf("%s://%s", scheme, externalHost)
+				if (scheme == schemeHTTPS && effectivePort != 443) || (scheme == schemeHTTP && effectivePort != 80) {
+					externalURL = fmt.Sprintf("%s:%d", externalURL, effectivePort)
+				}
+
+				return &types.GatewayMetadata{
+					Name:        name,
+					Namespace:   namespace,
+					Protocol:    scheme,
+					ExternalURL: externalURL,
+					Port:        effectivePort,
+				}, nil
 			}
 		}
-		if !resolved {
-			return nil, fmt.Errorf("gateway %s/%s has internal service name %s instead of external hostname",
-				namespace, name, externalHost)
-		}
+		return nil, fmt.Errorf("gateway %s/%s has internal service name %s instead of external hostname",
+			namespace, name, externalHost)
 	}
 
-	scheme := "https"
-	if protocol == protocolHTTP {
-		scheme = "http"
-	}
+	scheme, effectivePort := listenerSchemeAndPort(protocol, port)
 
 	externalURL := fmt.Sprintf("%s://%s", scheme, externalHost)
-	if (scheme == "https" && port != 443) || (scheme == "http" && port != 80) {
-		externalURL = fmt.Sprintf("%s:%d", externalURL, port)
+	if (scheme == schemeHTTPS && effectivePort != 443) || (scheme == schemeHTTP && effectivePort != 80) {
+		externalURL = fmt.Sprintf("%s:%d", externalURL, effectivePort)
 	}
 
 	return &types.GatewayMetadata{
@@ -101,15 +123,19 @@ func ExtractMetadata(gateway map[string]any, name, namespace string, routeHosts 
 		Namespace:   namespace,
 		Protocol:    scheme,
 		ExternalURL: externalURL,
-		Port:        port,
+		Port:        effectivePort,
 	}, nil
 }
 
-// BuildRouteHostMap builds a map from Kubernetes Service name to external hostname
-// by inspecting OpenShift Route objects. Returns an empty map if no routes are provided.
-func BuildRouteHostMap(routes []unstructured.Unstructured) map[string]string {
-	m := make(map[string]string, len(routes))
+// BuildRouteHostMap builds a map from Kubernetes Service name to admitted external
+// Route endpoint metadata. Returns an empty map if no routes are provided.
+func BuildRouteHostMap(routes []unstructured.Unstructured) map[string]RouteHostInfo {
+	m := make(map[string]RouteHostInfo, len(routes))
 	for i := range routes {
+		if !routeAdmitted(routes[i].Object) {
+			continue
+		}
+
 		spec, ok := routes[i].Object["spec"].(map[string]any)
 		if !ok {
 			continue
@@ -126,9 +152,70 @@ func BuildRouteHostMap(routes []unstructured.Unstructured) map[string]string {
 		if svcName == "" {
 			continue
 		}
-		m[svcName] = host
+
+		scheme := schemeHTTP
+		port := int64(80)
+		if routeUsesTLS(spec) {
+			scheme = schemeHTTPS
+			port = 443
+		}
+
+		existing, found := m[svcName]
+		if found && existing.Scheme == schemeHTTPS {
+			continue
+		}
+
+		m[svcName] = RouteHostInfo{Host: host, Scheme: scheme, Port: port}
 	}
 	return m
+}
+
+func listenerSchemeAndPort(listenerProtocol string, listenerPort int64) (string, int64) {
+	scheme := schemeHTTPS
+	if listenerProtocol == protocolHTTP {
+		scheme = schemeHTTP
+	}
+	return scheme, listenerPort
+}
+
+func routeUsesTLS(routeSpec map[string]any) bool {
+	_, ok := routeSpec["tls"].(map[string]any)
+	return ok
+}
+
+func routeAdmitted(route map[string]any) bool {
+	status, ok := route["status"].(map[string]any)
+	if !ok {
+		return false
+	}
+	ingresses, ok := status["ingress"].([]any)
+	if !ok {
+		return false
+	}
+
+	for _, ingress := range ingresses {
+		ingressMap, ok := ingress.(map[string]any)
+		if !ok {
+			continue
+		}
+		conditions, ok := ingressMap["conditions"].([]any)
+		if !ok {
+			continue
+		}
+		for _, cond := range conditions {
+			condMap, ok := cond.(map[string]any)
+			if !ok {
+				continue
+			}
+			typeVal, _ := condMap["type"].(string)
+			statusVal, _ := condMap["status"].(string)
+			if typeVal == "Admitted" && statusVal == "True" {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // selectBestListener picks the best ready listener from a Gateway spec.

@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -21,7 +23,12 @@ import (
 	"github.com/opendatahub-io/models-as-a-service/maas-discovery/internal/types"
 )
 
-const rebuildDebounce = 100 * time.Millisecond
+const (
+	rebuildDebounce   = 100 * time.Millisecond
+	routeSyncTimeout  = 15 * time.Second
+	routeGroupVersion = "route.openshift.io/v1"
+	routeResourceName = "routes"
+)
 
 var (
 	aiTenantGVR = schema.GroupVersionResource{
@@ -109,7 +116,12 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 	// Route informer (OpenShift only) — provides external hostnames for gateways
 	// whose status.addresses only contain internal service names.
 	var routeInformer k8scache.SharedIndexInformer
-	routesAvailable := routeAPIAvailable(ic.restConfig)
+	routesAvailable, routeCheckErr := routeAPIAvailable(ic.restConfig)
+	if routeCheckErr != nil {
+		ic.log.Warn("unable to verify OpenShift Route API availability, attempting Route informer startup",
+			"error", routeCheckErr)
+		routesAvailable = true
+	}
 	if routesAvailable {
 		routeFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(
 			dynamicClient, 0, ic.gatewayNamespace, nil,
@@ -170,8 +182,14 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 	}
 
 	if routeInformer != nil {
-		if !k8scache.WaitForCacheSync(stopCh, routeInformer.HasSynced) {
-			ic.log.Warn("Route informer sync failed, continuing without Route data")
+		routeSyncCtx, cancel := context.WithTimeout(ctx, routeSyncTimeout)
+		defer cancel()
+		if !k8scache.WaitForCacheSync(routeSyncCtx.Done(), routeInformer.HasSynced) {
+			if errors.Is(routeSyncCtx.Err(), context.DeadlineExceeded) {
+				ic.log.Warn("Route informer sync timed out, continuing without Route data", "timeout", routeSyncTimeout.String())
+			} else {
+				ic.log.Warn("Route informer sync failed, continuing without Route data")
+			}
 			routeInformer = nil
 		}
 	}
@@ -351,25 +369,25 @@ func resolveGatewayName(tenant *unstructured.Unstructured) string {
 	return name
 }
 
-// routeAPIAvailable checks whether the route.openshift.io/v1 API group is
-// registered on the cluster. Returns false on vanilla Kubernetes.
-func routeAPIAvailable(cfg *rest.Config) bool {
+// routeAPIAvailable checks whether the route.openshift.io/v1 routes resource is
+// registered on the cluster. Returns (false, nil) when the API is absent.
+// Returns an error when discovery fails for other reasons.
+func routeAPIAvailable(cfg *rest.Config) (bool, error) {
 	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
 	if err != nil {
-		return false
+		return false, err
 	}
-	_, resources, err := dc.ServerGroupsAndResources()
+	rl, err := dc.ServerResourcesForGroupVersion(routeGroupVersion)
 	if err != nil {
-		return false
+		if apierrors.IsNotFound(err) || apimeta.IsNoMatchError(err) {
+			return false, nil
+		}
+		return false, err
 	}
-	for _, rl := range resources {
-		if rl.GroupVersion == "route.openshift.io/v1" {
-			for _, r := range rl.APIResources {
-				if r.Name == "routes" {
-					return true
-				}
-			}
+	for _, r := range rl.APIResources {
+		if r.Name == routeResourceName {
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
