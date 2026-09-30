@@ -690,6 +690,8 @@ main() {
     fi
   fi
 
+  local controller_restart_required=false
+
   if [[ "$maas_controller_exists" == "true" && "$FORCE_OVERWRITE" != "true" ]]; then
     log_info "  maas-controller already exists in $NAMESPACE (e.g. operator-managed), skipping manifest apply"
   else
@@ -777,13 +779,10 @@ EOF
     }
     rm -rf "${controller_overlay_dir}"
 
-    # Force pod recreation so imagePullPolicy=Always can pick up newly published
-    # image content even when the maas-controller image tag itself is unchanged.
-    log_info "  Restarting maas-controller to pick up manifest and ConfigMap changes"
-    kubectl rollout restart deployment/maas-controller -n "$NAMESPACE" || {
-      log_error "Failed to restart maas-controller deployment"
-      return 1
-    }
+    # Queue a single restart after all controller/dependency patches are complete.
+    # This still guarantees pod recreation so imagePullPolicy=Always can pick up
+    # newly published image content even when the image tag is unchanged.
+    controller_restart_required=true
   fi
 
   # Patch INFRA_NAMESPACE if set via environment variable
@@ -799,16 +798,21 @@ EOF
       jq '.spec.template.spec.containers[0].env | map(.name) | index("INFRA_NAMESPACE")')
 
     if [ "$env_index" != "null" ]; then
-      kubectl patch deployment maas-controller -n "$NAMESPACE" --type=json -p="[
+      if kubectl patch deployment maas-controller -n "$NAMESPACE" --type=json -p="[
         {\"op\": \"replace\", \"path\": \"/spec/template/spec/containers/0/env/${env_index}\",
          \"value\": {\"name\": \"INFRA_NAMESPACE\", \"value\": \"${infra_ns_value}\"}}
-      ]" || log_warn "Failed to patch INFRA_NAMESPACE (non-fatal)"
+      ]"; then
+        controller_restart_required=true
+      else
+        log_warn "Failed to patch INFRA_NAMESPACE (non-fatal)"
+      fi
     fi
   fi
 
   # Patch maas-parameters ConfigMap with discovery overrides when set via CLI/env.
   # The controller reads these at startup via configMapKeyRef env vars.
   local discovery_patched=false
+  local discovery_patch_changed=false
   if [[ -n "${MAAS_DISCOVERY_ENABLED:-}" || -n "${MAAS_DISCOVERY_IMAGE:-}" || -n "${MAAS_DISCOVERY_REPLICAS:-}" ]]; then
     log_info "  Patching maas-parameters ConfigMap with discovery settings..."
     local patch_json="{\"data\":{"
@@ -829,14 +833,20 @@ EOF
     patch_json+="}}"
     local patch_attempt
     local max_patch_attempts=5
+    local patch_output
     for patch_attempt in $(seq 1 "$max_patch_attempts"); do
-      if kubectl patch configmap maas-parameters -n "$NAMESPACE" --type=merge -p "$patch_json"; then
+      if patch_output=$(kubectl patch configmap maas-parameters -n "$NAMESPACE" --type=merge -p "$patch_json" 2>&1); then
+        printf '%s\n' "$patch_output"
         discovery_patched=true
+        if [[ "$patch_output" != *"(no change)"* ]]; then
+          discovery_patch_changed=true
+        fi
         break
       fi
 
       if [[ "$patch_attempt" -lt "$max_patch_attempts" ]]; then
         log_warn "Failed to patch maas-parameters (attempt ${patch_attempt}/${max_patch_attempts}); retrying in 2s..."
+        printf '%s\n' "$patch_output"
         sleep 2
       fi
     done
@@ -846,10 +856,16 @@ EOF
       return 1
     fi
   fi
-  if [[ "$discovery_patched" == "true" ]]; then
-    log_info "  Restarting maas-controller to pick up discovery settings..."
+  if [[ "$discovery_patched" == "true" && "$discovery_patch_changed" == "true" ]]; then
+    controller_restart_required=true
+  elif [[ "$discovery_patched" == "true" ]]; then
+    log_info "  Discovery settings already applied (no ConfigMap change); skipping extra restart"
+  fi
+
+  if [[ "$controller_restart_required" == "true" ]]; then
+    log_info "  Restarting maas-controller to pick up configuration changes..."
     kubectl rollout restart deployment/maas-controller -n "$NAMESPACE" || {
-      log_error "Failed to restart maas-controller after discovery ConfigMap patch"
+      log_error "Failed to restart maas-controller after applying configuration changes"
       return 1
     }
   fi
