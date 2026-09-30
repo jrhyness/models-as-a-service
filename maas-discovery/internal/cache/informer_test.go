@@ -226,6 +226,16 @@ func TestBuildTenantInfos_RouteHostFallback(t *testing.T) {
 			"spec": map[string]any{
 				"host": "maas.apps.example.com",
 				"to":   map[string]any{"kind": "Service", "name": "internal-gw-svc"},
+				"tls":  map[string]any{"termination": "edge"},
+			},
+			"status": map[string]any{
+				"ingress": []any{
+					map[string]any{
+						"conditions": []any{
+							map[string]any{"type": "Admitted", "status": "True"},
+						},
+					},
+				},
 			},
 		}},
 	}
