@@ -186,13 +186,13 @@ func patchDiscoveryArgs(res *unstructured.Unstructured, aitenantNS, gatewayNS, l
 		if !ok || cm["name"] != discoveryContainerName {
 			continue
 		}
-		rawArgs, ok := cm["args"]
-		if !ok {
-			return nil
-		}
-		args, ok := rawArgs.([]any)
-		if !ok {
-			return nil
+		var args []any
+		if rawArgs, ok := cm["args"]; ok {
+			a, ok := rawArgs.([]any)
+			if !ok {
+				return errors.New("maas-discovery container args has unexpected type")
+			}
+			args = a
 		}
 
 		args = setOrAppendArg(args, "--aitenant-namespace=", aitenantNS)

@@ -538,6 +538,66 @@ func TestPatchDiscoveryArgs(t *testing.T) {
 		g.Expect(args).To(ContainElement("--log-level=error"))
 		g.Expect(args).NotTo(ContainElement("--log-level=info"))
 	})
+
+	t.Run("adds args when missing", func(t *testing.T) {
+		g := NewWithT(t)
+
+		dep := &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
+			"metadata":   map[string]any{"name": discoveryDeploymentName},
+			"spec": map[string]any{
+				"template": map[string]any{
+					"spec": map[string]any{
+						"containers": []any{
+							map[string]any{"name": discoveryContainerName},
+						},
+					},
+				},
+			},
+		}}
+
+		err := patchDiscoveryArgs(dep, "ai-tenants", "openshift-ingress", "debug")
+		g.Expect(err).NotTo(HaveOccurred())
+
+		containers, found, err := unstructured.NestedSlice(dep.Object, "spec", "template", "spec", "containers")
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(found).To(BeTrue())
+		cm, ok := containers[0].(map[string]any)
+		g.Expect(ok).To(BeTrue())
+		args, ok := cm["args"].([]any)
+		g.Expect(ok).To(BeTrue())
+
+		g.Expect(args).To(ContainElement("--aitenant-namespace=ai-tenants"))
+		g.Expect(args).To(ContainElement("--gateway-namespace=openshift-ingress"))
+		g.Expect(args).To(ContainElement("--log-level=debug"))
+	})
+
+	t.Run("fails when args has unexpected type", func(t *testing.T) {
+		g := NewWithT(t)
+
+		dep := &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
+			"metadata":   map[string]any{"name": discoveryDeploymentName},
+			"spec": map[string]any{
+				"template": map[string]any{
+					"spec": map[string]any{
+						"containers": []any{
+							map[string]any{
+								"name": discoveryContainerName,
+								"args": "--aitenant-namespace=ai-tenants",
+							},
+						},
+					},
+				},
+			},
+		}}
+
+		err := patchDiscoveryArgs(dep, "ai-tenants", "openshift-ingress", "debug")
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(err.Error()).To(ContainSubstring("unexpected type"))
+	})
 }
 
 func TestPatchDiscoveryReplicas(t *testing.T) {
