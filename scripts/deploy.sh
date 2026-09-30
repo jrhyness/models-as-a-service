@@ -827,10 +827,23 @@ EOF
       patch_json+="\"maas-discovery-replicas\":\"${MAAS_DISCOVERY_REPLICAS}\""
     fi
     patch_json+="}}"
-    if kubectl patch configmap maas-parameters -n "$NAMESPACE" --type=merge -p "$patch_json"; then
-      discovery_patched=true
-    else
-      log_warn "Failed to patch maas-parameters (ConfigMap may not exist yet, non-fatal)"
+    local patch_attempt
+    local max_patch_attempts=5
+    for patch_attempt in $(seq 1 "$max_patch_attempts"); do
+      if kubectl patch configmap maas-parameters -n "$NAMESPACE" --type=merge -p "$patch_json"; then
+        discovery_patched=true
+        break
+      fi
+
+      if [[ "$patch_attempt" -lt "$max_patch_attempts" ]]; then
+        log_warn "Failed to patch maas-parameters (attempt ${patch_attempt}/${max_patch_attempts}); retrying in 2s..."
+        sleep 2
+      fi
+    done
+
+    if [[ "$discovery_patched" != "true" ]]; then
+      log_error "Failed to patch maas-parameters after ${max_patch_attempts} attempts"
+      return 1
     fi
   fi
   if [[ "$discovery_patched" == "true" ]]; then

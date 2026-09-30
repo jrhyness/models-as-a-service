@@ -217,12 +217,12 @@ func TestEnsureDiscoveryService(t *testing.T) {
 
 		got := &unstructured.Unstructured{}
 		got.SetGroupVersionKind(gvkRole)
-		g.Expect(cl.Get(context.Background(), client.ObjectKey{Name: discoveryDeploymentName, Namespace: aitenantNS}, got)).
+		g.Expect(cl.Get(context.Background(), client.ObjectKey{Name: discoveryAITenantRBAC, Namespace: aitenantNS}, got)).
 			To(Succeed(), "Role should be created in ai-tenants namespace")
 
 		got = &unstructured.Unstructured{}
 		got.SetGroupVersionKind(gvkRoleBinding)
-		g.Expect(cl.Get(context.Background(), client.ObjectKey{Name: discoveryDeploymentName, Namespace: aitenantNS}, got)).
+		g.Expect(cl.Get(context.Background(), client.ObjectKey{Name: discoveryAITenantRBAC, Namespace: aitenantNS}, got)).
 			To(Succeed(), "RoleBinding should be created in ai-tenants namespace")
 
 		subjects, found, err := unstructured.NestedSlice(got.Object, "subjects")
@@ -235,12 +235,12 @@ func TestEnsureDiscoveryService(t *testing.T) {
 
 		got = &unstructured.Unstructured{}
 		got.SetGroupVersionKind(gvkRole)
-		g.Expect(cl.Get(context.Background(), client.ObjectKey{Name: discoveryDeploymentName, Namespace: gatewayNS}, got)).
+		g.Expect(cl.Get(context.Background(), client.ObjectKey{Name: discoveryGatewayRBAC, Namespace: gatewayNS}, got)).
 			To(Succeed(), "Role should be created in gateway namespace")
 
 		got = &unstructured.Unstructured{}
 		got.SetGroupVersionKind(gvkRoleBinding)
-		g.Expect(cl.Get(context.Background(), client.ObjectKey{Name: discoveryDeploymentName, Namespace: gatewayNS}, got)).
+		g.Expect(cl.Get(context.Background(), client.ObjectKey{Name: discoveryGatewayRBAC, Namespace: gatewayNS}, got)).
 			To(Succeed(), "RoleBinding should be created in gateway namespace")
 	})
 
@@ -266,7 +266,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 
 		ownedRole := &unstructured.Unstructured{}
 		ownedRole.SetGroupVersionKind(gvkRole)
-		ownedRole.SetName(discoveryDeploymentName)
+		ownedRole.SetName(discoveryAITenantRBAC)
 		ownedRole.SetNamespace(aitenantNS)
 		ownedRole.SetOwnerReferences([]metav1.OwnerReference{{
 			APIVersion: "maas.opendatahub.io/v1alpha1",
@@ -299,7 +299,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 
 		got = &unstructured.Unstructured{}
 		got.SetGroupVersionKind(gvkRole)
-		err = cl.Get(context.Background(), client.ObjectKey{Name: discoveryDeploymentName, Namespace: aitenantNS}, got)
+		err = cl.Get(context.Background(), client.ObjectKey{Name: discoveryAITenantRBAC, Namespace: aitenantNS}, got)
 		g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "owned Role should be deleted")
 	})
 
@@ -336,6 +336,47 @@ func TestEnsureDiscoveryService(t *testing.T) {
 		got.SetGroupVersionKind(gvkDeployment)
 		err = cl.Get(context.Background(), client.ObjectKey{Name: discoveryDeploymentName, Namespace: discoveryNS}, got)
 		g.Expect(err).NotTo(HaveOccurred(), "foreign Deployment should be preserved (CWE-284)")
+	})
+
+	t.Run("disabled does not render manifests", func(t *testing.T) {
+		g := NewWithT(t)
+		s := lifecycleTestScheme(t)
+
+		cfg := &maasv1alpha1.Config{
+			ObjectMeta: metav1.ObjectMeta{Name: maasv1alpha1.ConfigInstanceName, UID: types.UID("cfg-uid")},
+		}
+
+		ownedDep := &unstructured.Unstructured{}
+		ownedDep.SetGroupVersionKind(gvkDeployment)
+		ownedDep.SetName(discoveryDeploymentName)
+		ownedDep.SetNamespace(discoveryNS)
+		ownedDep.SetOwnerReferences([]metav1.OwnerReference{{
+			APIVersion: "maas.opendatahub.io/v1alpha1",
+			Kind:       "Config",
+			Name:       maasv1alpha1.ConfigInstanceName,
+			UID:        cfg.UID,
+			Controller: ptr.To(true),
+		}})
+
+		cl := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg, ownedDep).Build()
+		r := &LifecycleReconciler{
+			Client:                cl,
+			Scheme:                s,
+			DeploymentNS:          controllerNS,
+			AITenantNamespace:     aitenantNS,
+			GatewayNamespace:      gatewayNS,
+			DiscoveryEnabled:      false,
+			DiscoveryManifestPath: filepath.Join(t.TempDir(), "missing-discovery-manifests"),
+			DiscoveryNamespace:    discoveryNS,
+		}
+
+		err := r.ensureDiscoveryService(context.Background(), ctrl.Log)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		got := &unstructured.Unstructured{}
+		got.SetGroupVersionKind(gvkDeployment)
+		err = cl.Get(context.Background(), client.ObjectKey{Name: discoveryDeploymentName, Namespace: discoveryNS}, got)
+		g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "owned Deployment should be deleted when discovery is disabled")
 	})
 }
 
@@ -470,4 +511,11 @@ func TestBuildDiscoveryCrossNamespaceRBAC(t *testing.T) {
 	g.Expect(ok).To(BeTrue())
 	g.Expect(subj["namespace"]).To(Equal("opendatahub"))
 	g.Expect(subj["name"]).To(Equal(discoveryDeploymentName))
+
+	sameNS := buildDiscoveryCrossNamespaceRBAC("opendatahub", "shared", "shared")
+	g.Expect(sameNS).To(HaveLen(4))
+	g.Expect(sameNS[0].GetName()).To(Equal(discoveryAITenantRBAC))
+	g.Expect(sameNS[1].GetName()).To(Equal(discoveryAITenantRBAC))
+	g.Expect(sameNS[2].GetName()).To(Equal(discoveryGatewayRBAC))
+	g.Expect(sameNS[3].GetName()).To(Equal(discoveryGatewayRBAC))
 }

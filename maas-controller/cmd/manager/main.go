@@ -995,6 +995,7 @@ func main() {
 	var observabilityManifestsPath string
 	var monitoringNamespace string
 	var usageLogsManifestPath string
+	var discoveryManifestPath string
 	var logFormat oteljson.Format
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8443", "The address the metrics endpoint binds to.")
@@ -1011,6 +1012,7 @@ func main() {
 			"Defaults to 'AUTO' (namespace separation enabled). Set to empty string to disable for ROSA.")
 	flag.StringVar(&observabilityManifestsPath, "observability-manifests-path", "/deployment/components/observability/observability/dashboards", "Path to observability dashboard kustomize manifests.")
 	flag.StringVar(&usageLogsManifestPath, "usage-logs-manifest-path", "/deployment/components/observability/usage-logs", "Path to usage logs kustomize manifests.")
+	flag.StringVar(&discoveryManifestPath, "discovery-manifest-path", "/deployment/base/maas-discovery", "Path to discovery service kustomize manifests.")
 	flag.StringVar(&monitoringNamespace, "monitoring-namespace", "opendatahub", "The namespace where the monitoring stack is deployed.")
 	flag.StringVar(&maasSubscriptionNamespace, "maas-subscription-namespace", "models-as-a-service", "The namespace to watch for MaaS CRs.")
 	flag.StringVar(&aitenantNamespace, "aitenant-namespace", tenantreconcile.DefaultAITenantNamespace, "The infrastructure namespace where AITenant CRs are accepted.")
@@ -1327,7 +1329,7 @@ func main() {
 		MonitoringNamespace:         monitoringNamespace,
 		GatewayNamespace:            gatewayNamespace,
 		DiscoveryEnabled:            os.Getenv("MAAS_DISCOVERY_ENABLED") == "true",
-		DiscoveryManifestPath:       "/deployment/base/maas-discovery",
+		DiscoveryManifestPath:       discoveryManifestPath,
 		DiscoveryImage:              os.Getenv("RELATED_IMAGE_ODH_MAAS_DISCOVERY_IMAGE"),
 		DiscoveryNamespace:          infraNamespace,
 		DiscoveryReplicas:           parseReplicasEnv("MAAS_DISCOVERY_REPLICAS"),

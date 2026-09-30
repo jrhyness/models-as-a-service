@@ -38,6 +38,9 @@ import (
 const (
 	discoveryDeploymentName = "maas-discovery"
 	discoveryContainerName  = "maas-discovery"
+	discoveryHTTPRouteName  = "maas-discovery-route"
+	discoveryAITenantRBAC   = "maas-discovery-aitenants"
+	discoveryGatewayRBAC    = "maas-discovery-gateway"
 )
 
 func (r *LifecycleReconciler) ensureDiscoveryService(ctx context.Context, log logr.Logger) error {
@@ -59,6 +62,12 @@ func (r *LifecycleReconciler) ensureDiscoveryService(ctx context.Context, log lo
 		discoveryNS = r.DeploymentNS
 	}
 
+	if !r.DiscoveryEnabled {
+		resources := buildDiscoveryStaticResources(discoveryNS)
+		resources = append(resources, buildDiscoveryCrossNamespaceRBAC(discoveryNS, r.AITenantNamespace, r.GatewayNamespace)...)
+		return r.teardownDiscoveryResources(ctx, log, &cfg, resources)
+	}
+
 	resources, err := tenantreconcile.RenderKustomize(r.DiscoveryManifestPath, discoveryNS)
 	if err != nil {
 		return fmt.Errorf("render discovery service: %w", err)
@@ -66,10 +75,6 @@ func (r *LifecycleReconciler) ensureDiscoveryService(ctx context.Context, log lo
 
 	crossNS := buildDiscoveryCrossNamespaceRBAC(discoveryNS, r.AITenantNamespace, r.GatewayNamespace)
 	resources = append(resources, crossNS...)
-
-	if !r.DiscoveryEnabled {
-		return r.teardownDiscoveryResources(ctx, log, &cfg, resources)
-	}
 
 	for i := range resources {
 		res := &resources[i]
@@ -211,6 +216,30 @@ func patchDiscoveryReplicas(res *unstructured.Unstructured, replicas *int32) {
 	_ = unstructured.SetNestedField(res.Object, int64(*replicas), "spec", "replicas")
 }
 
+func buildDiscoveryStaticResources(discoveryNS string) []unstructured.Unstructured {
+	return []unstructured.Unstructured{
+		newDiscoveryResource("apps/v1", "Deployment", discoveryNS, discoveryDeploymentName),
+		newDiscoveryResource("v1", "Service", discoveryNS, discoveryDeploymentName),
+		newDiscoveryResource("v1", "ServiceAccount", discoveryNS, discoveryDeploymentName),
+		newDiscoveryResource("gateway.networking.k8s.io/v1", "HTTPRoute", discoveryNS, discoveryHTTPRouteName),
+		newDiscoveryResource("rbac.authorization.k8s.io/v1", "ClusterRole", "", discoveryDeploymentName),
+		newDiscoveryResource("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", "", discoveryDeploymentName),
+	}
+}
+
+func newDiscoveryResource(apiVersion, kind, namespace, name string) unstructured.Unstructured {
+	metadata := map[string]any{"name": name}
+	if namespace != "" {
+		metadata["namespace"] = namespace
+	}
+
+	return unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": apiVersion,
+		"kind":       kind,
+		"metadata":   metadata,
+	}}
+}
+
 func buildDiscoveryCrossNamespaceRBAC(controllerNS, aitenantNS, gatewayNS string) []unstructured.Unstructured {
 	subject := rbacv1.Subject{
 		Kind:      "ServiceAccount",
@@ -221,7 +250,7 @@ func buildDiscoveryCrossNamespaceRBAC(controllerNS, aitenantNS, gatewayNS string
 	aiTenantRole := toUnstructured(&rbacv1.Role{
 		TypeMeta: metav1.TypeMeta{APIVersion: "rbac.authorization.k8s.io/v1", Kind: "Role"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      discoveryDeploymentName,
+			Name:      discoveryAITenantRBAC,
 			Namespace: aitenantNS,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -236,13 +265,13 @@ func buildDiscoveryCrossNamespaceRBAC(controllerNS, aitenantNS, gatewayNS string
 	aiTenantBinding := toUnstructured(&rbacv1.RoleBinding{
 		TypeMeta: metav1.TypeMeta{APIVersion: "rbac.authorization.k8s.io/v1", Kind: "RoleBinding"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      discoveryDeploymentName,
+			Name:      discoveryAITenantRBAC,
 			Namespace: aitenantNS,
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "Role",
-			Name:     discoveryDeploymentName,
+			Name:     discoveryAITenantRBAC,
 		},
 		Subjects: []rbacv1.Subject{subject},
 	})
@@ -250,7 +279,7 @@ func buildDiscoveryCrossNamespaceRBAC(controllerNS, aitenantNS, gatewayNS string
 	gatewayRole := toUnstructured(&rbacv1.Role{
 		TypeMeta: metav1.TypeMeta{APIVersion: "rbac.authorization.k8s.io/v1", Kind: "Role"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      discoveryDeploymentName,
+			Name:      discoveryGatewayRBAC,
 			Namespace: gatewayNS,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -265,13 +294,13 @@ func buildDiscoveryCrossNamespaceRBAC(controllerNS, aitenantNS, gatewayNS string
 	gatewayBinding := toUnstructured(&rbacv1.RoleBinding{
 		TypeMeta: metav1.TypeMeta{APIVersion: "rbac.authorization.k8s.io/v1", Kind: "RoleBinding"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      discoveryDeploymentName,
+			Name:      discoveryGatewayRBAC,
 			Namespace: gatewayNS,
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "Role",
-			Name:     discoveryDeploymentName,
+			Name:     discoveryGatewayRBAC,
 		},
 		Subjects: []rbacv1.Subject{subject},
 	})
