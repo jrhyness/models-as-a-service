@@ -75,13 +75,13 @@ func extractIdentity(c *gin.Context) (string, []string, error) {
 }
 
 func parseGroupsHeader(header string) ([]string, error) {
-	if strings.TrimSpace(header) == "" {
+	trimmed := strings.TrimSpace(header)
+	if trimmed == "" {
 		return nil, errors.New("header is empty")
 	}
 
 	var parsed []string
 	if err := json.Unmarshal([]byte(header), &parsed); err != nil {
-		trimmed := strings.TrimSpace(header)
 		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
 			parsed = strings.Fields(trimmed[1 : len(trimmed)-1])
 		} else {
@@ -97,6 +97,9 @@ func parseGroupsHeader(header string) ([]string, error) {
 		}
 	}
 	if len(groups) == 0 {
+		if trimmed == "[]" {
+			return []string{}, nil
+		}
 		return nil, errors.New("no groups found")
 	}
 

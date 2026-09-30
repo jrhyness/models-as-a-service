@@ -26,6 +26,7 @@ import (
 
 const (
 	rebuildDebounce   = 100 * time.Millisecond
+	rebuildMaxWait    = 2 * time.Second
 	routeSyncTimeout  = 15 * time.Second
 	routeGroupVersion = "route.openshift.io/v1"
 	routeResourceName = "routes"
@@ -274,7 +275,7 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 			select {
 			case <-rebuildCh:
 				t := time.NewTimer(rebuildDebounce)
-				drainLoop(ctx, rebuildCh, t)
+				drainLoop(ctx, rebuildCh, t, rebuildMaxWait)
 				ic.rebuildFromInformers(tenantInformer, gatewayInformer, routeInformer)
 				ic.markAllTenantsDirty()
 				triggerEntitlementRebuild()
@@ -289,7 +290,7 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 			select {
 			case <-entitlementRebuildCh:
 				t := time.NewTimer(rebuildDebounce)
-				drainLoop(ctx, entitlementRebuildCh, t)
+				drainLoop(ctx, entitlementRebuildCh, t, rebuildMaxWait)
 				ic.rebuildDirtyEntitlements(tenantInformer, authPolicyInformer, subscriptionInformer)
 			case <-ctx.Done():
 				return
@@ -310,7 +311,10 @@ func drainChannel(ch <-chan struct{}) {
 	}
 }
 
-func drainLoop(ctx context.Context, ch <-chan struct{}, t *time.Timer) {
+func drainLoop(ctx context.Context, ch <-chan struct{}, t *time.Timer, maxWait time.Duration) {
+	maxTimer := time.NewTimer(maxWait)
+	defer maxTimer.Stop()
+
 	for {
 		select {
 		case <-ch:
@@ -319,6 +323,8 @@ func drainLoop(ctx context.Context, ch <-chan struct{}, t *time.Timer) {
 			}
 			t.Reset(rebuildDebounce)
 		case <-t.C:
+			return
+		case <-maxTimer.C:
 			return
 		case <-ctx.Done():
 			t.Stop()
@@ -427,6 +433,9 @@ func (ic *InformerCache) markAllTenantsDirty() {
 	for i := range ic.tenants {
 		ic.dirtyTenants[ic.tenants[i].Name] = struct{}{}
 	}
+	for tenantName := range ic.subjectsByTenant {
+		ic.dirtyTenants[tenantName] = struct{}{}
+	}
 	ic.mu.Unlock()
 }
 
@@ -517,7 +526,7 @@ func computeTenantSubjects(
 	subscriptions []unstructured.Unstructured,
 	namespaceToTenant map[string]string,
 ) map[string]struct{} {
-	policySubjects := make(map[string]struct{})
+	policySubjects := make(map[string]map[string]struct{})
 	for i := range policies {
 		if namespaceToTenant[policies[i].GetNamespace()] != tenantName {
 			continue
@@ -526,15 +535,33 @@ func computeTenantSubjects(
 		if !ok {
 			continue
 		}
+		policyModelRefs := modelRefKeys(spec["modelRefs"])
+		if len(policyModelRefs) == 0 {
+			continue
+		}
 		subjects, ok := spec["subjects"].(map[string]any)
 		if !ok {
 			continue
 		}
 		for _, key := range userSubjects(subjects["users"]) {
-			policySubjects[key] = struct{}{}
+			modelRefs := policySubjects[key]
+			if modelRefs == nil {
+				modelRefs = make(map[string]struct{}, len(policyModelRefs))
+				policySubjects[key] = modelRefs
+			}
+			for modelRef := range policyModelRefs {
+				modelRefs[modelRef] = struct{}{}
+			}
 		}
 		for _, key := range groupSubjects(subjects["groups"]) {
-			policySubjects[key] = struct{}{}
+			modelRefs := policySubjects[key]
+			if modelRefs == nil {
+				modelRefs = make(map[string]struct{}, len(policyModelRefs))
+				policySubjects[key] = modelRefs
+			}
+			for modelRef := range policyModelRefs {
+				modelRefs[modelRef] = struct{}{}
+			}
 		}
 	}
 
@@ -547,6 +574,10 @@ func computeTenantSubjects(
 		if !ok {
 			continue
 		}
+		subscriptionModelRefs := modelRefKeys(spec["modelRefs"])
+		if len(subscriptionModelRefs) == 0 {
+			continue
+		}
 		if !subscriptionEligible(subscriptions[i].Object) {
 			continue
 		}
@@ -555,12 +586,12 @@ func computeTenantSubjects(
 			continue
 		}
 		for _, key := range userSubjects(owner["users"]) {
-			if _, ok := policySubjects[key]; ok {
+			if models, ok := policySubjects[key]; ok && sharesAnyModelRef(models, subscriptionModelRefs) {
 				out[key] = struct{}{}
 			}
 		}
 		for _, key := range groupSubjects(owner["groups"]) {
-			if _, ok := policySubjects[key]; ok {
+			if models, ok := policySubjects[key]; ok && sharesAnyModelRef(models, subscriptionModelRefs) {
 				out[key] = struct{}{}
 			}
 		}
@@ -570,6 +601,16 @@ func computeTenantSubjects(
 }
 
 func subscriptionEligible(obj map[string]any) bool {
+	metadata, ok := obj["metadata"].(map[string]any)
+	if !ok {
+		return false
+	}
+	if deletionTimestamp, found := metadata["deletionTimestamp"]; found && deletionTimestamp != nil {
+		if ts, ok := deletionTimestamp.(string); !ok || strings.TrimSpace(ts) != "" {
+			return false
+		}
+	}
+
 	status, ok := obj["status"].(map[string]any)
 	if !ok {
 		return false
@@ -577,6 +618,41 @@ func subscriptionEligible(obj map[string]any) bool {
 	phase, _ := status["phase"].(string)
 	phase = strings.TrimSpace(phase)
 	return phase == subscriptionPhaseOK || phase == subscriptionPhaseDG
+}
+
+func modelRefKeys(raw any) map[string]struct{} {
+	items, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	out := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		modelRef, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _ := modelRef["name"].(string)
+		namespace, _ := modelRef["namespace"].(string)
+		name = strings.TrimSpace(name)
+		namespace = strings.TrimSpace(namespace)
+		if name == "" || namespace == "" {
+			continue
+		}
+		out[namespace+"/"+name] = struct{}{}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func sharesAnyModelRef(left, right map[string]struct{}) bool {
+	for modelRef := range right {
+		if _, ok := left[modelRef]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func buildNamespaceTenantMap(tenants []unstructured.Unstructured) map[string]string {

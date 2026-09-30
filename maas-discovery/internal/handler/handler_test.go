@@ -109,6 +109,19 @@ func TestListTenants_MissingIdentityHeaders(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "auth identity headers")
 }
 
+func TestListTenants_EmptyGroupArrayAllowed(t *testing.T) {
+	r := newTestRouter()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/v1/tenants", nil)
+	req.Header.Set("X-MaaS-Username", "alice")
+	req.Header.Set("X-MaaS-Group", "[]")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.JSONEq(t, `{"tenants":[]}`, w.Body.String())
+}
+
 type fakeTenantCache struct {
 	tenants []types.TenantInfo
 	synced  bool
