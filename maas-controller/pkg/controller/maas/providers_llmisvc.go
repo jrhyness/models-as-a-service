@@ -307,7 +307,7 @@ func isClusterLocalURL(rawURL string) bool {
 	if err != nil {
 		return false
 	}
-	host := strings.ToLower(parsed.Hostname())
+	host := strings.TrimSuffix(strings.ToLower(parsed.Hostname()), ".")
 	if host == "" {
 		return false
 	}

@@ -308,6 +308,29 @@ func TestUpgradeToHTTPS(t *testing.T) {
 	}
 }
 
+func TestIsClusterLocalURL(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		want bool
+	}{
+		{name: "svc host", url: "http://model.default.svc", want: true},
+		{name: "cluster local host", url: "https://model.default.svc.cluster.local", want: true},
+		{name: "cluster local host with trailing dot", url: "https://model.default.svc.cluster.local.", want: true},
+		{name: "external host containing svc label", url: "https://gateway.svc.example.com", want: false},
+		{name: "malformed url", url: "://bad", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isClusterLocalURL(tt.url)
+			if got != tt.want {
+				t.Errorf("isClusterLocalURL(%q) = %v, want %v", tt.url, got, tt.want)
+			}
+		})
+	}
+}
+
 func newMaaSModelRefForLLMISvc(name, ns, llmisvcName string) *maasv1alpha1.MaaSModelRef {
 	return &maasv1alpha1.MaaSModelRef{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
