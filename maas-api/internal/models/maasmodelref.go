@@ -126,10 +126,14 @@ func maasModelRefToModel(u *unstructured.Unstructured) *Model {
 			urlPtr = (*apis.URL)(parsed)
 		}
 	} else if endpoint != "" {
-		parsed, err := url.Parse(endpoint)
-		if err == nil && parsed.Scheme == "" && parsed.Host == "" {
-			parsed, err = url.Parse("https://" + endpoint)
+		normalizedEndpoint := endpoint
+		if strings.HasPrefix(normalizedEndpoint, "//") {
+			normalizedEndpoint = "https:" + normalizedEndpoint
+		} else if !strings.Contains(normalizedEndpoint, "://") && !strings.HasPrefix(normalizedEndpoint, "/") {
+			normalizedEndpoint = "https://" + normalizedEndpoint
 		}
+
+		parsed, err := url.Parse(normalizedEndpoint)
 		if err == nil {
 			if strings.EqualFold(parsed.Scheme, "http") {
 				parsed.Scheme = "https"

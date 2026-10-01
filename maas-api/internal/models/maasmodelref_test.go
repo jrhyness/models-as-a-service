@@ -89,6 +89,28 @@ func TestMaasModelRefToModel_EndpointFallback_SchemelessEndpoint(t *testing.T) {
 	}
 }
 
+func TestMaasModelRefToModel_EndpointFallback_SchemelessEndpointWithPort(t *testing.T) {
+	u := newMaaSModelRefUnstructured("maas.example.com:8443/v1/chat/completions", nil)
+	m := models.MaasModelRefToModel(u)
+	if m == nil || m.URL == nil {
+		t.Fatalf("expected non-nil model URL")
+	}
+	if got, want := m.URL.String(), "https://maas.example.com:8443"; got != want {
+		t.Fatalf("URL = %q, want %q", got, want)
+	}
+}
+
+func TestMaasModelRefToModel_EndpointFallback_ProtocolRelativeEndpointWithPort(t *testing.T) {
+	u := newMaaSModelRefUnstructured("//maas.example.com:8443/v1/chat/completions", nil)
+	m := models.MaasModelRefToModel(u)
+	if m == nil || m.URL == nil {
+		t.Fatalf("expected non-nil model URL")
+	}
+	if got, want := m.URL.String(), "https://maas.example.com:8443"; got != want {
+		t.Fatalf("URL = %q, want %q", got, want)
+	}
+}
+
 func TestMaasModelRefToModel_EmptyEndpoint(t *testing.T) {
 	u := newMaaSModelRefUnstructured("", nil)
 	m := models.MaasModelRefToModel(u)
