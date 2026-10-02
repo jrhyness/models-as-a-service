@@ -175,7 +175,7 @@ func modelRefTokenRates(mRef maasv1alpha1.ModelSubscriptionRef) (rates []any, un
 const unlimitedLimitName = "tokens-unlimited"
 
 // unlimitedTokenLimit returns the TRLP limit matching the given
-// selected_subscription_key values of unlimited subscriptions.
+// selected_subscription_id values of unlimited subscriptions.
 //
 // Without rates, Limitador enforces nothing and keeps no counters, but the
 // wasm-shim still sends check and report calls for matching requests, and
@@ -188,11 +188,11 @@ const unlimitedLimitName = "tokens-unlimited"
 //
 // rates and counters stay unset: a nil slice is written as null, which the API
 // server drops, so the no-op update check would never match.
-func unlimitedTokenLimit(keys []string) map[string]any {
-	sort.Strings(keys)
-	matches := make([]string, 0, len(keys))
-	for _, k := range keys {
-		matches = append(matches, fmt.Sprintf(`auth.identity.selected_subscription_key == "%s"`, k))
+func unlimitedTokenLimit(rateLimitIDs []string) map[string]any {
+	sort.Strings(rateLimitIDs)
+	matches := make([]string, 0, len(rateLimitIDs))
+	for _, id := range rateLimitIDs {
+		matches = append(matches, fmt.Sprintf(`auth.identity.selected_subscription_id == "%s"`, id))
 	}
 	return map[string]any{
 		"when": []any{
@@ -437,8 +437,7 @@ func (r *MaaSSubscriptionReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// No finalizer needed — there are no TRLPs to clean up.
 	if reflect.DeepEqual(subscription.Spec, maasv1alpha1.MaaSSubscriptionSpec{}) {
 		statusSnapshot := subscription.Status.DeepCopy()
-		r.updateStatus(ctx, subscription, maasv1alpha1.PhaseInvalid, "spec is required", statusSnapshot)
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, r.updateStatus(ctx, subscription, maasv1alpha1.PhaseInvalid, "spec is required", statusSnapshot)
 	}
 
 	// Add finalizer if not present
@@ -471,14 +470,18 @@ func (r *MaaSSubscriptionReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if err := r.reconcileTokenRateLimitPolicies(ctx, log, subscription); err != nil {
 			log.Error(err, "failed to reconcile TokenRateLimitPolicies")
 			subscription.Status.Phase = maasv1alpha1.PhaseFailed
-			r.updateStatus(ctx, subscription, maasv1alpha1.PhaseFailed, fmt.Sprintf("failed to reconcile TokenRateLimitPolicies: %v", err), statusSnapshot)
+			if statusErr := r.updateStatus(ctx, subscription, maasv1alpha1.PhaseFailed, fmt.Sprintf("failed to reconcile TokenRateLimitPolicies: %v", err), statusSnapshot); statusErr != nil {
+				log.Error(statusErr, "failed to persist reconcile failure")
+			}
 			return ctrl.Result{}, err
 		}
 	} else {
 		// No valid models - clean up any stale TRLPs from previous reconciliations
 		if err := r.cleanupStaleTRLPs(ctx, log, subscription); err != nil {
 			log.Error(err, "failed to clean up stale TokenRateLimitPolicies")
-			r.updateStatus(ctx, subscription, maasv1alpha1.PhaseFailed, fmt.Sprintf("failed to clean up stale TokenRateLimitPolicies: %v", err), statusSnapshot)
+			if statusErr := r.updateStatus(ctx, subscription, maasv1alpha1.PhaseFailed, fmt.Sprintf("failed to clean up stale TokenRateLimitPolicies: %v", err), statusSnapshot); statusErr != nil {
+				log.Error(statusErr, "failed to persist reconcile failure")
+			}
 			return ctrl.Result{}, err
 		}
 	}
@@ -512,9 +515,7 @@ func (r *MaaSSubscriptionReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Derive final phase based on model and TRLP health
 	phase, message := deriveFinalPhase(modelStatuses, trlpStatuses)
-	r.updateStatus(ctx, subscription, phase, message, statusSnapshot)
-
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, r.updateStatus(ctx, subscription, phase, message, statusSnapshot)
 }
 
 func (r *MaaSSubscriptionReconciler) reconcileTokenRateLimitPolicies(ctx context.Context, log logr.Logger, subscription *maasv1alpha1.MaaSSubscription) error {
@@ -636,24 +637,18 @@ func (r *MaaSSubscriptionReconciler) reconcileTRLPForModel(ctx context.Context, 
 		return r.deleteModelTRLP(ctx, log, modelNamespace, modelName)
 	}
 
-	// Trust auth.identity.selected_subscription_key from AuthPolicy.
-	// AuthPolicy has already validated subscription selection via /v1/subscriptions/select,
-	// which handles:
-	//  - Validating subscription exists and user has access (groups/users match)
-	//  - Auto-selecting if user has exactly one subscription
-	//  - Returning 403 Forbidden for invalid scenarios (wrong header, no access, multiple without header)
-	// TokenRateLimitPolicy simply applies the rate limit for the validated subscription.
-	//
-	// The selected_subscription_key format is: {subNamespace}/{subName}@{modelNamespace}/{modelName}
-	// This ensures proper isolation between subscriptions in different namespaces and across models.
+	// Trust auth.identity.selected_subscription_id from AuthPolicy (16-hex SHA-256 of
+	// {subNS}/{subName}@{modelNS}/{modelName}). The long selected_subscription_key
+	// stays on the identity for telemetry; TRLP matches the short ID so the Kuadrant
+	// WASM shim stays compact.
 	//
 	// Subscriptions sharing identical rates share one limit instead of one each, so the TRLP
 	// (and the EnvoyFilter/WasmPlugin Kuadrant renders from it, which repeats every limit per
 	// route match) grows with the number of distinct rate sets, not with the number of
 	// subscriptions behind them (RHOAIENG-95277). The predicate lists every subscription in
-	// the group; counters key on selected_subscription_key as well as userid so subscriptions
-	// sharing a limit still get independent budgets. Unlimited subscriptions share the
-	// rate-less unlimitedLimitName limit the same way. See buildGroupedLimits.
+	// the group by short ID; counters key on selected_subscription_id as well as userid so
+	// subscriptions sharing a limit still get independent budgets. Unlimited subscriptions
+	// share the rate-less unlimitedLimitName limit the same way. See buildGroupedLimits.
 	limitsMap, subNames := buildGroupedLimits(subs)
 
 	// Build the aggregated TokenRateLimitPolicy (one per model, covering all subscriptions)
@@ -912,8 +907,10 @@ func (r *MaaSSubscriptionReconciler) handleDeletion(ctx context.Context, log log
 	return ctrl.Result{}, nil
 }
 
-func (r *MaaSSubscriptionReconciler) updateStatus(ctx context.Context, subscription *maasv1alpha1.MaaSSubscription, phase maasv1alpha1.Phase, message string, statusSnapshot *maasv1alpha1.MaaSSubscriptionStatus) {
-	// Status-only updates do not bump metadata.generation, so this reconcile may not re-queue.
+// updateStatus returns the status write error so Reconcile can hand it to controller-runtime.
+// The For() watch drops status-only events, so a failed write (typically a conflict with
+// scanForDuplicatePriority) is only retried through that error-driven requeue.
+func (r *MaaSSubscriptionReconciler) updateStatus(ctx context.Context, subscription *maasv1alpha1.MaaSSubscription, phase maasv1alpha1.Phase, message string, statusSnapshot *maasv1alpha1.MaaSSubscriptionStatus) error {
 	// Merge SpecPriorityDuplicate from the API server so we do not clobber the async duplicate-priority scan.
 	statusTarget := subscription
 	currentStatus := *statusSnapshot
@@ -957,14 +954,14 @@ func (r *MaaSSubscriptionReconciler) updateStatus(ctx context.Context, subscript
 	})
 
 	if equality.Semantic.DeepEqual(currentStatus, subscription.Status) {
-		return
+		return nil
 	}
 
 	statusTarget.Status = subscription.Status
 	if err := r.Status().Update(ctx, statusTarget); err != nil {
-		log := oteljson.FromContext(ctx)
-		log.Error(err, "failed to update MaaSSubscription status", "name", subscription.Name)
+		return fmt.Errorf("failed to update MaaSSubscription status: %w", err)
 	}
+	return nil
 }
 
 // scanForDuplicatePriority lists live MaaSSubscriptions and sets SpecPriorityDuplicate
@@ -1116,7 +1113,7 @@ func (r *MaaSSubscriptionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// (fixes race condition where MaaSSubscription is created before HTTPRoute exists).
 		Watches(&gatewayapiv1.HTTPRoute{}, handler.EnqueueRequestsFromMapFunc(
 			r.mapHTTPRouteToMaaSSubscriptions,
-		)).
+		), builder.WithPredicates(httpRouteChangedForSubscription())).
 		// Watch MaaSModelRefs so we re-reconcile when a model is created or deleted.
 		Watches(&maasv1alpha1.MaaSModelRef{}, handler.EnqueueRequestsFromMapFunc(
 			r.mapMaaSModelRefToMaaSSubscriptions,
@@ -1331,6 +1328,19 @@ func (r *MaaSSubscriptionReconciler) mapMaaSModelRefToMaaSSubscriptions(ctx cont
 		requests = append(requests, reconcile.Request{NamespacedName: key})
 	}
 	return requests
+}
+
+// httpRouteChangedForSubscription drops HTTPRoute status writes, which gateway and
+// Kuadrant controllers make as policies attach. MaaSSubscription reconcile resolves a
+// model's route by existence, name and labels, checks spec.parentRefs against the tenant
+// Gateway and owns the TokenRateLimitPolicy by the route; it never reads route status.
+// TokenRateLimitPolicy status reaches it through the TokenRateLimitPolicy watch.
+func httpRouteChangedForSubscription() predicate.Predicate {
+	return predicate.Or(
+		predicate.GenerationChangedPredicate{},
+		predicate.LabelChangedPredicate{},
+		predicate.Funcs{UpdateFunc: uidChanged},
+	)
 }
 
 // mapHTTPRouteToMaaSSubscriptions returns reconcile requests for all MaaSSubscriptions
