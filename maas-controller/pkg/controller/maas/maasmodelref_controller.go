@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"sync"
 
@@ -225,7 +226,12 @@ func (r *MaaSModelRefReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	governed := r.checkGovernanceAttached(ctx, model)
 	r.setGovernanceCondition(model, governed)
-	r.setRuntimeReadyCondition(model, runtimeReady)
+	if runtimeReady {
+		markRuntimeReady(model)
+	} else {
+		reason, message := handler.NotReadyReason()
+		markRuntimeNotReady(model, reason, message)
+	}
 	r.checkModelIdentityConflict(ctx, log, model)
 
 	phase, message := deriveModelPhase(governed, runtimeReady)
@@ -294,21 +300,28 @@ func (r *MaaSModelRefReconciler) setGovernanceCondition(model *maasv1alpha1.MaaS
 	apimeta.SetStatusCondition(&model.Status.Conditions, cond)
 }
 
-func (r *MaaSModelRefReconciler) setRuntimeReadyCondition(model *maasv1alpha1.MaaSModelRef, ready bool) {
-	cond := metav1.Condition{
+// markRuntimeReady records a healthy backend on RuntimeReady.
+func markRuntimeReady(model *maasv1alpha1.MaaSModelRef) {
+	setRuntimeReadyCondition(model, metav1.ConditionTrue, maasv1alpha1.ReasonRuntimeHealthy, "Backend is healthy")
+}
+
+// markRuntimeNotReady records why the backend is not ready on RuntimeReady; an empty
+// reason keeps the generic one.
+func markRuntimeNotReady(model *maasv1alpha1.MaaSModelRef, reason maasv1alpha1.ConditionReason, message string) {
+	if reason == "" {
+		reason, message = maasv1alpha1.ReasonRuntimeHealthFailure, "Backend is not ready"
+	}
+	setRuntimeReadyCondition(model, metav1.ConditionFalse, reason, message)
+}
+
+func setRuntimeReadyCondition(model *maasv1alpha1.MaaSModelRef, status metav1.ConditionStatus, reason maasv1alpha1.ConditionReason, message string) {
+	apimeta.SetStatusCondition(&model.Status.Conditions, metav1.Condition{
 		Type:               maasv1alpha1.ConditionRuntimeReady,
+		Status:             status,
+		Reason:             string(reason),
+		Message:            message,
 		ObservedGeneration: model.GetGeneration(),
-	}
-	if ready {
-		cond.Status = metav1.ConditionTrue
-		cond.Reason = string(maasv1alpha1.ReasonRuntimeHealthy)
-		cond.Message = "Backend is healthy"
-	} else {
-		cond.Status = metav1.ConditionFalse
-		cond.Reason = string(maasv1alpha1.ReasonRuntimeHealthFailure)
-		cond.Message = "Backend is not ready"
-	}
-	apimeta.SetStatusCondition(&model.Status.Conditions, cond)
+	})
 }
 
 func deriveModelPhase(governed, runtimeReady bool) (phase, message string) {
@@ -680,13 +693,15 @@ func (r *MaaSModelRefReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // does not read: Kuadrant policy-affected conditions, and gateway rewrites of ResolvedRefs,
 // observedGeneration or lastTransitionTime. The reconcile reads the route name, labels
 // (llmisvc route lookup), spec.parentRefs and spec.hostnames, and for ExternalModel
-// readiness the set of parents reporting Accepted=True.
+// the set of parents reporting Accepted=True and the reason and message of gateways
+// rejecting the route.
 func httpRouteChangedForModelRef() predicate.Predicate { //nolint:ireturn // builder.WithPredicates takes predicate.Predicate.
 	return predicate.Or(
 		predicate.GenerationChangedPredicate{},
 		predicate.LabelChangedPredicate{},
 		predicate.Funcs{UpdateFunc: uidChanged},
 		predicate.Funcs{UpdateFunc: routeAcceptedParentsChanged},
+		predicate.Funcs{UpdateFunc: routeRejectionsChanged},
 	)
 }
 
@@ -697,6 +712,15 @@ func routeAcceptedParentsChanged(e event.UpdateEvent) bool {
 		return true
 	}
 	return !acceptedRouteParents(oldRoute).Equal(acceptedRouteParents(newRoute))
+}
+
+func routeRejectionsChanged(e event.UpdateEvent) bool {
+	oldRoute, okOld := e.ObjectOld.(*gatewayapiv1.HTTPRoute)
+	newRoute, okNew := e.ObjectNew.(*gatewayapiv1.HTTPRoute)
+	if !okOld || !okNew {
+		return true
+	}
+	return !maps.Equal(routeRejections(oldRoute), routeRejections(newRoute))
 }
 
 // ippExternalModelChangedForModelRef drops inference ExternalModel status writes other
