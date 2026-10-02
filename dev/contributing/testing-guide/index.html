@@ -689,6 +689,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/upgrade-to-3.6/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrade to 3.6
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -3853,7 +3881,7 @@
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>└── requirements.txt             # Python dependencies
 </code></pre></div>
 <h3 id="e2e-test-modules-and-groups">E2E Test Modules and Groups</h3>
-<p>Tests are organized into <strong>xdist groups</strong> for parallel execution. Each group runs on a dedicated pytest-xdist worker. See <a href="#parallel-e2e-pytest-xdist">Parallel E2E</a> for details on how groups work.</p>
+<p>Tests are organized into <strong>xdist groups</strong> for parallel execution. All tests in a group run on the same pytest-xdist worker, and a worker takes the next queued group when it finishes one. See <a href="#parallel-e2e-pytest-xdist">Parallel E2E</a> for details on how groups work.</p>
 <table>
 <thead>
 <tr>
@@ -3929,6 +3957,11 @@
 <td>MaaSModelRef model-identity collision detection</td>
 </tr>
 <tr>
+<td><code>models</code></td>
+<td><code>test_multi_tenant_integration.py</code></td>
+<td>Full lifecycle, two-tenant coexistence (placed here to even out pass 1)</td>
+</tr>
+<tr>
 <td><code>security</code></td>
 <td><code>test_negative_security.py</code></td>
 <td>Header spoofing, expired keys, cross-model access</td>
@@ -3945,11 +3978,6 @@
 </tr>
 <tr>
 <td><code>mt_lifecycle</code></td>
-<td><code>test_multi_tenant_integration.py</code></td>
-<td>Full lifecycle, two-tenant coexistence</td>
-</tr>
-<tr>
-<td><code>mt_lifecycle</code></td>
 <td><code>test_multi_tenant_maas_api.py</code></td>
 <td>Per-tenant Deployment, Service, HTTPRoute</td>
 </tr>
@@ -3957,11 +3985,6 @@
 <td><code>mt_lifecycle</code></td>
 <td><code>test_tenant_namespace_discovery.py</code></td>
 <td>Namespace-label discovery, webhook validation</td>
-</tr>
-<tr>
-<td><code>mt_lifecycle</code></td>
-<td><code>test_tenant_discovery_isolation.py</code></td>
-<td>Per-tenant /v1/tenants isolation</td>
 </tr>
 <tr>
 <td><code>mt_lifecycle</code></td>
@@ -3975,11 +3998,6 @@
 </tr>
 <tr>
 <td><code>tenant_isolation</code></td>
-<td><code>test_tenant_model_inference.py</code></td>
-<td>Cross-gateway inference isolation</td>
-</tr>
-<tr>
-<td><code>tenant_isolation</code></td>
 <td><code>test_tenant_rate_limit_isolation.py</code></td>
 <td>Per-tenant rate limit independence</td>
 </tr>
@@ -3990,8 +4008,23 @@
 </tr>
 <tr>
 <td><code>tenant_isolation</code></td>
+<td><code>test_tenant_discovery_isolation.py</code></td>
+<td>Per-tenant /v1/tenants isolation</td>
+</tr>
+<tr>
+<td><code>tenant_inference</code></td>
+<td><code>test_tenant_model_inference.py</code></td>
+<td>Cross-gateway inference isolation</td>
+</tr>
+<tr>
+<td><code>tenant_ipp</code></td>
 <td><code>test_per_tenant_ipp_isolation.py</code></td>
 <td>Per-tenant IPP stacks, routing isolation</td>
+</tr>
+<tr>
+<td><code>tenant_auto_resolve</code></td>
+<td><code>test_tenant_auto_resolve.py</code></td>
+<td>MaaSModelRef tenant auto-resolution from the gateway parentRef</td>
 </tr>
 <tr>
 <td><code>external</code></td>
@@ -4123,7 +4156,11 @@
 </tr>
 <tr>
 <td><code>E2E_PARALLEL_WORKERS</code></td>
-<td>pytest-xdist worker count for pass 1 (default <code>7</code>, one per group). Set to <code>1</code> for single-worker pass 1 without xdist; pass 2 stays serial.</td>
+<td>pytest-xdist worker count for pass 1 (default <code>7</code>). Set to <code>1</code> for single-worker pass 1 without xdist; pass 2 stays serial.</td>
+</tr>
+<tr>
+<td><code>LLMISVC_CONTROLLER_CPU_REQUEST</code> / <code>LLMISVC_CONTROLLER_CPU_LIMIT</code></td>
+<td>CPU that <code>deploy-platform.sh</code> gives <code>llmisvc-controller-manager</code> on the test cluster (defaults <code>1</code> / <code>2</code>; shipped is 100m). Set the limit empty to keep the shipped resources.</td>
 </tr>
 </tbody>
 </table>
@@ -4155,13 +4192,13 @@
 <p><strong>Read-only tests go in <code>readonly</code></strong>: Tests that only read cluster state (no creates, no deletes, no patches) belong in the <code>readonly</code> group. This group finishes fast and never conflicts with other groups.</p>
 </li>
 <li>
-<p><strong>Self-managing tenant tests go in <code>mt_lifecycle</code> or <code>tenant_isolation</code></strong>: Tests that create their own AITenant CRs belong in one of these groups. <code>mt_lifecycle</code> for lifecycle operations (create/delete/migrate), <code>tenant_isolation</code> for cross-tenant isolation assertions using the <code>shared_test_tenants</code> fixture.</p>
+<p><strong>Self-managing tenant tests go in <code>mt_lifecycle</code> or a <code>tenant_*</code> group</strong>: Tests that create their own AITenant CRs belong in one of these groups. <code>mt_lifecycle</code> for lifecycle operations (create/delete/migrate), <code>tenant_isolation</code> for cross-tenant isolation assertions using the <code>shared_test_tenants</code> fixture. A long isolation module that builds its own tenant pair gets its own group (<code>tenant_inference</code>, <code>tenant_ipp</code>), so its runtime doesn't add to <code>tenant_isolation</code>'s.</p>
 </li>
 <li>
 <p><strong>Externally-gated tests go in <code>external</code></strong>: Tests that require external infrastructure (Keycloak OIDC, external endpoints) and use <code>pytest.mark.skipif</code> to self-gate belong in the <code>external</code> group.</p>
 </li>
 <li>
-<p><strong>Prefer existing groups over new ones</strong>: Adding more groups increases worker count and cluster resource pressure. Only create a new group if the test's mutation scope genuinely conflicts with all existing groups.</p>
+<p><strong>Prefer existing groups over new ones</strong>: Adding more groups increases cluster resource pressure. Only create a new group if the test's mutation scope genuinely conflicts with all existing groups. The exception is wall clock: with <code>--dist=loadgroup</code> pass 1 cannot finish before its longest group, so split a group whose runtime alone sets the pass length, as long as the parts share no tenants or CRs and make no negative assertions (quiet logs, counters) on components the others touch. Pass 1 has more groups than workers: xdist starts the groups with the most tests first and hands the rest to whichever worker drains first, so a long group with few tests starts late.</p>
 </li>
 </ol>
 <h4 id="serial-marker">Serial Marker</h4>
@@ -4304,17 +4341,7 @@
 <p><strong>Add test resources if needed</strong> — if your feature requires new MaaS CRs (models, subscriptions, auth policies), add a kustomize overlay under <code>test/e2e/fixtures/</code> and include it in the base <code>kustomization.yaml</code>.</p>
 </li>
 <li>
-<p><strong>Register new modules in CI</strong> — <code>prow_run_smoke_test.sh</code> runs an <strong>explicit file list</strong>. If you create a new test module, add it to the <code>e2e_test_files</code> array in <code>run_e2e_tests()</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># In test/e2e/scripts/prow_run_smoke_test.sh, inside run_e2e_tests()</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="nb">local</span><span class="w"> </span>-a<span class="w"> </span><span class="nv">e2e_test_files</span><span class="o">=(</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span>...
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="s2">&quot;</span><span class="nv">$test_dir</span><span class="s2">/tests/test_my_new_feature.py&quot;</span><span class="w">  </span><span class="c1"># ← add here</span>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="o">)</span>
-</code></pre></div>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p><code>run-tests-quick.sh</code> auto-discovers all files under <code>tests/</code>, but <code>prow_run_smoke_test.sh</code> does <strong>not</strong>. Your new module will not run in Konflux CI unless you add it to the <code>e2e_test_files</code> array.</p>
-</div>
+<p><strong>Use pytest discovery for CI</strong> — <code>run_e2e_tests.sh</code> collects every <code>test_*.py</code> module under <code>test/e2e/tests/</code>. New modules do not need a separate CI registration step. Give the module an appropriate <code>xdist_group</code> marker and mark cluster-wide mutations as <code>serial</code>.</p>
 </li>
 <li>
 <p><strong>Use skip markers for optional features</strong> — if your test depends on optional infrastructure (e.g., external OIDC, IPP ExternalModel CRD), gate it with <code>pytest.mark.skipif</code> so the same module runs cleanly in all environments.</p>
@@ -4407,7 +4434,7 @@
 <li class="task-list-item"><input type="checkbox"/> <strong>xdist group</strong>: Ensure the test file has a <code>pytestmark = pytest.mark.xdist_group("group_name")</code> marker (see <a href="#group-assignment-rules">group assignment rules</a>)</li>
 <li class="task-list-item"><input type="checkbox"/> <strong>Serial marker</strong>: Add <code>@pytest.mark.serial</code> if the test mutates shared fixtures or scales operators</li>
 <li class="task-list-item"><input type="checkbox"/> <strong>Test fixtures</strong>: If new CRs are needed, add a kustomize overlay in <code>test/e2e/fixtures/</code></li>
-<li class="task-list-item"><input type="checkbox"/> <strong>CI registration</strong>: Add new E2E modules to the <code>e2e_test_files</code> array in <code>prow_run_smoke_test.sh</code></li>
+<li class="task-list-item"><input type="checkbox"/> <strong>Pytest discovery</strong>: Confirm the new module follows the <code>test_*.py</code> naming convention and is collected with <code>pytest tests/ --collect-only -q</code></li>
 <li class="task-list-item"><input type="checkbox"/> <strong>Skip markers</strong>: Use <code>pytest.mark.skipif</code> for tests requiring optional infrastructure</li>
 <li class="task-list-item"><input type="checkbox"/> <strong>Local validation</strong>: Run <code>make test</code> and/or <code>./test/e2e/run-tests-quick.sh</code> before pushing</li>
 <li class="task-list-item"><input type="checkbox"/> <strong>Integration tests</strong>: If your change affects ODH operator integration, update tests in <a href="https://github.com/opendatahub-io/opendatahub-tests">opendatahub-tests</a></li>
@@ -4434,7 +4461,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 30, 2026 11:02:41 UTC">September 30, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 2, 2026 08:33:54 UTC">October 2, 2026</span>
   </span>
 
     
