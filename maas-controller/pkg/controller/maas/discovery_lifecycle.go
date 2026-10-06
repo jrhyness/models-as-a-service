@@ -221,7 +221,6 @@ func buildDiscoveryStaticResources(discoveryNS string) []unstructured.Unstructur
 		newDiscoveryResource("apps/v1", "Deployment", discoveryNS, discoveryDeploymentName),
 		newDiscoveryResource("v1", "Service", discoveryNS, discoveryDeploymentName),
 		newDiscoveryResource("v1", "ServiceAccount", discoveryNS, discoveryDeploymentName),
-		newDiscoveryResource("gateway.networking.k8s.io/v1", "HTTPRoute", discoveryNS, discoveryHTTPRouteName),
 		newDiscoveryResource("rbac.authorization.k8s.io/v1", "ClusterRole", "", discoveryDeploymentName),
 		newDiscoveryResource("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", "", discoveryDeploymentName),
 	}
