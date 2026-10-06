@@ -11,3 +11,11 @@ rules:
 - apiGroups: ["maas.opendatahub.io"]
   resources: ["maasauthpolicies", "maassubscriptions"]
   verbs: ["get", "list", "watch"]
+# Token validation for caller authentication
+- apiGroups: ["authentication.k8s.io"]
+  resources: ["tokenreviews"]
+  verbs: ["create"]
+# SAR check to verify caller is system:authenticated
+- apiGroups: ["authorization.k8s.io"]
+  resources: ["subjectaccessreviews"]
+  verbs: ["create"]

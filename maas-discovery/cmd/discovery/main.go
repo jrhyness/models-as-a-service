@@ -15,9 +15,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/opendatahub-io/models-as-a-service/maas-discovery/internal/auth"
 	"github.com/opendatahub-io/models-as-a-service/maas-discovery/internal/cache"
 	"github.com/opendatahub-io/models-as-a-service/maas-discovery/internal/cert"
 	"github.com/opendatahub-io/models-as-a-service/maas-discovery/internal/handler"
@@ -92,7 +94,16 @@ func run() error {
 	engine.Use(gin.Recovery())
 	engine.Use(middleware.RequestID())
 	engine.Use(middleware.AccessLogger(log))
-	h.RegisterRoutes(engine)
+
+	var authMiddleware []gin.HandlerFunc
+	if restConfig != nil {
+		kubeClient, clientErr := kubernetes.NewForConfig(restConfig)
+		if clientErr != nil {
+			return fmt.Errorf("creating kubernetes client for auth: %w", clientErr)
+		}
+		authMiddleware = append(authMiddleware, auth.TokenReviewMiddleware(log, kubeClient))
+	}
+	h.RegisterRoutes(engine, authMiddleware...)
 
 	srv := &http.Server{
 		Addr:              *addr,

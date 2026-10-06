@@ -10,16 +10,30 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/opendatahub-io/models-as-a-service/maas-discovery/internal/auth"
 	"github.com/opendatahub-io/models-as-a-service/maas-discovery/internal/cache"
 	"github.com/opendatahub-io/models-as-a-service/maas-discovery/internal/handler"
 	"github.com/opendatahub-io/models-as-a-service/maas-discovery/internal/types"
 )
 
-func newTestRouter() *gin.Engine {
+func init() {
 	gin.SetMode(gin.TestMode)
+}
+
+// fakeAuthMiddleware simulates authenticated identity in the gin context,
+// matching what TokenReviewMiddleware does in production.
+func fakeAuthMiddleware(username string, groups []string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set(auth.ContextKeyUsername, username)
+		c.Set(auth.ContextKeyGroups, groups)
+		c.Next()
+	}
+}
+
+func newTestRouter() *gin.Engine {
 	h := handler.New(cache.NewStub())
 	r := gin.New()
-	h.RegisterRoutes(r)
+	h.RegisterRoutes(r, fakeAuthMiddleware("alice", []string{"team-a"}))
 	return r
 }
 
@@ -28,8 +42,6 @@ func TestListTenants(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/tenants", nil)
-	req.Header.Set("X-MaaS-Username", "alice")
-	req.Header.Set("X-MaaS-Group", `["team-a"]`)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -63,11 +75,10 @@ func TestReadyz(t *testing.T) {
 }
 
 func TestReadyzNotReady(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	fc := &fakeTenantCache{synced: false}
 	h := handler.New(fc)
 	r := gin.New()
-	h.RegisterRoutes(r)
+	h.RegisterRoutes(r, fakeAuthMiddleware("alice", []string{"team-a"}))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
@@ -98,30 +109,6 @@ func TestMethodNotAllowed(t *testing.T) {
 	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
 }
 
-func TestListTenants_MissingIdentityHeaders(t *testing.T) {
-	r := newTestRouter()
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1/tenants", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "auth identity headers")
-}
-
-func TestListTenants_EmptyGroupArrayAllowed(t *testing.T) {
-	r := newTestRouter()
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1/tenants", nil)
-	req.Header.Set("X-MaaS-Username", "alice")
-	req.Header.Set("X-MaaS-Group", "[]")
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.JSONEq(t, `{"tenants":[]}`, w.Body.String())
-}
-
 type fakeTenantCache struct {
 	tenants []types.TenantInfo
 	synced  bool
@@ -140,7 +127,6 @@ func (f *fakeTenantCache) Synced() bool {
 }
 
 func TestListTenantsWithData(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	fc := &fakeTenantCache{
 		synced: true,
 		tenants: []types.TenantInfo{
@@ -158,12 +144,10 @@ func TestListTenantsWithData(t *testing.T) {
 	}
 	h := handler.New(fc)
 	r := gin.New()
-	h.RegisterRoutes(r)
+	h.RegisterRoutes(r, fakeAuthMiddleware("alice", []string{"team-a"}))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/tenants", nil)
-	req.Header.Set("X-MaaS-Username", "alice")
-	req.Header.Set("X-MaaS-Group", `["team-a"]`)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -178,7 +162,6 @@ func TestListTenantsWithData(t *testing.T) {
 // Contract tests validate the response schema matches ADR ODH-ADR-MS-0004.
 
 func TestContract_ResponseSchema(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	fc := &fakeTenantCache{
 		synced: true,
 		tenants: []types.TenantInfo{
@@ -196,12 +179,10 @@ func TestContract_ResponseSchema(t *testing.T) {
 	}
 	h := handler.New(fc)
 	r := gin.New()
-	h.RegisterRoutes(r)
+	h.RegisterRoutes(r, fakeAuthMiddleware("alice", []string{"team-a"}))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/tenants", nil)
-	req.Header.Set("X-MaaS-Username", "alice")
-	req.Header.Set("X-MaaS-Group", `["team-a"]`)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -228,16 +209,13 @@ func TestContract_ResponseSchema(t *testing.T) {
 }
 
 func TestContract_EmptyTenants(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	fc := &fakeTenantCache{synced: true}
 	h := handler.New(fc)
 	r := gin.New()
-	h.RegisterRoutes(r)
+	h.RegisterRoutes(r, fakeAuthMiddleware("alice", []string{"team-a"}))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/tenants", nil)
-	req.Header.Set("X-MaaS-Username", "alice")
-	req.Header.Set("X-MaaS-Group", `["team-a"]`)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -246,7 +224,6 @@ func TestContract_EmptyTenants(t *testing.T) {
 }
 
 func TestContract_PartialGateway(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	fc := &fakeTenantCache{
 		synced: true,
 		tenants: []types.TenantInfo{
@@ -261,12 +238,10 @@ func TestContract_PartialGateway(t *testing.T) {
 	}
 	h := handler.New(fc)
 	r := gin.New()
-	h.RegisterRoutes(r)
+	h.RegisterRoutes(r, fakeAuthMiddleware("alice", []string{"team-a"}))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/tenants", nil)
-	req.Header.Set("X-MaaS-Username", "alice")
-	req.Header.Set("X-MaaS-Group", `["team-a"]`)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -290,7 +265,6 @@ func TestContract_PartialGateway(t *testing.T) {
 }
 
 func TestContract_MultiTenant(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	fc := &fakeTenantCache{
 		synced: true,
 		tenants: []types.TenantInfo{
@@ -318,12 +292,10 @@ func TestContract_MultiTenant(t *testing.T) {
 	}
 	h := handler.New(fc)
 	r := gin.New()
-	h.RegisterRoutes(r)
+	h.RegisterRoutes(r, fakeAuthMiddleware("alice", []string{"team-a"}))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/tenants", nil)
-	req.Header.Set("X-MaaS-Username", "alice")
-	req.Header.Set("X-MaaS-Group", `["team-a"]`)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)

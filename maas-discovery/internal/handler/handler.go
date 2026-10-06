@@ -2,21 +2,14 @@
 package handler
 
 import (
-	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/opendatahub-io/models-as-a-service/maas-discovery/internal/auth"
 	"github.com/opendatahub-io/models-as-a-service/maas-discovery/internal/cache"
 	"github.com/opendatahub-io/models-as-a-service/maas-discovery/internal/types"
-)
-
-const (
-	usernameHeader = "X-MaaS-Username"
-	groupHeader    = "X-MaaS-Group"
 )
 
 // Handler serves tenant discovery endpoints.
@@ -39,71 +32,25 @@ func NewWithLogger(tc cache.TenantCache, log *slog.Logger) *Handler {
 }
 
 // ListTenants handles GET /v1/tenants.
+// The TokenReviewMiddleware must run before this handler to populate the
+// auth.ContextKeyUsername and auth.ContextKeyGroups values.
 func (h *Handler) ListTenants(c *gin.Context) {
-	username, groups, err := extractIdentity(c)
-	if err != nil {
-		h.log.Warn("invalid discovery identity headers", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "auth identity headers are missing or invalid"})
-		return
-	}
+	username, _ := c.Get(auth.ContextKeyUsername)
+	groupsRaw, _ := c.Get(auth.ContextKeyGroups)
 
-	tenants := h.cache.ListForSubjects(username, groups)
+	user, _ := username.(string)
+	groups, _ := groupsRaw.([]string)
+
+	tenants := h.cache.ListForSubjects(user, groups)
 	if tenants == nil {
 		tenants = []types.TenantInfo{}
 	}
 	h.log.Debug("resolved visible tenants",
-		"username_present", username != "",
+		"username", user,
 		"groups_count", len(groups),
 		"tenant_count", len(tenants),
 	)
 	c.JSON(http.StatusOK, types.TenantsResponse{Tenants: tenants})
-}
-
-func extractIdentity(c *gin.Context) (string, []string, error) {
-	username := strings.TrimSpace(c.GetHeader(usernameHeader))
-	rawGroups := c.GetHeader(groupHeader)
-	if username == "" || rawGroups == "" {
-		return "", nil, errors.New("missing identity headers")
-	}
-
-	groups, err := parseGroupsHeader(rawGroups)
-	if err != nil {
-		return "", nil, err
-	}
-
-	return username, groups, nil
-}
-
-func parseGroupsHeader(header string) ([]string, error) {
-	trimmed := strings.TrimSpace(header)
-	if trimmed == "" {
-		return nil, errors.New("header is empty")
-	}
-
-	var parsed []string
-	if err := json.Unmarshal([]byte(header), &parsed); err != nil {
-		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
-			parsed = strings.Fields(trimmed[1 : len(trimmed)-1])
-		} else {
-			return nil, errors.New("unsupported group header format")
-		}
-	}
-
-	groups := make([]string, 0, len(parsed))
-	for _, g := range parsed {
-		g = strings.TrimSpace(g)
-		if g != "" {
-			groups = append(groups, g)
-		}
-	}
-	if len(groups) == 0 {
-		if trimmed == "[]" {
-			return []string{}, nil
-		}
-		return nil, errors.New("no groups found")
-	}
-
-	return groups, nil
 }
 
 // Healthz handles GET /healthz.
@@ -122,8 +69,10 @@ func (h *Handler) Readyz(c *gin.Context) {
 }
 
 // RegisterRoutes wires up all routes on the given engine.
-func (h *Handler) RegisterRoutes(r *gin.Engine) {
-	r.GET("/v1/tenants", h.ListTenants)
+// authMiddleware is applied to authenticated endpoints (/v1/tenants).
+func (h *Handler) RegisterRoutes(r *gin.Engine, authMiddleware ...gin.HandlerFunc) {
+	handlers := append(authMiddleware, h.ListTenants) //nolint:gocritic // intentional append to variadic copy
+	r.GET("/v1/tenants", handlers...)
 	r.GET("/healthz", h.Healthz)
 	r.GET("/readyz", h.Readyz)
 }
