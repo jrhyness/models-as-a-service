@@ -66,7 +66,6 @@ func (r *LifecycleReconciler) ensureDiscoveryService(ctx context.Context, log lo
 	if !r.DiscoveryEnabled {
 		resources := buildDiscoveryStaticResources(discoveryNS)
 		resources = append(resources, buildDiscoveryCrossNamespaceRBAC(discoveryNS, r.AITenantNamespace, r.GatewayNamespace)...)
-		resources = append(resources, buildDiscoveryGatewayResources(discoveryNS, r.GatewayNamespace, r.ClusterAudience)...)
 		return r.teardownDiscoveryResources(ctx, log, &cfg, resources)
 	}
 
@@ -78,9 +77,6 @@ func (r *LifecycleReconciler) ensureDiscoveryService(ctx context.Context, log lo
 	crossNS := buildDiscoveryCrossNamespaceRBAC(discoveryNS, r.AITenantNamespace, r.GatewayNamespace)
 	resources = append(resources, crossNS...)
 
-	gwResources := buildDiscoveryGatewayResources(discoveryNS, r.GatewayNamespace, r.ClusterAudience)
-	resources = append(resources, gwResources...)
-
 	for i := range resources {
 		res := &resources[i]
 
@@ -91,7 +87,6 @@ func (r *LifecycleReconciler) ensureDiscoveryService(ctx context.Context, log lo
 			return fmt.Errorf("patch discovery args: %w", err)
 		}
 		patchDiscoveryReplicas(res, r.DiscoveryReplicas)
-		patchDiscoveryHTTPRouteParentRef(res, r.DiscoveryGatewayName, r.GatewayNamespace)
 
 		if err := controllerutil.SetControllerReference(&cfg, res, r.Scheme); err != nil {
 			return fmt.Errorf("set controller reference on %s %s: %w", res.GetKind(), res.GetName(), err)
@@ -316,87 +311,6 @@ func buildDiscoveryCrossNamespaceRBAC(controllerNS, aitenantNS, gatewayNS string
 	})
 
 	return []unstructured.Unstructured{aiTenantRole, aiTenantBinding, gatewayRole, gatewayBinding}
-}
-
-func patchDiscoveryHTTPRouteParentRef(res *unstructured.Unstructured, gatewayName, gatewayNS string) {
-	if res.GetKind() != "HTTPRoute" || res.GetName() != discoveryHTTPRouteName {
-		return
-	}
-	parentRefs, found, _ := unstructured.NestedSlice(res.Object, "spec", "parentRefs")
-	if !found || len(parentRefs) == 0 {
-		return
-	}
-	ref, ok := parentRefs[0].(map[string]any)
-	if !ok {
-		return
-	}
-	ref["name"] = gatewayName
-	ref["namespace"] = gatewayNS
-	parentRefs[0] = ref
-	_ = unstructured.SetNestedSlice(res.Object, parentRefs, "spec", "parentRefs")
-}
-
-func buildDiscoveryGatewayResources(discoveryNS, gatewayNS, clusterAudience string) []unstructured.Unstructured {
-	dr := buildDiscoveryDestinationRule(discoveryNS, gatewayNS)
-	ap := buildDiscoveryAuthPolicy(discoveryNS, clusterAudience)
-	return []unstructured.Unstructured{dr, ap}
-}
-
-func buildDiscoveryDestinationRule(discoveryNS, gatewayNS string) unstructured.Unstructured {
-	return unstructured.Unstructured{Object: map[string]any{
-		"apiVersion": "networking.istio.io/v1",
-		"kind":       "DestinationRule",
-		"metadata": map[string]any{
-			"name":      discoveryDestinationRuleName,
-			"namespace": gatewayNS,
-		},
-		"spec": map[string]any{
-			"host": fmt.Sprintf("maas-discovery.%s.svc.cluster.local", discoveryNS),
-			"trafficPolicy": map[string]any{
-				"portLevelSettings": []any{
-					map[string]any{
-						"port": map[string]any{
-							"number": int64(8443),
-						},
-						"tls": map[string]any{
-							"mode":               "SIMPLE",
-							"insecureSkipVerify": true,
-						},
-					},
-				},
-			},
-		},
-	}}
-}
-
-func buildDiscoveryAuthPolicy(discoveryNS, clusterAudience string) unstructured.Unstructured {
-	if clusterAudience == "" {
-		clusterAudience = "https://kubernetes.default.svc"
-	}
-	return unstructured.Unstructured{Object: map[string]any{
-		"apiVersion": "kuadrant.io/v1",
-		"kind":       "AuthPolicy",
-		"metadata": map[string]any{
-			"name":      discoveryAuthPolicyName,
-			"namespace": discoveryNS,
-		},
-		"spec": map[string]any{
-			"targetRef": map[string]any{
-				"group": "gateway.networking.k8s.io",
-				"kind":  "HTTPRoute",
-				"name":  discoveryHTTPRouteName,
-			},
-			"rules": map[string]any{
-				"authentication": map[string]any{
-					"openshift-identities": map[string]any{
-						"kubernetesTokenReview": map[string]any{
-							"audiences": []any{clusterAudience},
-						},
-					},
-				},
-			},
-		},
-	}}
 }
 
 func toUnstructured(obj any) unstructured.Unstructured {
