@@ -527,4 +527,3 @@ func TestBuildDiscoveryCrossNamespaceRBAC(t *testing.T) {
 	g.Expect(sameNS[2].GetName()).To(Equal(discoveryGatewayRBAC))
 	g.Expect(sameNS[3].GetName()).To(Equal(discoveryGatewayRBAC))
 }
-
