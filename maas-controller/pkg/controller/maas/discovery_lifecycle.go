@@ -90,7 +90,7 @@ func (r *LifecycleReconciler) ensureDiscoveryService(ctx context.Context, log lo
 		if err := controllerutil.SetControllerReference(&cfg, res, r.Scheme); err != nil {
 			return fmt.Errorf("set controller reference on %s %s: %w", res.GetKind(), res.GetName(), err)
 		}
-		if err := r.Patch(ctx, res, client.Apply, client.ForceOwnership, client.FieldOwner("maas-controller")); err != nil {
+		if err := r.Apply(ctx, client.ApplyConfigurationFromUnstructured(res), client.ForceOwnership, client.FieldOwner("maas-controller")); err != nil {
 			return fmt.Errorf("apply %s %s/%s: %w", res.GetKind(), res.GetNamespace(), res.GetName(), err)
 		}
 	}
