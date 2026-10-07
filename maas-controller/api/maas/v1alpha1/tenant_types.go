@@ -76,6 +76,10 @@ type TenantSpec struct {
 	// PayloadProcessing defines scaling configuration for payload-processing (IPP) pods.
 	// +kubebuilder:validation:Optional
 	PayloadProcessing *TenantPayloadProcessingConfig `json:"payloadProcessing,omitempty"`
+
+	// PayloadPreProcessing defines scaling configuration for payload-pre-processing (IPP) pods.
+	// +kubebuilder:validation:Optional
+	PayloadPreProcessing *TenantPayloadProcessingConfig `json:"payloadPreProcessing,omitempty"`
 }
 
 // TenantExternalOIDCConfig defines the external OIDC provider settings.
@@ -149,6 +153,13 @@ type TenantAPIKeysConfig struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Minimum=1
 	MaxExpirationDays *int32 `json:"maxExpirationDays,omitempty"`
+
+	// DeletionRetentionDays controls how long lifecycle-invalidated API keys
+	// remain soft-deleted before physical deletion. The default is 90 days.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=106751
+	DeletionRetentionDays *int32 `json:"deletionRetentionDays,omitempty"`
 }
 
 // TenantMaasAPIConfig defines scaling and resource configuration for maas-api pods.
@@ -167,9 +178,10 @@ type TenantMaasAPIConfig struct {
 	Resources *TenantResourceRequirements `json:"resources,omitempty"`
 }
 
-// TenantPayloadProcessingConfig defines scaling and resource configuration for payload-processing pods.
+// TenantPayloadProcessingConfig defines scaling and resource configuration for an IPP
+// workload Deployment (payload-processing or payload-pre-processing).
 type TenantPayloadProcessingConfig struct {
-	// Replicas overrides the payload-processing Deployment replica count.
+	// Replicas overrides the Deployment replica count.
 	// When Autoscaling is enabled, this value sets the HPA minReplicas floor.
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Minimum=1
@@ -177,11 +189,11 @@ type TenantPayloadProcessingConfig struct {
 	Replicas *int32 `json:"replicas,omitempty"`
 
 	// Autoscaling enables HPA-based horizontal pod autoscaling.
-	// When enabled, an HPA is created targeting the payload-processing Deployment.
+	// When enabled, an HPA is created targeting the corresponding Deployment.
 	// +kubebuilder:validation:Optional
 	Autoscaling *TenantAutoscalingConfig `json:"autoscaling,omitempty"`
 
-	// Resources overrides the resource requests and limits for the payload-processing container.
+	// Resources overrides the resource requests and limits for the container.
 	// When set, replaces the entire resource block (full replacement, not merge).
 	// When autoscaling is enabled, both requests.cpu and requests.memory must be specified.
 	// Resource claims are not supported.
@@ -201,7 +213,7 @@ type TenantResourceRequirements struct {
 	Requests corev1.ResourceList `json:"requests,omitempty"`
 }
 
-// TenantAutoscalingConfig defines HPA autoscaling parameters for payload-processing.
+// TenantAutoscalingConfig defines HPA autoscaling parameters for IPP workloads.
 type TenantAutoscalingConfig struct {
 	// MaxReplicas is the upper limit for the HPA replica count.
 	// +kubebuilder:default=10
@@ -262,5 +274,5 @@ type TenantList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&Tenant{}, &TenantList{})
+	register(&Tenant{}, &TenantList{})
 }
