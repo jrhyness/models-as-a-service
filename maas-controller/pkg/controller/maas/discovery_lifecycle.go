@@ -65,7 +65,7 @@ func (r *LifecycleReconciler) ensureDiscoveryService(ctx context.Context, log lo
 	if !r.DiscoveryEnabled {
 		resources := buildDiscoveryStaticResources(discoveryNS)
 		resources = append(resources, buildDiscoveryCrossNamespaceRBAC(discoveryNS, r.AITenantNamespace, r.GatewayNamespace)...)
-		resources = append(resources, buildDiscoveryIngressNetworkPolicy(discoveryNS, r.DiscoveryGatewayName, r.GatewayNamespace))
+		resources = append(resources, buildDiscoveryIngressNetworkPolicy(discoveryNS, r.GatewayName, r.GatewayNamespace))
 		return r.teardownDiscoveryResources(ctx, log, &cfg, resources)
 	}
 
@@ -77,7 +77,7 @@ func (r *LifecycleReconciler) ensureDiscoveryService(ctx context.Context, log lo
 	crossNS := buildDiscoveryCrossNamespaceRBAC(discoveryNS, r.AITenantNamespace, r.GatewayNamespace)
 	resources = append(resources, crossNS...)
 
-	np := buildDiscoveryIngressNetworkPolicy(discoveryNS, r.DiscoveryGatewayName, r.GatewayNamespace)
+	np := buildDiscoveryIngressNetworkPolicy(discoveryNS, r.GatewayName, r.GatewayNamespace)
 	resources = append(resources, np)
 	for i := range resources {
 		res := &resources[i]
