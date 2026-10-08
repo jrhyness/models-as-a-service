@@ -15,7 +15,6 @@ import (
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	maasv1alpha1 "github.com/opendatahub-io/models-as-a-service/maas-controller/api/maas/v1alpha1"
 
@@ -51,7 +50,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 		g := NewWithT(t)
 		s := lifecycleTestScheme(t)
 
-		cl := fake.NewClientBuilder().WithScheme(s).Build()
+		cl := newSSAFakeClientBuilder(s).Build()
 		r := &LifecycleReconciler{
 			Client:                cl,
 			Scheme:                s,
@@ -66,7 +65,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 		g := NewWithT(t)
 		s := lifecycleTestScheme(t)
 
-		cl := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(&maasv1alpha1.Config{}).Build()
+		cl := newSSAFakeClientBuilder(s).WithStatusSubresource(&maasv1alpha1.Config{}).Build()
 		r := &LifecycleReconciler{
 			Client:                cl,
 			Scheme:                s,
@@ -91,7 +90,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: maasv1alpha1.ConfigInstanceName, UID: types.UID("cfg-uid")},
 		}
 
-		cl := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg).Build()
+		cl := newSSAFakeClientBuilder(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg).Build()
 		r := &LifecycleReconciler{
 			Client:                cl,
 			Scheme:                s,
@@ -126,7 +125,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: maasv1alpha1.ConfigInstanceName, UID: types.UID("cfg-uid")},
 		}
 
-		cl := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg).Build()
+		cl := newSSAFakeClientBuilder(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg).Build()
 		r := &LifecycleReconciler{
 			Client:                cl,
 			Scheme:                s,
@@ -164,7 +163,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 		}
 
 		replicas := int32(5)
-		cl := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg).Build()
+		cl := newSSAFakeClientBuilder(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg).Build()
 		r := &LifecycleReconciler{
 			Client:                cl,
 			Scheme:                s,
@@ -199,7 +198,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: maasv1alpha1.ConfigInstanceName, UID: types.UID("cfg-uid")},
 		}
 
-		cl := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg).Build()
+		cl := newSSAFakeClientBuilder(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg).Build()
 		r := &LifecycleReconciler{
 			Client:                cl,
 			Scheme:                s,
@@ -276,7 +275,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Controller: ptr.To(true),
 		}})
 
-		cl := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg, ownedDep, ownedRole).Build()
+		cl := newSSAFakeClientBuilder(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg, ownedDep, ownedRole).Build()
 		r := &LifecycleReconciler{
 			Client:                cl,
 			Scheme:                s,
@@ -316,7 +315,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 		foreignDep.SetName(discoveryDeploymentName)
 		foreignDep.SetNamespace(discoveryNS)
 
-		cl := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg, foreignDep).Build()
+		cl := newSSAFakeClientBuilder(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg, foreignDep).Build()
 		r := &LifecycleReconciler{
 			Client:                cl,
 			Scheme:                s,
@@ -358,7 +357,7 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Controller: ptr.To(true),
 		}})
 
-		cl := fake.NewClientBuilder().WithScheme(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg, ownedDep).Build()
+		cl := newSSAFakeClientBuilder(s).WithStatusSubresource(&maasv1alpha1.Config{}).WithObjects(cfg, ownedDep).Build()
 		r := &LifecycleReconciler{
 			Client:                cl,
 			Scheme:                s,
