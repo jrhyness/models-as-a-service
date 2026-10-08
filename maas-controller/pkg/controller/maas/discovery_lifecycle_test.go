@@ -37,7 +37,6 @@ func TestEnsureDiscoveryService(t *testing.T) {
 		discoveryNS  = "odh-ai-gateway-infra"
 		aitenantNS   = "ai-tenants"
 		gatewayNS    = "openshift-ingress"
-		gatewayName  = "data-science-gateway"
 		testImage    = "quay.io/test/odh-maas-discovery:v1"
 	)
 
@@ -73,7 +72,6 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			DiscoveryGatewayName:  gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -99,7 +97,6 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			DiscoveryGatewayName:  gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -135,7 +132,6 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			DiscoveryGatewayName:  gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -174,7 +170,6 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			DiscoveryGatewayName:  gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -210,7 +205,6 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			DiscoveryGatewayName:  gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      true,
 			DiscoveryManifestPath: manifestPath,
@@ -288,7 +282,6 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			DiscoveryGatewayName:  gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      false,
 			DiscoveryManifestPath: manifestPath,
@@ -329,7 +322,6 @@ func TestEnsureDiscoveryService(t *testing.T) {
 			Scheme:                s,
 			DeploymentNS:          controllerNS,
 			AITenantNamespace:     aitenantNS,
-			DiscoveryGatewayName:  gatewayName,
 			GatewayNamespace:      gatewayNS,
 			DiscoveryEnabled:      false,
 			DiscoveryManifestPath: manifestPath,

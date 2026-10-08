@@ -879,13 +879,6 @@ func parseReplicasEnv(envVar string) *int32 {
 	return &r
 }
 
-func envOrDefault(envVar, defaultVal string) string {
-	if v := os.Getenv(envVar); v != "" {
-		return v
-	}
-	return defaultVal
-}
-
 // resolveInfraNamespace determines the infrastructure namespace for maas-api and maas-db-config.
 // Note: PostgreSQL itself can be external (e.g., AWS RDS) - only maas-api and the connection secret deploy here.
 // If infraNs is "AUTO", derives the namespace from the controller namespace.
@@ -1339,13 +1332,11 @@ func main() {
 		UsageLogsManifestPath:       usageLogsManifestPath,
 		MonitoringNamespace:         monitoringNamespace,
 		GatewayNamespace:            gatewayNamespace,
-		DiscoveryGatewayName:        envOrDefault("MAAS_DISCOVERY_GATEWAY_NAME", "data-science-gateway"),
 		DiscoveryEnabled:            os.Getenv("MAAS_DISCOVERY_ENABLED") == "true",
 		DiscoveryManifestPath:       discoveryManifestPath,
 		DiscoveryImage:              os.Getenv("RELATED_IMAGE_ODH_MAAS_DISCOVERY_IMAGE"),
 		DiscoveryNamespace:          controllerNamespace,
 		DiscoveryReplicas:           parseReplicasEnv("MAAS_DISCOVERY_REPLICAS"),
-		ClusterAudience:             clusterAudience,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SelfDeployment")
 		os.Exit(1)

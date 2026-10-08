@@ -89,13 +89,11 @@ type LifecycleReconciler struct {
 	ObservabilityManifestsPath  string
 	MonitoringNamespace         string
 	UsageLogsManifestPath       string
-	DiscoveryGatewayName        string
 	DiscoveryEnabled            bool
 	DiscoveryManifestPath       string
 	DiscoveryImage              string
 	DiscoveryNamespace          string
 	DiscoveryReplicas           *int32
-	ClusterAudience             string
 }
 
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;update;patch
