@@ -6,7 +6,6 @@ namespace: opendatahub
 resources:
   - ../core
   - ../rbac
-  - ../networking
 
 labels:
   - includeSelectors: true

@@ -38,7 +38,6 @@ import (
 const (
 	discoveryDeploymentName = "maas-discovery"
 	discoveryContainerName  = "maas-discovery"
-	discoveryHTTPRouteName  = "maas-discovery-route"
 	discoveryAITenantRBAC   = "maas-discovery-aitenants"
 	discoveryGatewayRBAC    = "maas-discovery-gateway"
 )
