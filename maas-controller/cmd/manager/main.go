@@ -900,6 +900,7 @@ func discoveryLogLevelOrDefault(envVar, defaultVal string) string {
 		return defaultVal
 	}
 }
+
 // resolveInfraNamespace determines the infrastructure namespace for maas-api and maas-db-config.
 // Note: PostgreSQL itself can be external (e.g., AWS RDS) - only maas-api and the connection secret deploy here.
 // If infraNs is "AUTO", derives the namespace from the controller namespace.
