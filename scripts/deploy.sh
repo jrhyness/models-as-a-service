@@ -834,7 +834,6 @@ EOF
       patch_json+="\"maas-discovery-replicas\":\"${MAAS_DISCOVERY_REPLICAS}\""
       first=false
     fi
-    fi
     patch_json+="}}"
     local patch_attempt
     local max_patch_attempts=5
