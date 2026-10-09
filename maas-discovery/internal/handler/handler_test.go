@@ -26,6 +26,16 @@ func fakeAuthMiddleware(username string, groups []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Set(auth.ContextKeyUsername, username)
 		c.Set(auth.ContextKeyGroups, groups)
+		c.Set(auth.ContextKeyIsAdmin, false)
+		c.Next()
+	}
+}
+
+func fakeAdminAuthMiddleware(username string, groups []string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set(auth.ContextKeyUsername, username)
+		c.Set(auth.ContextKeyGroups, groups)
+		c.Set(auth.ContextKeyIsAdmin, true)
 		c.Next()
 	}
 }
@@ -124,6 +134,54 @@ func (f *fakeTenantCache) ListForSubjects(string, []string) []types.TenantInfo {
 
 func (f *fakeTenantCache) Synced() bool {
 	return f.synced
+}
+
+type countingTenantCache struct {
+	allTenants     []types.TenantInfo
+	visibleTenants []types.TenantInfo
+	listCalls      int
+	visibleCalls   int
+}
+
+func (f *countingTenantCache) List() []types.TenantInfo {
+	f.listCalls++
+	return f.allTenants
+}
+
+func (f *countingTenantCache) ListForSubjects(string, []string) []types.TenantInfo {
+	f.visibleCalls++
+	return f.visibleTenants
+}
+
+func (f *countingTenantCache) Synced() bool {
+	return true
+}
+
+func TestListTenants_AdminBypassesSubjectFilter(t *testing.T) {
+	fc := &countingTenantCache{
+		allTenants: []types.TenantInfo{
+			{Name: "alpha"},
+			{Name: "beta"},
+		},
+		visibleTenants: []types.TenantInfo{{Name: "alpha"}},
+	}
+	h := handler.New(fc)
+	r := gin.New()
+	h.RegisterRoutes(r, fakeAdminAuthMiddleware("admin", []string{"system:masters"}))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/v1/tenants", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, 1, fc.listCalls)
+	require.Equal(t, 0, fc.visibleCalls)
+
+	var resp types.TenantsResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.Len(t, resp.Tenants, 2)
+	assert.Equal(t, "alpha", resp.Tenants[0].Name)
+	assert.Equal(t, "beta", resp.Tenants[1].Name)
 }
 
 func TestListTenantsWithData(t *testing.T) {

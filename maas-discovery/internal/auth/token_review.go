@@ -22,12 +22,15 @@ const (
 	ContextKeyUsername = "auth.username"
 	// ContextKeyGroups is the gin context key for the authenticated user's groups.
 	ContextKeyGroups = "auth.groups"
+	// ContextKeyIsAdmin is the gin context key indicating caller admin visibility.
+	ContextKeyIsAdmin = "auth.isAdmin"
 )
 
 // TokenReviewMiddleware validates bearer tokens via Kubernetes TokenReview and
-// verifies the caller is authenticated via SubjectAccessReview. On success it
-// stores the username and groups in the gin context for downstream handlers.
-func TokenReviewMiddleware(log *slog.Logger, kubeClient kubernetes.Interface) gin.HandlerFunc {
+// verifies the caller is authenticated via SubjectAccessReview. It also checks
+// whether the caller can list AITenants in aitenantNamespace and marks those
+// callers as admin-visible for tenant discovery.
+func TokenReviewMiddleware(log *slog.Logger, kubeClient kubernetes.Interface, aitenantNamespace string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), kubeAPITimeout)
 		defer cancel()
@@ -105,10 +108,34 @@ func TokenReviewMiddleware(log *slog.Logger, kubeClient kubernetes.Interface) gi
 			return
 		}
 
-		log.Debug("authenticated user access granted", "username", username)
+		isAdmin := false
+		if aitenantNamespace != "" {
+			adminSAR := &authorizationv1.SubjectAccessReview{
+				Spec: authorizationv1.SubjectAccessReviewSpec{
+					User:   username,
+					Groups: groups,
+					ResourceAttributes: &authorizationv1.ResourceAttributes{
+						Namespace: aitenantNamespace,
+						Verb:      "list",
+						Group:     "maas.opendatahub.io",
+						Resource:  "aitenants",
+					},
+				},
+			}
+
+			adminResult, adminErr := kubeClient.AuthorizationV1().SubjectAccessReviews().Create(ctx, adminSAR, metav1.CreateOptions{})
+			if adminErr != nil {
+				log.Error("admin SubjectAccessReview failed", "error", adminErr)
+			} else {
+				isAdmin = adminResult.Status.Allowed
+			}
+		}
+
+		log.Debug("authenticated user access granted", "username", username, "isAdmin", isAdmin)
 
 		c.Set(ContextKeyUsername, username)
 		c.Set(ContextKeyGroups, groups)
+		c.Set(ContextKeyIsAdmin, isAdmin)
 		c.Next()
 	}
 }

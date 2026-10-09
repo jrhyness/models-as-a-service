@@ -27,13 +27,15 @@ func setupRouter(kubeClient *kubefake.Clientset) *gin.Engine {
 	log := slog.Default()
 	r := gin.New()
 	r.GET("/v1/tenants",
-		auth.TokenReviewMiddleware(log, kubeClient),
+		auth.TokenReviewMiddleware(log, kubeClient, "ai-tenants"),
 		func(c *gin.Context) {
 			username, _ := c.Get(auth.ContextKeyUsername)
 			groups, _ := c.Get(auth.ContextKeyGroups)
+			isAdmin, _ := c.Get(auth.ContextKeyIsAdmin)
 			c.JSON(http.StatusOK, gin.H{
 				"username": username,
 				"groups":   groups,
+				"isAdmin":  isAdmin,
 			})
 		},
 	)
@@ -75,6 +77,44 @@ func TestTokenReview_Success(t *testing.T) {
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 	assert.Equal(t, "alice", body["username"])
+	assert.Equal(t, true, body["isAdmin"])
+}
+
+func TestTokenReview_NonAdmin(t *testing.T) {
+	client := kubefake.NewSimpleClientset()
+	client.PrependReactor("create", "tokenreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, &authenticationv1.TokenReview{
+			Status: authenticationv1.TokenReviewStatus{
+				Authenticated: true,
+				User: authenticationv1.UserInfo{
+					Username: "bob",
+					Groups:   []string{"system:authenticated", "team-b"},
+				},
+			},
+		}, nil
+	})
+	client.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		sar, ok := action.(k8stesting.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+		require.True(t, ok)
+		if sar.Spec.ResourceAttributes != nil && sar.Spec.ResourceAttributes.Resource == "aitenants" {
+			return true, &authorizationv1.SubjectAccessReview{Status: authorizationv1.SubjectAccessReviewStatus{Allowed: false}}, nil
+		}
+		return true, &authorizationv1.SubjectAccessReview{Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true}}, nil
+	})
+
+	r := setupRouter(client)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/v1/tenants", nil)
+	req.Header.Set("Authorization", "Bearer valid-token")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	assert.Equal(t, "bob", body["username"])
+	assert.Equal(t, false, body["isAdmin"])
 }
 
 func TestTokenReview_MissingAuthHeader(t *testing.T) {

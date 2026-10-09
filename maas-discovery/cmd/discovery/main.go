@@ -101,7 +101,7 @@ func run() error {
 		if clientErr != nil {
 			return fmt.Errorf("creating kubernetes client for auth: %w", clientErr)
 		}
-		authMiddleware = append(authMiddleware, auth.TokenReviewMiddleware(log, kubeClient))
+		authMiddleware = append(authMiddleware, auth.TokenReviewMiddleware(log, kubeClient, *tenantNamespace))
 	}
 	h.RegisterRoutes(engine, authMiddleware...)
 

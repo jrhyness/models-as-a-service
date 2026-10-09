@@ -33,20 +33,28 @@ func NewWithLogger(tc cache.TenantCache, log *slog.Logger) *Handler {
 
 // ListTenants handles GET /v1/tenants.
 // The TokenReviewMiddleware must run before this handler to populate the
-// auth.ContextKeyUsername and auth.ContextKeyGroups values.
+// auth.ContextKeyUsername, auth.ContextKeyGroups, and auth.ContextKeyIsAdmin values.
 func (h *Handler) ListTenants(c *gin.Context) {
 	username, _ := c.Get(auth.ContextKeyUsername)
 	groupsRaw, _ := c.Get(auth.ContextKeyGroups)
+	isAdminRaw, _ := c.Get(auth.ContextKeyIsAdmin)
 
 	user, _ := username.(string)
 	groups, _ := groupsRaw.([]string)
+	isAdmin, _ := isAdminRaw.(bool)
 
-	tenants := h.cache.ListForSubjects(user, groups)
+	var tenants []types.TenantInfo
+	if isAdmin {
+		tenants = h.cache.List()
+	} else {
+		tenants = h.cache.ListForSubjects(user, groups)
+	}
 	if tenants == nil {
 		tenants = []types.TenantInfo{}
 	}
 	h.log.Debug("resolved visible tenants",
 		"username", user,
+		"isAdmin", isAdmin,
 		"groups_count", len(groups),
 		"tenant_count", len(tenants),
 	)
