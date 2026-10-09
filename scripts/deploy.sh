@@ -257,9 +257,6 @@ ADVANCED OPTIONS (PR Testing):
   --maas-discovery-replicas <n>
       Number of discovery service replicas (default: 1)
 
-  --maas-discovery-gateway-name <name>
-      Platform gateway for the discovery HTTPRoute (default: data-science-gateway)
-
   --ai-gateway-operator-image <image>
       Custom ai-gateway-operator image (PR/stable testing, operator mode only)
       Patches RELATED_IMAGE_ODH_AI_GATEWAY_OPERATOR_IMAGE on the ODH operator CSV
