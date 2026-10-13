@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -50,6 +51,9 @@ func run() error {
 	tenantNamespace := flag.String("aitenant-namespace", "ai-tenants", "namespace where AITenant CRs are created")
 	gatewayNamespace := flag.String("gateway-namespace", "openshift-ingress", "namespace of Gateway resources")
 	logLevel := flag.String("log-level", "info", "log level: debug, info, warn, error")
+	metricsSecure := flag.Bool("metrics-secure", true, "require Kubernetes authn/authz for GET /metrics")
+	sarCacheTTL := flag.Duration("sar-cache-ttl", 30*time.Second, "TTL for cached SubjectAccessReview decisions")
+	sarCacheMaxEntries := flag.Int("sar-cache-max-entries", 2048, "max number of cached SubjectAccessReview decisions")
 	flag.Parse()
 
 	level, err := parseLogLevel(*logLevel)
@@ -96,13 +100,29 @@ func run() error {
 	engine.Use(middleware.AccessLogger(log))
 
 	var authMiddleware []gin.HandlerFunc
+	var metricsMiddleware []gin.HandlerFunc
 	if restConfig != nil {
 		kubeClient, clientErr := kubernetes.NewForConfig(restConfig)
 		if clientErr != nil {
 			return fmt.Errorf("creating kubernetes client for auth: %w", clientErr)
 		}
-		authMiddleware = append(authMiddleware, auth.TokenReviewMiddleware(log, kubeClient, *tenantNamespace))
+		if *metricsSecure {
+			metricsMiddleware = append(metricsMiddleware, auth.MetricsAuthMiddleware(log, kubeClient))
+		}
+		authMiddleware = append(authMiddleware, auth.TokenReviewMiddlewareWithOptions(
+			log,
+			kubeClient,
+			*tenantNamespace,
+			auth.TokenReviewOptions{
+				SARCacheTTL:        *sarCacheTTL,
+				SARCacheMaxEntries: *sarCacheMaxEntries,
+			},
+		))
+	} else if *metricsSecure {
+		return errors.New("--metrics-secure=true requires in-cluster auth or kubeconfig; set --metrics-secure=false for local development")
 	}
+
+	engine.GET("/metrics", append(metricsMiddleware, gin.WrapH(promhttp.Handler()))...)
 	h.RegisterRoutes(engine, authMiddleware...)
 
 	srv := &http.Server{

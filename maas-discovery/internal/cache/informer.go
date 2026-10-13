@@ -380,6 +380,15 @@ func (ic *InformerCache) Synced() bool {
 // the in-memory tenant list. Serialized by rebuildMu to prevent stale data from a
 // slower concurrent rebuild overwriting a newer one.
 func (ic *InformerCache) rebuildFromInformers(tenantInformer, gatewayInformer, routeInformer k8scache.SharedIndexInformer) {
+	started := time.Now()
+	defer cacheMetadataRebuildDuration.Observe(time.Since(started).Seconds())
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			cacheMetadataRebuildErrors.Inc()
+			ic.log.Error("metadata cache rebuild panicked", "panic", recovered)
+		}
+	}()
+
 	ic.metadataRebuildMu.Lock()
 	defer ic.metadataRebuildMu.Unlock()
 
@@ -414,6 +423,7 @@ func (ic *InformerCache) rebuildFromInformers(tenantInformer, gatewayInformer, r
 	ic.mu.Lock()
 	ic.tenants = result
 	ic.mu.Unlock()
+	recordMetadataRebuildSuccess()
 
 	ic.log.Debug("tenant cache rebuilt", "count", len(result))
 }
@@ -490,6 +500,15 @@ func (ic *InformerCache) takeDirtyTenants() []string {
 }
 
 func (ic *InformerCache) rebuildDirtyEntitlements(tenantInformer, authPolicyInformer, subscriptionInformer k8scache.SharedIndexInformer) {
+	started := time.Now()
+	defer cacheEntitlementRebuildDuration.Observe(time.Since(started).Seconds())
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			cacheEntitlementRebuildErrors.Inc()
+			ic.log.Error("entitlement cache rebuild panicked", "panic", recovered)
+		}
+	}()
+
 	ic.entitlementRebuildMu.Lock()
 	defer ic.entitlementRebuildMu.Unlock()
 
@@ -511,6 +530,7 @@ func (ic *InformerCache) rebuildDirtyEntitlements(tenantInformer, authPolicyInfo
 			"subject_count", len(subjects),
 		)
 	}
+	recordEntitlementRebuildSuccess()
 
 	ic.log.Debug("entitlement cache rebuilt", "dirtyTenants", len(dirtyTenants))
 }

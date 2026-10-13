@@ -26,11 +26,25 @@ const (
 	ContextKeyIsAdmin = "auth.isAdmin"
 )
 
+// TokenReviewOptions controls auth middleware behavior.
+type TokenReviewOptions struct {
+	SARCacheTTL        time.Duration
+	SARCacheMaxEntries int
+}
+
 // TokenReviewMiddleware validates bearer tokens via Kubernetes TokenReview and
 // verifies the caller is authenticated via SubjectAccessReview. It also checks
 // whether the caller can list AITenants in aitenantNamespace and marks those
 // callers as admin-visible for tenant discovery.
 func TokenReviewMiddleware(log *slog.Logger, kubeClient kubernetes.Interface, aitenantNamespace string) gin.HandlerFunc {
+	return TokenReviewMiddlewareWithOptions(log, kubeClient, aitenantNamespace, TokenReviewOptions{})
+}
+
+// TokenReviewMiddlewareWithOptions is TokenReviewMiddleware with configurable
+// in-memory caching for SAR authorization decisions.
+func TokenReviewMiddlewareWithOptions(log *slog.Logger, kubeClient kubernetes.Interface, aitenantNamespace string, opts TokenReviewOptions) gin.HandlerFunc {
+	sarCache := newSARDecisionCache(sarCacheOptions{ttl: opts.SARCacheTTL, maxEntries: opts.SARCacheMaxEntries})
+
 	return func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), kubeAPITimeout)
 		defer cancel()
@@ -48,9 +62,7 @@ func TokenReviewMiddleware(log *slog.Logger, kubeClient kubernetes.Interface, ai
 
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 
-		tr := &authenticationv1.TokenReview{
-			Spec: authenticationv1.TokenReviewSpec{Token: token},
-		}
+		tr := &authenticationv1.TokenReview{Spec: authenticationv1.TokenReviewSpec{Token: token}}
 		result, err := kubeClient.AuthenticationV1().TokenReviews().Create(ctx, tr, metav1.CreateOptions{})
 		if err != nil {
 			log.Error("TokenReview failed", "error", err)
@@ -75,31 +87,39 @@ func TokenReviewMiddleware(log *slog.Logger, kubeClient kubernetes.Interface, ai
 		username := result.Status.User.Username
 		groups := result.Status.User.Groups
 
-		sar := &authorizationv1.SubjectAccessReview{
-			Spec: authorizationv1.SubjectAccessReviewSpec{
-				User:   username,
-				Groups: groups,
-				ResourceAttributes: &authorizationv1.ResourceAttributes{
-					Group:    "authorization.k8s.io",
-					Resource: "selfsubjectaccessreviews",
-					Verb:     "create",
+		authCacheKey := sarCacheKey(sarCheckAuthenticated, username, groups, "")
+		authAllowed, authCacheHit := sarCache.get(authCacheKey)
+		if authCacheHit {
+			sarCacheHitTotal.WithLabelValues(string(sarCheckAuthenticated)).Inc()
+		} else {
+			sarCacheMissTotal.WithLabelValues(string(sarCheckAuthenticated)).Inc()
+			sar := &authorizationv1.SubjectAccessReview{
+				Spec: authorizationv1.SubjectAccessReviewSpec{
+					User:   username,
+					Groups: groups,
+					ResourceAttributes: &authorizationv1.ResourceAttributes{
+						Group:    "authorization.k8s.io",
+						Resource: "selfsubjectaccessreviews",
+						Verb:     "create",
+					},
 				},
-			},
+			}
+			sarResult, sarErr := kubeClient.AuthorizationV1().SubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
+			if sarErr != nil {
+				log.Error("SubjectAccessReview failed", "error", sarErr)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"error":   "Authorization check failed",
+					"details": "Unable to verify authenticated user status",
+				})
+				c.Abort()
+				return
+			}
+			authAllowed = sarResult.Status.Allowed
+			sarCache.set(authCacheKey, authAllowed)
 		}
 
-		sarResult, err := kubeClient.AuthorizationV1().SubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
-		if err != nil {
-			log.Error("SubjectAccessReview failed", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Authorization check failed",
-				"details": "Unable to verify authenticated user status",
-			})
-			c.Abort()
-			return
-		}
-
-		if !sarResult.Status.Allowed {
-			log.Debug("access denied - not an authenticated user", "reason", sarResult.Status.Reason)
+		if !authAllowed {
+			log.Debug("access denied - not an authenticated user")
 			c.JSON(http.StatusForbidden, gin.H{
 				"error":   "Insufficient permissions",
 				"details": "User is not authorized to access cluster resources",
@@ -110,24 +130,32 @@ func TokenReviewMiddleware(log *slog.Logger, kubeClient kubernetes.Interface, ai
 
 		isAdmin := false
 		if aitenantNamespace != "" {
-			adminSAR := &authorizationv1.SubjectAccessReview{
-				Spec: authorizationv1.SubjectAccessReviewSpec{
-					User:   username,
-					Groups: groups,
-					ResourceAttributes: &authorizationv1.ResourceAttributes{
-						Namespace: aitenantNamespace,
-						Verb:      "list",
-						Group:     "maas.opendatahub.io",
-						Resource:  "aitenants",
-					},
-				},
-			}
-
-			adminResult, adminErr := kubeClient.AuthorizationV1().SubjectAccessReviews().Create(ctx, adminSAR, metav1.CreateOptions{})
-			if adminErr != nil {
-				log.Error("admin SubjectAccessReview failed", "error", adminErr)
+			adminCacheKey := sarCacheKey(sarCheckAdmin, username, groups, aitenantNamespace)
+			adminAllowed, adminCacheHit := sarCache.get(adminCacheKey)
+			if adminCacheHit {
+				sarCacheHitTotal.WithLabelValues(string(sarCheckAdmin)).Inc()
+				isAdmin = adminAllowed
 			} else {
-				isAdmin = adminResult.Status.Allowed
+				sarCacheMissTotal.WithLabelValues(string(sarCheckAdmin)).Inc()
+				adminSAR := &authorizationv1.SubjectAccessReview{
+					Spec: authorizationv1.SubjectAccessReviewSpec{
+						User:   username,
+						Groups: groups,
+						ResourceAttributes: &authorizationv1.ResourceAttributes{
+							Namespace: aitenantNamespace,
+							Verb:      "list",
+							Group:     "maas.opendatahub.io",
+							Resource:  "aitenants",
+						},
+					},
+				}
+				adminResult, adminErr := kubeClient.AuthorizationV1().SubjectAccessReviews().Create(ctx, adminSAR, metav1.CreateOptions{})
+				if adminErr != nil {
+					log.Error("admin SubjectAccessReview failed", "error", adminErr)
+				} else {
+					isAdmin = adminResult.Status.Allowed
+					sarCache.set(adminCacheKey, isAdmin)
+				}
 			}
 		}
 

@@ -37,6 +37,7 @@ make push-image     # push to registry
 | `GET /v1/tenants` | List available tenants with gateway metadata |
 | `GET /healthz` | Liveness probe |
 | `GET /readyz` | Readiness probe |
+| `GET /metrics` | Prometheus metrics (cache/auth observability, Kubernetes authn/authz by default) |
 
 ## Deployment
 
