@@ -5,8 +5,8 @@
 // gateway AuthPolicy (the oidc-groups-safe rule and the X-MaaS-Group header
 // JSON builders) and into the per-tenant maas-api AuthPolicy post-render.
 // maas-api enforces the same rule at API-key mint time. The copies live in
-// independent Go modules, so scripts/ci/verify-groupname-pattern.sh enforces
-// that they stay identical. Never edit one without the others:
+// independent Go modules, so no automated check keeps them in sync —
+// never edit one without the others:
 //
 //   - maas-api/internal/api_keys/groupname.go (maas-api canonical)
 //   - maas-controller/pkg/controller/maas/maasauthpolicy_controller.go

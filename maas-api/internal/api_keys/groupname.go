@@ -12,9 +12,8 @@ import (
 // The SAME rule is enforced by maas-controller in the AuthPolicies it
 // generates (the oidc-groups-safe Rego rule and the CEL expressions that
 // build the X-MaaS-Group header JSON) and by the deploy-time kustomize
-// patch. Those copies live in independent Go modules, so
-// scripts/ci/verify-groupname-pattern.sh enforces that they stay identical.
-// Never edit one without the others:
+// patch. Those copies live in independent Go modules, so no automated
+// check keeps them in sync — never edit one without the others:
 //
 //   - maas-controller/pkg/groupname/groupname.go (controller canonical)
 //   - maas-controller/pkg/controller/maas/maasauthpolicy_controller.go

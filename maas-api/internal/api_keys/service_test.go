@@ -1277,8 +1277,7 @@ func TestCreateAPIKey_GroupNameValidation(t *testing.T) {
 	svc := api_keys.NewServiceWithLogger(store, cfg, serviceTestSubSelector{}, logger.Development())
 
 	// Canonical MaaS group-name examples — keep in sync with
-	// maas-controller/pkg/groupname/groupname_test.go;
-	// scripts/ci/verify-groupname-pattern.sh checks both files.
+	// maas-controller/pkg/groupname/groupname_test.go.
 	validGroups := [][]string{
 		{"system:authenticated"},
 		{"my-group"},

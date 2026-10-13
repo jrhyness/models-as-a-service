@@ -20,8 +20,7 @@ func boolPtr(b bool) *bool { return &b }
 // per-tenant maas-api AuthPolicy post-render gates X-MaaS-Group-OC JSON
 // construction on the canonical group-name pattern (maas-controller/pkg/
 // groupname). This is the AuthPolicy-side twin of the maas-api API-key
-// mint-time validation; scripts/ci/verify-groupname-pattern.sh keeps the
-// copies identical.
+// mint-time validation (maas-api/internal/api_keys/groupname.go).
 func TestPatchAuthPolicyWithOIDC_GroupsExprUsesCanonicalPattern(t *testing.T) {
 	resource := &unstructured.Unstructured{Object: map[string]any{}}
 	// SetNestedField requires intermediate maps to exist; the rendered

@@ -3,8 +3,7 @@ package groupname
 import "testing"
 
 // Canonical MaaS group-name examples — keep in sync with
-// maas-api/internal/api_keys/service_test.go (TestCreateAPIKey_GroupNameValidation);
-// scripts/ci/verify-groupname-pattern.sh checks both files.
+// maas-api/internal/api_keys/service_test.go (TestCreateAPIKey_GroupNameValidation).
 // These same examples must be accepted by the maas-api API-key mint path
 // (validGroupNamePattern) and by the AuthPolicy expressions that embed
 // groupname.Pattern.

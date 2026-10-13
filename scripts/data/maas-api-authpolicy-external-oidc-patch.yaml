@@ -89,8 +89,7 @@ spec:
               # group-name pattern — the same rule enforced at API-key mint
               # time by maas-api (internal/api_keys/groupname.go) and in the
               # controller-generated gateway AuthPolicy
-              # (pkg/groupname/groupname.go). Keep the copies identical;
-              # scripts/ci/verify-groupname-pattern.sh checks them.
+              # (pkg/groupname/groupname.go). Keep the copies identical.
               # API-key groups are validated at mint time; TokenReview groups
               # come from OpenShift Group objects whose names cannot contain
               # quotes or backslashes, so those branches need no gate.
