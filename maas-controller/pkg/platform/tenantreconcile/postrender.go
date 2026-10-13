@@ -10,6 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	maasv1alpha1 "github.com/opendatahub-io/models-as-a-service/maas-controller/api/maas/v1alpha1"
+	"github.com/opendatahub-io/models-as-a-service/maas-controller/pkg/groupname"
 )
 
 // PostRender mutates rendered resources after kustomize build. It patches all
@@ -237,7 +238,7 @@ func patchAuthPolicyWithOIDC(log logr.Logger, resource *unstructured.Unstructure
 		return fmt.Errorf("failed to set X-MaaS-Username-OC: %w", err)
 	}
 	groupsExpr := `has(auth.identity.groups) ? ` +
-		`(size(auth.identity.groups) > 0 && auth.identity.groups.all(g, g.matches('^[A-Za-z0-9:._/ -]+$')) ? ` +
+		`(size(auth.identity.groups) > 0 && auth.identity.groups.all(g, g.matches('` + groupname.Pattern + `')) ? ` +
 		`'["system:authenticated","' + auth.identity.groups.join('","') + '"]' : ` +
 		`'["system:authenticated"]') : ` +
 		`(has(auth.identity.user.groups) && size(auth.identity.user.groups) > 0 ? ` +

@@ -40,6 +40,8 @@ See [Upgrade to 3.6](../migration/upgrade-to-3.6.md) for full guidance. Summary:
 
 - **Short subscription rate-limit IDs in TokenRateLimitPolicy:** TRLP `when` predicates and counters use a stable 16-hex SHA-256 of `namespace/name@modelNs/model` (`selected_subscription_id`) so Kuadrant WASM / EnvoyFilter size no longer embeds long subscription strings. Limit map keys stay rate-grouped (`tokens-<limit>-per-<window>`). Human-readable `selected_subscription_key` remains for telemetry.
 
+- **Consistent group-name validation, slashes now allowed on all paths:** API-key minting and AuthPolicy enforcement previously disagreed about `/` in group names — API keys rejected `/` while the gateway allowed it, so behavior depended on which path was used. Both now enforce the same allowlist (`[A-Za-z0-9:._/ -]`), and the rule is defined once per component with CI keeping the copies identical (`scripts/ci/verify-groupname-pattern.sh`). Users in IdP groups that contain `/` (Keycloak full-path groups, Entra ID, Okta, GitHub `org/team`) can now mint and use API keys; requests with such groups previously failed with a validation error. Invalid group names now also return HTTP 400 with the allowed character set instead of an opaque 500.
+
 ---
 
 ## v0.2.1

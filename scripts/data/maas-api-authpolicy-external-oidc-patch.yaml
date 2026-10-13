@@ -85,12 +85,22 @@ spec:
                 (has(auth.identity.sub) ? auth.identity.sub : auth.identity.user.username))
           X-MaaS-Group:
             plain:
+              # The OIDC branch gates JSON construction on the canonical
+              # group-name pattern — the same rule enforced at API-key mint
+              # time by maas-api (internal/api_keys/groupname.go) and in the
+              # controller-generated gateway AuthPolicy
+              # (pkg/groupname/groupname.go). Keep the copies identical;
+              # scripts/ci/verify-groupname-pattern.sh checks them.
+              # API-key groups are validated at mint time; TokenReview groups
+              # come from OpenShift Group objects whose names cannot contain
+              # quotes or backslashes, so those branches need no gate.
               expression: >-
                 (has(auth.metadata) && has(auth.metadata.apiKeyValidation)) ?
                 (size(auth.metadata.apiKeyValidation.groups) > 0 ?
                 '["' + auth.metadata.apiKeyValidation.groups.join('","') + '"]' :
                 '["system:authenticated"]') :
-                (has(auth.identity.groups) && size(auth.identity.groups) > 0 ?
+                (has(auth.identity.groups) && size(auth.identity.groups) > 0 &&
+                auth.identity.groups.all(g, g.matches('^[A-Za-z0-9:._/ -]+$')) ?
                 '["system:authenticated","' + auth.identity.groups.join('","') + '"]' :
                 (has(auth.identity.user) && has(auth.identity.user.groups) && size(auth.identity.user.groups) > 0 ?
                 '["system:authenticated","' + auth.identity.user.groups.join('","') + '"]' :

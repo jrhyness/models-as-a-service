@@ -53,6 +53,7 @@ import (
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	maasv1alpha1 "github.com/opendatahub-io/models-as-a-service/maas-controller/api/maas/v1alpha1"
+	"github.com/opendatahub-io/models-as-a-service/maas-controller/pkg/groupname"
 	"github.com/opendatahub-io/models-as-a-service/maas-controller/pkg/platform/tenantreconcile"
 )
 
@@ -391,7 +392,7 @@ const (
 		`? auth.metadata.apiKeyValidation.groups ` +
 		`: (has(auth.identity.groups) ? auth.identity.groups : auth.identity.user.groups)`
 
-	safeGroupNamePattern = `^[A-Za-z0-9:._/ -]+$`
+	safeGroupNamePattern = groupname.Pattern
 	celOIDCGroupsSafe    = `auth.identity.groups.all(g, g.matches('` + safeGroupNamePattern + `'))`
 
 	// celTokenGroupsHeaderJSON renders the X-MaaS-Group header for non-API-key
