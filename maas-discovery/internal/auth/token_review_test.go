@@ -5,7 +5,9 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -171,4 +173,46 @@ func TestTokenReview_SARDenied(t *testing.T) {
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
 	assert.Contains(t, w.Body.String(), "Insufficient permissions")
+}
+
+func TestTokenReview_SARCachedAcrossRequests(t *testing.T) {
+	client := kubefake.NewSimpleClientset()
+	client.PrependReactor("create", "tokenreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, &authenticationv1.TokenReview{
+			Status: authenticationv1.TokenReviewStatus{
+				Authenticated: true,
+				User: authenticationv1.UserInfo{
+					Username: "alice",
+					Groups:   []string{"team-a", "system:authenticated"},
+				},
+			},
+		}, nil
+	})
+
+	var sarCalls atomic.Int32
+	client.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		sarCalls.Add(1)
+		return true, &authorizationv1.SubjectAccessReview{Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true}}, nil
+	})
+
+	r := gin.New()
+	r.GET("/v1/tenants",
+		auth.TokenReviewMiddlewareWithOptions(slog.Default(), client, "ai-tenants", auth.TokenReviewOptions{
+			SARCacheTTL:        time.Minute,
+			SARCacheMaxEntries: 128,
+		}),
+		func(c *gin.Context) {
+			c.Status(http.StatusOK)
+		},
+	)
+
+	for i := 0; i < 2; i++ {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/v1/tenants", nil)
+		req.Header.Set("Authorization", "Bearer valid-token")
+		r.ServeHTTP(w, req)
+		require.Equal(t, http.StatusOK, w.Code)
+	}
+
+	assert.Equal(t, int32(2), sarCalls.Load(), "expected one authenticated SAR and one admin SAR across both requests")
 }
