@@ -193,16 +193,16 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 	}
 
 	entitlementHandler := k8scache.ResourceEventHandlerFuncs{
-		AddFunc: func(_ any) {
-			ic.markAllTenantsDirty()
+		AddFunc: func(obj any) {
+			ic.markTenantDirtyFromObject(tenantInformer, obj)
 			triggerEntitlementRebuild()
 		},
-		UpdateFunc: func(_, _ any) {
-			ic.markAllTenantsDirty()
+		UpdateFunc: func(_, newObj any) {
+			ic.markTenantDirtyFromObject(tenantInformer, newObj)
 			triggerEntitlementRebuild()
 		},
-		DeleteFunc: func(_ any) {
-			ic.markAllTenantsDirty()
+		DeleteFunc: func(obj any) {
+			ic.markTenantDirtyFromObject(tenantInformer, obj)
 			triggerEntitlementRebuild()
 		},
 	}
@@ -439,6 +439,40 @@ func (ic *InformerCache) markAllTenantsDirty() {
 	ic.mu.Unlock()
 }
 
+func (ic *InformerCache) markTenantDirtyFromObject(tenantInformer k8scache.SharedIndexInformer, obj any) {
+	ns, ok := namespaceFromObject(obj)
+	if !ok || ns == "" {
+		ic.markAllTenantsDirty()
+		return
+	}
+
+	tenantName := tenantNameForNamespace(tenantInformer, ns)
+	if tenantName == "" {
+		ic.markAllTenantsDirty()
+		return
+	}
+
+	ic.markTenantDirty(tenantName)
+}
+
+func namespaceFromObject(obj any) (string, bool) {
+	key, err := k8scache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		return "", false
+	}
+	namespace, _, err := k8scache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		return "", false
+	}
+	return strings.TrimSpace(namespace), true
+}
+
+func tenantNameForNamespace(tenantInformer k8scache.SharedIndexInformer, namespace string) string {
+	tenantObjs := listUnstructured(tenantInformer.GetStore().List())
+	namespaceToTenant := buildNamespaceTenantMap(tenantObjs)
+	return namespaceToTenant[strings.TrimSpace(namespace)]
+}
+
 func (ic *InformerCache) takeDirtyTenants() []string {
 	ic.mu.Lock()
 	defer ic.mu.Unlock()
@@ -528,6 +562,9 @@ func computeTenantSubjects(
 ) map[string]struct{} {
 	policySubjects := make(map[string]map[string]struct{})
 	for i := range policies {
+		if policies[i].GetDeletionTimestamp() != nil {
+			continue
+		}
 		if namespaceToTenant[policies[i].GetNamespace()] != tenantName {
 			continue
 		}

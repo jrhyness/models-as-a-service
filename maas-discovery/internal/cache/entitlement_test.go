@@ -85,6 +85,38 @@ func TestComputeTenantSubjects_RejectsIneligibleSubscriptions(t *testing.T) {
 	assert.Empty(t, result)
 }
 
+func TestComputeTenantSubjects_IgnoresDeletingPolicies(t *testing.T) {
+	tenant := "team-a"
+	namespaceToTenant := map[string]string{"ai-tenant-team-a": tenant}
+
+	policies := []unstructured.Unstructured{
+		{Object: map[string]any{
+			"metadata": map[string]any{
+				"namespace":         "ai-tenant-team-a",
+				"deletionTimestamp": "2026-10-12T12:00:00Z",
+			},
+			"spec": map[string]any{
+				"modelRefs": []any{map[string]any{"name": "model-a", "namespace": "models-as-a-service"}},
+				"subjects":  map[string]any{"users": []any{"alice@example.com"}},
+			},
+		}},
+	}
+
+	subscriptions := []unstructured.Unstructured{
+		{Object: map[string]any{
+			"metadata": map[string]any{"namespace": "ai-tenant-team-a"},
+			"spec": map[string]any{
+				"modelRefs": []any{map[string]any{"name": "model-a", "namespace": "models-as-a-service"}},
+				"owner":     map[string]any{"users": []any{"alice@example.com"}},
+			},
+			"status": map[string]any{"phase": subscriptionPhaseOK},
+		}},
+	}
+
+	result := computeTenantSubjects(tenant, policies, subscriptions, namespaceToTenant)
+	assert.Empty(t, result)
+}
+
 func TestBuildNamespaceTenantMap(t *testing.T) {
 	tenants := []unstructured.Unstructured{
 		{Object: map[string]any{
