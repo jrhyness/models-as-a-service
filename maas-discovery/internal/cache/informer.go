@@ -53,17 +53,10 @@ var (
 		Version:  "v1alpha1",
 		Resource: "maasauthpolicies",
 	}
-	subscriptionGVR = schema.GroupVersionResource{
-		Group:    "maas.opendatahub.io",
-		Version:  "v1alpha1",
-		Resource: "maassubscriptions",
-	}
 )
 
 const (
-	defaultTenantNS     = "models-as-a-service"
-	subscriptionPhaseOK = "Active"
-	subscriptionPhaseDG = "Degraded"
+	defaultTenantNS = "models-as-a-service"
 )
 
 // InformerCache implements TenantCache backed by dynamic informer watches
@@ -86,7 +79,6 @@ type InformerCache struct {
 }
 
 type tenantEntitlement struct {
-	ownerModelsBySubject  map[string]map[string]struct{}
 	policyModelsBySubject map[string]map[string]struct{}
 }
 
@@ -146,7 +138,6 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 		dynamicClient, 0, "", nil,
 	)
 	authPolicyInformer := entitlementFactory.ForResource(authPolicyGVR).Informer()
-	subscriptionInformer := entitlementFactory.ForResource(subscriptionGVR).Informer()
 
 	// Route informer (OpenShift only) — provides external hostnames for gateways
 	// whose status.addresses only contain internal service names.
@@ -215,9 +206,6 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 	if _, err := authPolicyInformer.AddEventHandler(entitlementHandler); err != nil {
 		return fmt.Errorf("adding MaaSAuthPolicy event handler: %w", err)
 	}
-	if _, err := subscriptionInformer.AddEventHandler(entitlementHandler); err != nil {
-		return fmt.Errorf("adding MaaSSubscription event handler: %w", err)
-	}
 
 	ic.log.Info("starting informer watches",
 		"tenantNamespace", ic.tenantNamespace,
@@ -245,7 +233,7 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 			return fmt.Errorf("informer sync failed for %s", gvr.String())
 		}
 	}
-	if !k8scache.WaitForCacheSync(stopCh, authPolicyInformer.HasSynced, subscriptionInformer.HasSynced) {
+	if !k8scache.WaitForCacheSync(stopCh, authPolicyInformer.HasSynced) {
 		return errors.New("informer sync failed for entitlement informers")
 	}
 
@@ -270,7 +258,7 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 
 	ic.rebuildFromInformers(tenantInformer, gatewayInformer, routeInformer)
 	ic.markAllTenantsDirty()
-	ic.rebuildDirtyEntitlements(tenantInformer, authPolicyInformer, subscriptionInformer)
+	ic.rebuildDirtyEntitlements(tenantInformer, authPolicyInformer)
 	ic.synced.Store(true)
 	ic.log.Info("informer cache synced and ready")
 
@@ -296,7 +284,7 @@ func (ic *InformerCache) Start(ctx context.Context) error {
 			case <-entitlementRebuildCh:
 				t := time.NewTimer(rebuildDebounce)
 				drainLoop(ctx, entitlementRebuildCh, t, rebuildMaxWait)
-				ic.rebuildDirtyEntitlements(tenantInformer, authPolicyInformer, subscriptionInformer)
+				ic.rebuildDirtyEntitlements(tenantInformer, authPolicyInformer)
 			case <-ctx.Done():
 				return
 			}
@@ -506,7 +494,7 @@ func (ic *InformerCache) takeDirtyTenants() []string {
 	return tenants
 }
 
-func (ic *InformerCache) rebuildDirtyEntitlements(tenantInformer, authPolicyInformer, subscriptionInformer k8scache.SharedIndexInformer) {
+func (ic *InformerCache) rebuildDirtyEntitlements(tenantInformer, authPolicyInformer k8scache.SharedIndexInformer) {
 	ic.entitlementRebuildMu.Lock()
 	defer ic.entitlementRebuildMu.Unlock()
 
@@ -516,16 +504,14 @@ func (ic *InformerCache) rebuildDirtyEntitlements(tenantInformer, authPolicyInfo
 	}
 
 	policies := listUnstructured(authPolicyInformer.GetStore().List())
-	subscriptions := listUnstructured(subscriptionInformer.GetStore().List())
 	tenants := listUnstructured(tenantInformer.GetStore().List())
 	namespaceToTenant := buildNamespaceTenantMap(tenants)
 
 	for _, tenantName := range dirtyTenants {
-		entitlement := computeTenantEntitlement(tenantName, policies, subscriptions, namespaceToTenant)
+		entitlement := computeTenantEntitlement(tenantName, policies, namespaceToTenant)
 		ic.applyTenantEntitlement(tenantName, entitlement)
 		ic.log.Debug("tenant entitlement recomputed",
 			"tenant", tenantName,
-			"owner_subject_count", len(entitlement.ownerModelsBySubject),
 			"policy_subject_count", len(entitlement.policyModelsBySubject),
 		)
 	}
@@ -563,14 +549,11 @@ func (ic *InformerCache) applyTenantEntitlement(tenantName string, entitlement t
 }
 
 func entitlementIsVisibleCandidate(entitlement tenantEntitlement) bool {
-	return len(entitlement.ownerModelsBySubject) > 0 && len(entitlement.policyModelsBySubject) > 0
+	return len(entitlement.policyModelsBySubject) > 0
 }
 
 func entitlementSubjects(entitlement tenantEntitlement) map[string]struct{} {
-	out := make(map[string]struct{}, len(entitlement.ownerModelsBySubject)+len(entitlement.policyModelsBySubject))
-	for subject := range entitlement.ownerModelsBySubject {
-		out[subject] = struct{}{}
-	}
+	out := make(map[string]struct{}, len(entitlement.policyModelsBySubject))
 	for subject := range entitlement.policyModelsBySubject {
 		out[subject] = struct{}{}
 	}
@@ -590,11 +573,9 @@ func listUnstructured(objs []any) []unstructured.Unstructured {
 func computeTenantEntitlement(
 	tenantName string,
 	policies []unstructured.Unstructured,
-	subscriptions []unstructured.Unstructured,
 	namespaceToTenant map[string]string,
 ) tenantEntitlement {
 	entitlement := tenantEntitlement{
-		ownerModelsBySubject:  make(map[string]map[string]struct{}),
 		policyModelsBySubject: make(map[string]map[string]struct{}),
 	}
 
@@ -622,33 +603,6 @@ func computeTenantEntitlement(
 		}
 		for _, key := range groupSubjects(subjects["groups"]) {
 			addSubjectModelRefs(entitlement.policyModelsBySubject, key, policyModelRefs)
-		}
-	}
-
-	for i := range subscriptions {
-		if namespaceToTenant[subscriptions[i].GetNamespace()] != tenantName {
-			continue
-		}
-		spec, ok := subscriptions[i].Object["spec"].(map[string]any)
-		if !ok {
-			continue
-		}
-		subscriptionModelRefs := modelRefKeys(spec["modelRefs"])
-		if len(subscriptionModelRefs) == 0 {
-			continue
-		}
-		if !subscriptionEligible(subscriptions[i].Object) {
-			continue
-		}
-		owner, ok := spec["owner"].(map[string]any)
-		if !ok {
-			continue
-		}
-		for _, key := range userSubjects(owner["users"]) {
-			addSubjectModelRefs(entitlement.ownerModelsBySubject, key, subscriptionModelRefs)
-		}
-		for _, key := range groupSubjects(owner["groups"]) {
-			addSubjectModelRefs(entitlement.ownerModelsBySubject, key, subscriptionModelRefs)
 		}
 	}
 
@@ -687,45 +641,13 @@ func callerHasTenantAccess(entitlement tenantEntitlement, callerSubjects []strin
 		return false
 	}
 
-	ownerModels := make(map[string]struct{})
 	for _, subject := range callerSubjects {
-		for modelRef := range entitlement.ownerModelsBySubject[subject] {
-			ownerModels[modelRef] = struct{}{}
-		}
-	}
-	if len(ownerModels) == 0 {
-		return false
-	}
-
-	for _, subject := range callerSubjects {
-		for modelRef := range entitlement.policyModelsBySubject[subject] {
-			if _, ok := ownerModels[modelRef]; ok {
-				return true
-			}
+		if len(entitlement.policyModelsBySubject[subject]) > 0 {
+			return true
 		}
 	}
 
 	return false
-}
-
-func subscriptionEligible(obj map[string]any) bool {
-	metadata, ok := obj["metadata"].(map[string]any)
-	if !ok {
-		return false
-	}
-	if deletionTimestamp, found := metadata["deletionTimestamp"]; found && deletionTimestamp != nil {
-		if ts, ok := deletionTimestamp.(string); !ok || strings.TrimSpace(ts) != "" {
-			return false
-		}
-	}
-
-	status, ok := obj["status"].(map[string]any)
-	if !ok {
-		return false
-	}
-	phase, _ := status["phase"].(string)
-	phase = strings.TrimSpace(phase)
-	return phase == subscriptionPhaseOK || phase == subscriptionPhaseDG
 }
 
 func modelRefKeys(raw any) map[string]struct{} {
