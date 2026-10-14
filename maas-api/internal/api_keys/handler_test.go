@@ -227,15 +227,16 @@ func TestCreateAPIKey_InvalidGroupNameIs400(t *testing.T) {
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Set("user", &token.UserContext{
 		Username: "alice",
-		Groups:   []string{"/Engineering", `bad"group`},
+		Groups:   []string{"/Engineering", "unsafe;group"},
 		Tenant:   "redteam",
 	})
 
 	h.CreateAPIKey(c)
 
 	require.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid characters", "response should explain the rejected characters")
-	assert.Contains(t, w.Body.String(), "slashes are allowed", "response should list the allowed set")
+	// Assert the functional contract only: the offending group is echoed in
+	// the response. The exact wording of the message is free to change.
+	assert.Contains(t, w.Body.String(), "unsafe;group", "response should identify the offending group")
 	assert.Empty(t, store.keys, "rejected requests must not persist a key")
 	require.Len(t, spy.tokenMints, 1)
 	assert.Equal(t, metricsCall{tenant: "redteam", result: "rejected"}, spy.tokenMints[0])

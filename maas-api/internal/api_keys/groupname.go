@@ -12,8 +12,10 @@ import (
 // The SAME rule is enforced by maas-controller in the AuthPolicies it
 // generates (the oidc-groups-safe Rego rule and the CEL expressions that
 // build the X-MaaS-Group header JSON) and by the deploy-time kustomize
-// patch. Those copies live in independent Go modules, so no automated
-// check keeps them in sync — never edit one without the others:
+// patch. Those copies live in independent Go modules, so the mirrored
+// sync tests (groupname_sync_test.go here, sync_test.go in
+// maas-controller) check them as text and fail when they drift.
+// Never edit one without the others:
 //
 //   - maas-controller/pkg/groupname/groupname.go (controller canonical)
 //   - maas-controller/pkg/controller/maas/maasauthpolicy_controller.go
