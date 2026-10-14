@@ -20,8 +20,9 @@ import "regexp"
 
 // Pattern is the group-name allowlist shared by all MaaS components.
 //
-// Allows alphanumerics, colons (system: prefixes), dots, underscores,
-// hyphens, spaces, and slashes. Slashes are common in IdP group claims
+// Allows alphanumerics, colons (system: prefixes), hashes (for IdPs that
+// emit names like IAM#AccessGroupId-...), dots, underscores, hyphens,
+// spaces, and slashes. Slashes are common in IdP group claims
 // (Keycloak full-path groups, Entra ID, Okta, GitHub org/team) and are safe
 // in every downstream sink: Postgres TEXT[] columns, JSON-marshaled bodies,
 // and the manual JSON-building CEL expressions in AuthPolicies. Note that
@@ -33,7 +34,7 @@ import "regexp"
 // characters that could break JSON encoding in AuthPolicy CEL expressions
 // (CWE-116/CWE-74 mitigation), plus commas and pipes, which are separators
 // in gateway cache-key joins.
-const Pattern = `^[A-Za-z0-9:._/ -]+$`
+const Pattern = `^[A-Za-z0-9:#._/ -]+$`
 
 var pattern = regexp.MustCompile(Pattern)
 

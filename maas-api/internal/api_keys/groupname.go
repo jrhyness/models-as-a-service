@@ -24,8 +24,9 @@ import (
 //   - docs/content/advanced-administration/external-oidc.md
 
 // validGroupNamePattern matches group names accepted by MaaS.
-// Allows alphanumerics, colons (system: prefixes), dots, underscores,
-// hyphens, spaces, and slashes. Slashes are common in IdP group claims
+// Allows alphanumerics, colons (system: prefixes), hashes (for IdPs that
+// emit names like IAM#AccessGroupId-...), dots, underscores, hyphens,
+// spaces, and slashes. Slashes are common in IdP group claims
 // (Keycloak full-path groups, Entra ID, Okta, GitHub org/team) and are safe
 // in every downstream sink: Postgres TEXT[] columns, JSON-marshaled bodies,
 // and the manual JSON-building CEL expressions in AuthPolicies.
@@ -33,7 +34,7 @@ import (
 // characters that could break JSON encoding in AuthPolicy CEL expressions
 // (CWE-116/CWE-74 mitigation), plus commas and pipes, which are separators
 // in gateway cache-key joins.
-var validGroupNamePattern = regexp.MustCompile(`^[A-Za-z0-9:._/ -]+$`)
+var validGroupNamePattern = regexp.MustCompile(`^[A-Za-z0-9:#._/ -]+$`)
 
 // ErrInvalidGroupName is returned by CreateAPIKey when one of the user's
 // group names contains characters outside the allowlist. The HTTP handler
@@ -48,7 +49,7 @@ var ErrInvalidGroupName = errors.New("invalid group name")
 func validateGroupNames(groups []string) error {
 	for _, group := range groups {
 		if !validGroupNamePattern.MatchString(group) {
-			return fmt.Errorf("%w %q contains invalid characters (only alphanumerics, colons, dots, underscores, hyphens, spaces, and slashes are allowed)", ErrInvalidGroupName, group)
+			return fmt.Errorf("%w %q contains invalid characters (only alphanumerics, colons, hashes, dots, underscores, hyphens, spaces, and slashes are allowed)", ErrInvalidGroupName, group)
 		}
 	}
 	return nil

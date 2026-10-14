@@ -1287,6 +1287,8 @@ func TestCreateAPIKey_GroupNameValidation(t *testing.T) {
 		{"GROUP123"},
 		{"a:b:c"},
 		{"mix-of_all.types:123"},
+		{"IAM#AccessGroupId-123"},
+		{"a#b"},
 		{"/Engineering"},      // Keycloak full-path style
 		{"dev/team-a"},        // path-style group (Entra ID, Okta, GitHub org/team)
 		{"a/b/c:d.e_f-g h i"}, // every allowed character class together
