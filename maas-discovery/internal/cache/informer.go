@@ -79,10 +79,15 @@ type InformerCache struct {
 	entitlementRebuildMu sync.Mutex
 	mu                   sync.RWMutex
 	tenants              []types.TenantInfo
-	subjectsByTenant     map[string]map[string]struct{}
+	entitlementsByTenant map[string]tenantEntitlement
 	tenantsBySubject     map[string]map[string]struct{}
 	dirtyTenants         map[string]struct{}
 	synced               atomic.Bool
+}
+
+type tenantEntitlement struct {
+	ownerModelsBySubject  map[string]map[string]struct{}
+	policyModelsBySubject map[string]map[string]struct{}
 }
 
 // InformerCacheOptions configures an InformerCache.
@@ -109,13 +114,13 @@ func NewInformerCache(opts InformerCacheOptions) (*InformerCache, error) {
 		log = slog.Default()
 	}
 	return &InformerCache{
-		log:              log,
-		tenantNamespace:  opts.TenantNamespace,
-		gatewayNamespace: opts.GatewayNamespace,
-		restConfig:       opts.RestConfig,
-		subjectsByTenant: make(map[string]map[string]struct{}),
-		tenantsBySubject: make(map[string]map[string]struct{}),
-		dirtyTenants:     make(map[string]struct{}),
+		log:                  log,
+		tenantNamespace:      opts.TenantNamespace,
+		gatewayNamespace:     opts.GatewayNamespace,
+		restConfig:           opts.RestConfig,
+		entitlementsByTenant: make(map[string]tenantEntitlement),
+		tenantsBySubject:     make(map[string]map[string]struct{}),
+		dirtyTenants:         make(map[string]struct{}),
 	}, nil
 }
 
@@ -342,19 +347,31 @@ func (ic *InformerCache) List() []types.TenantInfo {
 
 // ListForSubjects returns tenants visible to at least one caller subject.
 func (ic *InformerCache) ListForSubjects(username string, groups []string) []types.TenantInfo {
+	callerSubjects := makeCallerSubjects(username, groups)
+	if len(callerSubjects) == 0 {
+		return nil
+	}
+
 	visibleByTenant := make(map[string]struct{})
+	candidateTenants := make(map[string]struct{})
 
 	ic.mu.RLock()
-	if username != "" {
-		for tenant := range ic.tenantsBySubject[userSubjectKey(username)] {
+	for _, subject := range callerSubjects {
+		for tenant := range ic.tenantsBySubject[subject] {
+			candidateTenants[tenant] = struct{}{}
+		}
+	}
+
+	for tenant := range candidateTenants {
+		entitlement, ok := ic.entitlementsByTenant[tenant]
+		if !ok {
+			continue
+		}
+		if callerHasTenantAccess(entitlement, callerSubjects) {
 			visibleByTenant[tenant] = struct{}{}
 		}
 	}
-	for _, group := range groups {
-		for tenant := range ic.tenantsBySubject[groupSubjectKey(group)] {
-			visibleByTenant[tenant] = struct{}{}
-		}
-	}
+
 	tenantList := ic.tenants
 	ic.mu.RUnlock()
 
@@ -433,7 +450,7 @@ func (ic *InformerCache) markAllTenantsDirty() {
 	for i := range ic.tenants {
 		ic.dirtyTenants[ic.tenants[i].Name] = struct{}{}
 	}
-	for tenantName := range ic.subjectsByTenant {
+	for tenantName := range ic.entitlementsByTenant {
 		ic.dirtyTenants[tenantName] = struct{}{}
 	}
 	ic.mu.Unlock()
@@ -504,22 +521,23 @@ func (ic *InformerCache) rebuildDirtyEntitlements(tenantInformer, authPolicyInfo
 	namespaceToTenant := buildNamespaceTenantMap(tenants)
 
 	for _, tenantName := range dirtyTenants {
-		subjects := computeTenantSubjects(tenantName, policies, subscriptions, namespaceToTenant)
-		ic.applyTenantSubjects(tenantName, subjects)
+		entitlement := computeTenantEntitlement(tenantName, policies, subscriptions, namespaceToTenant)
+		ic.applyTenantEntitlement(tenantName, entitlement)
 		ic.log.Debug("tenant entitlement recomputed",
 			"tenant", tenantName,
-			"subject_count", len(subjects),
+			"owner_subject_count", len(entitlement.ownerModelsBySubject),
+			"policy_subject_count", len(entitlement.policyModelsBySubject),
 		)
 	}
 
 	ic.log.Debug("entitlement cache rebuilt", "dirtyTenants", len(dirtyTenants))
 }
 
-func (ic *InformerCache) applyTenantSubjects(tenantName string, newSubjects map[string]struct{}) {
+func (ic *InformerCache) applyTenantEntitlement(tenantName string, entitlement tenantEntitlement) {
 	ic.mu.Lock()
 	defer ic.mu.Unlock()
 
-	oldSubjects := ic.subjectsByTenant[tenantName]
+	oldSubjects := entitlementSubjects(ic.entitlementsByTenant[tenantName])
 	for subject := range oldSubjects {
 		tenants := ic.tenantsBySubject[subject]
 		delete(tenants, tenantName)
@@ -528,13 +546,13 @@ func (ic *InformerCache) applyTenantSubjects(tenantName string, newSubjects map[
 		}
 	}
 
-	if len(newSubjects) == 0 {
-		delete(ic.subjectsByTenant, tenantName)
+	if !entitlementIsVisibleCandidate(entitlement) {
+		delete(ic.entitlementsByTenant, tenantName)
 		return
 	}
 
-	ic.subjectsByTenant[tenantName] = newSubjects
-	for subject := range newSubjects {
+	ic.entitlementsByTenant[tenantName] = entitlement
+	for subject := range entitlementSubjects(entitlement) {
 		tenants := ic.tenantsBySubject[subject]
 		if tenants == nil {
 			tenants = make(map[string]struct{})
@@ -542,6 +560,21 @@ func (ic *InformerCache) applyTenantSubjects(tenantName string, newSubjects map[
 		}
 		tenants[tenantName] = struct{}{}
 	}
+}
+
+func entitlementIsVisibleCandidate(entitlement tenantEntitlement) bool {
+	return len(entitlement.ownerModelsBySubject) > 0 && len(entitlement.policyModelsBySubject) > 0
+}
+
+func entitlementSubjects(entitlement tenantEntitlement) map[string]struct{} {
+	out := make(map[string]struct{}, len(entitlement.ownerModelsBySubject)+len(entitlement.policyModelsBySubject))
+	for subject := range entitlement.ownerModelsBySubject {
+		out[subject] = struct{}{}
+	}
+	for subject := range entitlement.policyModelsBySubject {
+		out[subject] = struct{}{}
+	}
+	return out
 }
 
 func listUnstructured(objs []any) []unstructured.Unstructured {
@@ -554,13 +587,17 @@ func listUnstructured(objs []any) []unstructured.Unstructured {
 	return result
 }
 
-func computeTenantSubjects(
+func computeTenantEntitlement(
 	tenantName string,
 	policies []unstructured.Unstructured,
 	subscriptions []unstructured.Unstructured,
 	namespaceToTenant map[string]string,
-) map[string]struct{} {
-	policySubjects := make(map[string]map[string]struct{})
+) tenantEntitlement {
+	entitlement := tenantEntitlement{
+		ownerModelsBySubject:  make(map[string]map[string]struct{}),
+		policyModelsBySubject: make(map[string]map[string]struct{}),
+	}
+
 	for i := range policies {
 		if policies[i].GetDeletionTimestamp() != nil {
 			continue
@@ -581,28 +618,13 @@ func computeTenantSubjects(
 			continue
 		}
 		for _, key := range userSubjects(subjects["users"]) {
-			modelRefs := policySubjects[key]
-			if modelRefs == nil {
-				modelRefs = make(map[string]struct{}, len(policyModelRefs))
-				policySubjects[key] = modelRefs
-			}
-			for modelRef := range policyModelRefs {
-				modelRefs[modelRef] = struct{}{}
-			}
+			addSubjectModelRefs(entitlement.policyModelsBySubject, key, policyModelRefs)
 		}
 		for _, key := range groupSubjects(subjects["groups"]) {
-			modelRefs := policySubjects[key]
-			if modelRefs == nil {
-				modelRefs = make(map[string]struct{}, len(policyModelRefs))
-				policySubjects[key] = modelRefs
-			}
-			for modelRef := range policyModelRefs {
-				modelRefs[modelRef] = struct{}{}
-			}
+			addSubjectModelRefs(entitlement.policyModelsBySubject, key, policyModelRefs)
 		}
 	}
 
-	out := make(map[string]struct{})
 	for i := range subscriptions {
 		if namespaceToTenant[subscriptions[i].GetNamespace()] != tenantName {
 			continue
@@ -623,18 +645,67 @@ func computeTenantSubjects(
 			continue
 		}
 		for _, key := range userSubjects(owner["users"]) {
-			if models, ok := policySubjects[key]; ok && sharesAnyModelRef(models, subscriptionModelRefs) {
-				out[key] = struct{}{}
-			}
+			addSubjectModelRefs(entitlement.ownerModelsBySubject, key, subscriptionModelRefs)
 		}
 		for _, key := range groupSubjects(owner["groups"]) {
-			if models, ok := policySubjects[key]; ok && sharesAnyModelRef(models, subscriptionModelRefs) {
-				out[key] = struct{}{}
+			addSubjectModelRefs(entitlement.ownerModelsBySubject, key, subscriptionModelRefs)
+		}
+	}
+
+	return entitlement
+}
+
+func addSubjectModelRefs(subjectModels map[string]map[string]struct{}, subject string, modelRefs map[string]struct{}) {
+	if subject == "" || len(modelRefs) == 0 {
+		return
+	}
+	models := subjectModels[subject]
+	if models == nil {
+		models = make(map[string]struct{}, len(modelRefs))
+		subjectModels[subject] = models
+	}
+	for modelRef := range modelRefs {
+		models[modelRef] = struct{}{}
+	}
+}
+
+func makeCallerSubjects(username string, groups []string) []string {
+	subjects := make([]string, 0, len(groups)+1)
+	if user := userSubjectKey(username); user != "" {
+		subjects = append(subjects, user)
+	}
+	for _, group := range groups {
+		if subject := groupSubjectKey(group); subject != "" {
+			subjects = append(subjects, subject)
+		}
+	}
+	return subjects
+}
+
+func callerHasTenantAccess(entitlement tenantEntitlement, callerSubjects []string) bool {
+	if len(callerSubjects) == 0 {
+		return false
+	}
+
+	ownerModels := make(map[string]struct{})
+	for _, subject := range callerSubjects {
+		for modelRef := range entitlement.ownerModelsBySubject[subject] {
+			ownerModels[modelRef] = struct{}{}
+		}
+	}
+	if len(ownerModels) == 0 {
+		return false
+	}
+
+	for _, subject := range callerSubjects {
+		for modelRef := range entitlement.policyModelsBySubject[subject] {
+			if _, ok := ownerModels[modelRef]; ok {
+				return true
 			}
 		}
 	}
 
-	return out
+	return false
 }
 
 func subscriptionEligible(obj map[string]any) bool {
@@ -681,15 +752,6 @@ func modelRefKeys(raw any) map[string]struct{} {
 		return nil
 	}
 	return out
-}
-
-func sharesAnyModelRef(left, right map[string]struct{}) bool {
-	for modelRef := range right {
-		if _, ok := left[modelRef]; ok {
-			return true
-		}
-	}
-	return false
 }
 
 func buildNamespaceTenantMap(tenants []unstructured.Unstructured) map[string]string {

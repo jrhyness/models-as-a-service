@@ -11,7 +11,15 @@ import (
 	"github.com/opendatahub-io/models-as-a-service/maas-discovery/internal/types"
 )
 
-func TestComputeTenantSubjects_RequiresSubscriptionAndPolicyMatch(t *testing.T) {
+func modelSet(models ...string) map[string]struct{} {
+	out := make(map[string]struct{}, len(models))
+	for _, model := range models {
+		out[model] = struct{}{}
+	}
+	return out
+}
+
+func TestComputeTenantEntitlement_SeparatesPolicyAndOwnerSubjects(t *testing.T) {
 	tenant := "team-a"
 
 	policies := []unstructured.Unstructured{
@@ -46,15 +54,20 @@ func TestComputeTenantSubjects_RequiresSubscriptionAndPolicyMatch(t *testing.T) 
 	}
 	namespaceToTenant := map[string]string{"ai-tenant-team-a": tenant}
 
-	result := computeTenantSubjects(tenant, policies, subscriptions, namespaceToTenant)
+	result := computeTenantEntitlement(tenant, policies, subscriptions, namespaceToTenant)
 
-	assert.Contains(t, result, "u:alice@example.com")
-	assert.Contains(t, result, "g:team-a-users")
-	assert.NotContains(t, result, "u:bob@example.com")
-	assert.NotContains(t, result, "g:no-policy-group")
+	assert.Contains(t, result.ownerModelsBySubject, "u:alice@example.com")
+	assert.Contains(t, result.ownerModelsBySubject, "u:bob@example.com")
+	assert.Contains(t, result.ownerModelsBySubject, "g:team-a-users")
+	assert.Contains(t, result.ownerModelsBySubject, "g:no-policy-group")
+
+	assert.Contains(t, result.policyModelsBySubject, "u:alice@example.com")
+	assert.Contains(t, result.policyModelsBySubject, "g:team-a-users")
+	assert.NotContains(t, result.policyModelsBySubject, "u:bob@example.com")
+	assert.NotContains(t, result.policyModelsBySubject, "g:no-policy-group")
 }
 
-func TestComputeTenantSubjects_RejectsIneligibleSubscriptions(t *testing.T) {
+func TestComputeTenantEntitlement_RejectsIneligibleSubscriptions(t *testing.T) {
 	tenant := "team-a"
 	policies := []unstructured.Unstructured{
 		{Object: map[string]any{
@@ -81,11 +94,13 @@ func TestComputeTenantSubjects_RejectsIneligibleSubscriptions(t *testing.T) {
 	}
 	namespaceToTenant := map[string]string{"ai-tenant-team-a": tenant}
 
-	result := computeTenantSubjects(tenant, policies, subscriptions, namespaceToTenant)
-	assert.Empty(t, result)
+	result := computeTenantEntitlement(tenant, policies, subscriptions, namespaceToTenant)
+	assert.Empty(t, result.ownerModelsBySubject)
+	assert.NotEmpty(t, result.policyModelsBySubject)
+	assert.False(t, callerHasTenantAccess(result, []string{"u:alice@example.com"}))
 }
 
-func TestComputeTenantSubjects_IgnoresDeletingPolicies(t *testing.T) {
+func TestComputeTenantEntitlement_IgnoresDeletingPolicies(t *testing.T) {
 	tenant := "team-a"
 	namespaceToTenant := map[string]string{"ai-tenant-team-a": tenant}
 
@@ -113,8 +128,10 @@ func TestComputeTenantSubjects_IgnoresDeletingPolicies(t *testing.T) {
 		}},
 	}
 
-	result := computeTenantSubjects(tenant, policies, subscriptions, namespaceToTenant)
-	assert.Empty(t, result)
+	result := computeTenantEntitlement(tenant, policies, subscriptions, namespaceToTenant)
+	assert.NotEmpty(t, result.ownerModelsBySubject)
+	assert.Empty(t, result.policyModelsBySubject)
+	assert.False(t, callerHasTenantAccess(result, []string{"u:alice@example.com"}))
 }
 
 func TestBuildNamespaceTenantMap(t *testing.T) {
@@ -144,12 +161,32 @@ func TestListForSubjects(t *testing.T) {
 			{Name: "alpha"},
 			{Name: "beta"},
 		},
+		entitlementsByTenant: map[string]tenantEntitlement{
+			"alpha": {
+				ownerModelsBySubject: map[string]map[string]struct{}{
+					"u:alice@example.com": modelSet("models-as-a-service/model-a"),
+				},
+				policyModelsBySubject: map[string]map[string]struct{}{
+					"g:team-b": modelSet("models-as-a-service/model-a"),
+				},
+			},
+			"beta": {
+				ownerModelsBySubject: map[string]map[string]struct{}{
+					"g:team-b": modelSet("models-as-a-service/model-b"),
+				},
+				policyModelsBySubject: map[string]map[string]struct{}{
+					"u:alice@example.com": modelSet("models-as-a-service/model-b"),
+				},
+			},
+		},
 		tenantsBySubject: map[string]map[string]struct{}{
 			"u:alice@example.com": {
 				"alpha": {},
+				"beta":  {},
 			},
 			"g:team-b": {
-				"beta": {},
+				"alpha": {},
+				"beta":  {},
 			},
 		},
 	}
@@ -159,37 +196,39 @@ func TestListForSubjects(t *testing.T) {
 	assert.Equal(t, "alpha", visible[0].Name)
 	assert.Equal(t, "beta", visible[1].Name)
 
+	missingPolicyOrOwner := ic.ListForSubjects("alice@example.com", nil)
+	assert.Empty(t, missingPolicyOrOwner)
+
 	none := ic.ListForSubjects("charlie@example.com", []string{"unknown"})
 	assert.Empty(t, none)
 }
 
-func TestComputeTenantSubjects_RequiresModelRefIntersection(t *testing.T) {
-	tenant := "team-a"
-	namespaceToTenant := map[string]string{"ai-tenant-team-a": tenant}
-
-	policies := []unstructured.Unstructured{
-		{Object: map[string]any{
-			"metadata": map[string]any{"namespace": "ai-tenant-team-a"},
-			"spec": map[string]any{
-				"modelRefs": []any{map[string]any{"name": "model-a", "namespace": "models-as-a-service"}},
-				"subjects":  map[string]any{"users": []any{"alice@example.com"}},
-			},
-		}},
+func TestCallerHasTenantAccess_RequiresModelRefIntersection(t *testing.T) {
+	entitlement := tenantEntitlement{
+		ownerModelsBySubject: map[string]map[string]struct{}{
+			"u:alice@example.com": modelSet("models-as-a-service/model-b"),
+		},
+		policyModelsBySubject: map[string]map[string]struct{}{
+			"u:alice@example.com": modelSet("models-as-a-service/model-a"),
+		},
 	}
 
-	subscriptions := []unstructured.Unstructured{
-		{Object: map[string]any{
-			"metadata": map[string]any{"namespace": "ai-tenant-team-a"},
-			"spec": map[string]any{
-				"modelRefs": []any{map[string]any{"name": "model-b", "namespace": "models-as-a-service"}},
-				"owner":     map[string]any{"users": []any{"alice@example.com"}},
-			},
-			"status": map[string]any{"phase": subscriptionPhaseOK},
-		}},
+	assert.False(t, callerHasTenantAccess(entitlement, []string{"u:alice@example.com"}))
+}
+
+func TestCallerHasTenantAccess_AllowsDifferentOwnerAndPolicySubjects(t *testing.T) {
+	entitlement := tenantEntitlement{
+		ownerModelsBySubject: map[string]map[string]struct{}{
+			"g:team-a": modelSet("models-as-a-service/model-a"),
+		},
+		policyModelsBySubject: map[string]map[string]struct{}{
+			"g:system:authenticated": modelSet("models-as-a-service/model-a"),
+		},
 	}
 
-	result := computeTenantSubjects(tenant, policies, subscriptions, namespaceToTenant)
-	assert.Empty(t, result)
+	assert.True(t, callerHasTenantAccess(entitlement, []string{"g:team-a", "g:system:authenticated"}))
+	assert.False(t, callerHasTenantAccess(entitlement, []string{"g:team-a"}))
+	assert.False(t, callerHasTenantAccess(entitlement, []string{"g:system:authenticated"}))
 }
 
 func TestSubscriptionEligible_RejectsDeletingSubscription(t *testing.T) {
@@ -204,8 +243,11 @@ func TestSubscriptionEligible_RejectsDeletingSubscription(t *testing.T) {
 func TestMarkAllTenantsDirty_IncludesIndexedTenantNames(t *testing.T) {
 	ic := &InformerCache{
 		tenants: []types.TenantInfo{{Name: "tenant-a"}},
-		subjectsByTenant: map[string]map[string]struct{}{
-			"tenant-b": {"u:alice": struct{}{}},
+		entitlementsByTenant: map[string]tenantEntitlement{
+			"tenant-b": {
+				ownerModelsBySubject:  map[string]map[string]struct{}{"u:alice": modelSet("models-as-a-service/model-a")},
+				policyModelsBySubject: map[string]map[string]struct{}{"u:alice": modelSet("models-as-a-service/model-a")},
+			},
 		},
 		dirtyTenants: make(map[string]struct{}),
 	}
