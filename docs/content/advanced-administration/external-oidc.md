@@ -98,7 +98,7 @@ spec:
     ttl: 60  # team-a uses aggressive JWKS refresh
 ```
 
-Group names in `MaaSSubscription` and `MaaSAuthPolicy` resources must match the group claims in that tenant's OIDC tokens exactly.
+Group names in `MaaSSubscription` and `MaaSAuthPolicy` resources must match the group claims in that tenant's OIDC tokens exactly. They are opaque strings; a `/` in a group name is not interpreted as a namespace/name separator.
 
 See [Multi-Tenant Setup](../install/multi-tenant-setup.md) and [Multi-Tenancy](../concepts/multi-tenancy.md).
 
