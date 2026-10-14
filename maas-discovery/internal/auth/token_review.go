@@ -24,17 +24,13 @@ const (
 	ContextKeyGroups = "auth.groups"
 	// ContextKeyIsAdmin is the gin context key indicating caller admin visibility.
 	ContextKeyIsAdmin = "auth.isAdmin"
-	// ContextKeyReadableTenants is the gin context key listing tenant names
-	// visible through per-tenant AITenant RBAC (get on named objects).
-	ContextKeyReadableTenants = "auth.readableTenants"
 )
 
 // TokenReviewMiddleware validates bearer tokens via Kubernetes TokenReview and
 // verifies the caller is authenticated via SubjectAccessReview. It also checks
 // whether the caller can list AITenants in aitenantNamespace and marks those
-// callers as admin-visible for tenant discovery. For non-admin callers, it
-// computes tenant names readable via per-tenant get access on AITenant.
-func TokenReviewMiddleware(log *slog.Logger, kubeClient kubernetes.Interface, aitenantNamespace string, listTenantNames func() []string) gin.HandlerFunc {
+// callers as admin-visible for tenant discovery.
+func TokenReviewMiddleware(log *slog.Logger, kubeClient kubernetes.Interface, aitenantNamespace string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), kubeAPITimeout)
 		defer cancel()
@@ -113,7 +109,6 @@ func TokenReviewMiddleware(log *slog.Logger, kubeClient kubernetes.Interface, ai
 		}
 
 		isAdmin := false
-		readableTenants := []string{}
 		if aitenantNamespace != "" {
 			adminSAR := &authorizationv1.SubjectAccessReview{
 				Spec: authorizationv1.SubjectAccessReviewSpec{
@@ -134,74 +129,13 @@ func TokenReviewMiddleware(log *slog.Logger, kubeClient kubernetes.Interface, ai
 			} else {
 				isAdmin = adminResult.Status.Allowed
 			}
-
-			if !isAdmin && listTenantNames != nil {
-				readableTenants = readableAITenantsByRBAC(ctx, log, kubeClient, aitenantNamespace, username, groups, listTenantNames())
-			}
 		}
 
-		log.Debug("authenticated user access granted",
-			"username", username,
-			"isAdmin", isAdmin,
-			"rbacTenantCount", len(readableTenants),
-		)
+		log.Debug("authenticated user access granted", "username", username, "isAdmin", isAdmin)
 
 		c.Set(ContextKeyUsername, username)
 		c.Set(ContextKeyGroups, groups)
 		c.Set(ContextKeyIsAdmin, isAdmin)
-		c.Set(ContextKeyReadableTenants, readableTenants)
 		c.Next()
 	}
-}
-
-func readableAITenantsByRBAC(
-	ctx context.Context,
-	log *slog.Logger,
-	kubeClient kubernetes.Interface,
-	aitenantNamespace string,
-	username string,
-	groups []string,
-	tenantNames []string,
-) []string {
-	if aitenantNamespace == "" || len(tenantNames) == 0 {
-		return nil
-	}
-
-	out := make([]string, 0, len(tenantNames))
-	seen := make(map[string]struct{}, len(tenantNames))
-	for _, tenantName := range tenantNames {
-		tenantName = strings.TrimSpace(tenantName)
-		if tenantName == "" {
-			continue
-		}
-		if _, exists := seen[tenantName]; exists {
-			continue
-		}
-		seen[tenantName] = struct{}{}
-
-		sar := &authorizationv1.SubjectAccessReview{
-			Spec: authorizationv1.SubjectAccessReviewSpec{
-				User:   username,
-				Groups: groups,
-				ResourceAttributes: &authorizationv1.ResourceAttributes{
-					Namespace: aitenantNamespace,
-					Verb:      "get",
-					Group:     "maas.opendatahub.io",
-					Resource:  "aitenants",
-					Name:      tenantName,
-				},
-			},
-		}
-
-		result, err := kubeClient.AuthorizationV1().SubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
-		if err != nil {
-			log.Error("tenant RBAC SubjectAccessReview failed", "tenant", tenantName, "error", err)
-			continue
-		}
-		if result.Status.Allowed {
-			out = append(out, tenantName)
-		}
-	}
-
-	return out
 }

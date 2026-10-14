@@ -27,7 +27,6 @@ func fakeAuthMiddleware(username string, groups []string) gin.HandlerFunc {
 		c.Set(auth.ContextKeyUsername, username)
 		c.Set(auth.ContextKeyGroups, groups)
 		c.Set(auth.ContextKeyIsAdmin, false)
-		c.Set(auth.ContextKeyReadableTenants, []string{})
 		c.Next()
 	}
 }
@@ -37,17 +36,6 @@ func fakeAdminAuthMiddleware(username string, groups []string) gin.HandlerFunc {
 		c.Set(auth.ContextKeyUsername, username)
 		c.Set(auth.ContextKeyGroups, groups)
 		c.Set(auth.ContextKeyIsAdmin, true)
-		c.Set(auth.ContextKeyReadableTenants, []string{})
-		c.Next()
-	}
-}
-
-func fakeRBACAuthMiddleware(username string, groups []string, tenantNames []string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set(auth.ContextKeyUsername, username)
-		c.Set(auth.ContextKeyGroups, groups)
-		c.Set(auth.ContextKeyIsAdmin, false)
-		c.Set(auth.ContextKeyReadableTenants, tenantNames)
 		c.Next()
 	}
 }
@@ -188,34 +176,6 @@ func TestListTenants_AdminBypassesSubjectFilter(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	require.Equal(t, 1, fc.listCalls)
 	require.Equal(t, 0, fc.visibleCalls)
-
-	var resp types.TenantsResponse
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	require.Len(t, resp.Tenants, 2)
-	assert.Equal(t, "alpha", resp.Tenants[0].Name)
-	assert.Equal(t, "beta", resp.Tenants[1].Name)
-}
-
-func TestListTenants_NonAdminMergesPolicyAndRBACVisibility(t *testing.T) {
-	fc := &countingTenantCache{
-		allTenants: []types.TenantInfo{
-			{Name: "alpha"},
-			{Name: "beta"},
-			{Name: "gamma"},
-		},
-		visibleTenants: []types.TenantInfo{{Name: "alpha"}},
-	}
-	h := handler.New(fc)
-	r := gin.New()
-	h.RegisterRoutes(r, fakeRBACAuthMiddleware("alice", []string{"team-a"}, []string{"beta"}))
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1/tenants", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	require.Equal(t, 1, fc.visibleCalls)
-	require.Equal(t, 1, fc.listCalls)
 
 	var resp types.TenantsResponse
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))

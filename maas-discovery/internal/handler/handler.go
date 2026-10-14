@@ -38,19 +38,16 @@ func (h *Handler) ListTenants(c *gin.Context) {
 	username, _ := c.Get(auth.ContextKeyUsername)
 	groupsRaw, _ := c.Get(auth.ContextKeyGroups)
 	isAdminRaw, _ := c.Get(auth.ContextKeyIsAdmin)
-	rbacTenantNamesRaw, _ := c.Get(auth.ContextKeyReadableTenants)
 
 	user, _ := username.(string)
 	groups, _ := groupsRaw.([]string)
 	isAdmin, _ := isAdminRaw.(bool)
-	rbacTenantNames, _ := rbacTenantNamesRaw.([]string)
 
 	var tenants []types.TenantInfo
 	if isAdmin {
 		tenants = h.cache.List()
 	} else {
-		policyVisible := h.cache.ListForSubjects(user, groups)
-		tenants = mergeVisibleTenants(policyVisible, rbacTenantNames, h.cache.List())
+		tenants = h.cache.ListForSubjects(user, groups)
 	}
 	if tenants == nil {
 		tenants = []types.TenantInfo{}
@@ -59,49 +56,9 @@ func (h *Handler) ListTenants(c *gin.Context) {
 		"username", user,
 		"isAdmin", isAdmin,
 		"groups_count", len(groups),
-		"rbac_tenant_count", len(rbacTenantNames),
 		"tenant_count", len(tenants),
 	)
 	c.JSON(http.StatusOK, types.TenantsResponse{Tenants: tenants})
-}
-
-func mergeVisibleTenants(policyVisible []types.TenantInfo, rbacTenantNames []string, allTenants []types.TenantInfo) []types.TenantInfo {
-	if len(rbacTenantNames) == 0 {
-		return policyVisible
-	}
-
-	wanted := make(map[string]struct{}, len(policyVisible)+len(rbacTenantNames))
-	for i := range policyVisible {
-		wanted[policyVisible[i].Name] = struct{}{}
-	}
-	for _, tenantName := range rbacTenantNames {
-		if tenantName != "" {
-			wanted[tenantName] = struct{}{}
-		}
-	}
-	if len(wanted) == 0 {
-		return nil
-	}
-
-	out := make([]types.TenantInfo, 0, len(wanted))
-	for i := range allTenants {
-		if _, ok := wanted[allTenants[i].Name]; ok {
-			out = append(out, allTenants[i])
-			delete(wanted, allTenants[i].Name)
-		}
-	}
-
-	// Defensive fallback for any policy-visible tenants not present in allTenants.
-	if len(wanted) > 0 {
-		for i := range policyVisible {
-			if _, ok := wanted[policyVisible[i].Name]; ok {
-				out = append(out, policyVisible[i])
-				delete(wanted, policyVisible[i].Name)
-			}
-		}
-	}
-
-	return out
 }
 
 // Healthz handles GET /healthz.

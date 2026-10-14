@@ -101,17 +101,7 @@ func run() error {
 		if clientErr != nil {
 			return fmt.Errorf("creating kubernetes client for auth: %w", clientErr)
 		}
-		listTenantNames := func() []string {
-			infos := tc.List()
-			names := make([]string, 0, len(infos))
-			for i := range infos {
-				if name := strings.TrimSpace(infos[i].Name); name != "" {
-					names = append(names, name)
-				}
-			}
-			return names
-		}
-		authMiddleware = append(authMiddleware, auth.TokenReviewMiddleware(log, kubeClient, *tenantNamespace, listTenantNames))
+		authMiddleware = append(authMiddleware, auth.TokenReviewMiddleware(log, kubeClient, *tenantNamespace))
 	}
 	h.RegisterRoutes(engine, authMiddleware...)
 

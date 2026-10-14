@@ -24,24 +24,18 @@ func init() {
 }
 
 func setupRouter(kubeClient *kubefake.Clientset) *gin.Engine {
-	return setupRouterWithTenants(kubeClient, []string{"tenant-a", "tenant-b"})
-}
-
-func setupRouterWithTenants(kubeClient *kubefake.Clientset, tenantNames []string) *gin.Engine {
 	log := slog.Default()
 	r := gin.New()
 	r.GET("/v1/tenants",
-		auth.TokenReviewMiddleware(log, kubeClient, "ai-tenants", func() []string { return tenantNames }),
+		auth.TokenReviewMiddleware(log, kubeClient, "ai-tenants"),
 		func(c *gin.Context) {
 			username, _ := c.Get(auth.ContextKeyUsername)
 			groups, _ := c.Get(auth.ContextKeyGroups)
 			isAdmin, _ := c.Get(auth.ContextKeyIsAdmin)
-			readableTenants, _ := c.Get(auth.ContextKeyReadableTenants)
 			c.JSON(http.StatusOK, gin.H{
-				"username":        username,
-				"groups":          groups,
-				"isAdmin":         isAdmin,
-				"readableTenants": readableTenants,
+				"username": username,
+				"groups":   groups,
+				"isAdmin":  isAdmin,
 			})
 		},
 	)
@@ -121,57 +115,6 @@ func TestTokenReview_NonAdmin(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 	assert.Equal(t, "bob", body["username"])
 	assert.Equal(t, false, body["isAdmin"])
-}
-
-func TestTokenReview_NonAdmin_ReadableTenantsByRBAC(t *testing.T) {
-	client := kubefake.NewSimpleClientset()
-	client.PrependReactor("create", "tokenreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
-		return true, &authenticationv1.TokenReview{
-			Status: authenticationv1.TokenReviewStatus{
-				Authenticated: true,
-				User: authenticationv1.UserInfo{
-					Username: "bob",
-					Groups:   []string{"system:authenticated", "team-b"},
-				},
-			},
-		}, nil
-	})
-	client.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
-		sar, ok := action.(k8stesting.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
-		require.True(t, ok)
-		attr := sar.Spec.ResourceAttributes
-		if attr == nil {
-			return true, &authorizationv1.SubjectAccessReview{Status: authorizationv1.SubjectAccessReviewStatus{Allowed: false}}, nil
-		}
-		if attr.Resource == "selfsubjectaccessreviews" {
-			return true, &authorizationv1.SubjectAccessReview{Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true}}, nil
-		}
-		if attr.Resource == "aitenants" && attr.Verb == "list" {
-			return true, &authorizationv1.SubjectAccessReview{Status: authorizationv1.SubjectAccessReviewStatus{Allowed: false}}, nil
-		}
-		if attr.Resource == "aitenants" && attr.Verb == "get" && attr.Name == "tenant-b" {
-			return true, &authorizationv1.SubjectAccessReview{Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true}}, nil
-		}
-		return true, &authorizationv1.SubjectAccessReview{Status: authorizationv1.SubjectAccessReviewStatus{Allowed: false}}, nil
-	})
-
-	r := setupRouterWithTenants(client, []string{"tenant-a", "tenant-b"})
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1/tenants", nil)
-	req.Header.Set("Authorization", "Bearer valid-token")
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-
-	var body map[string]any
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	assert.Equal(t, false, body["isAdmin"])
-
-	readableTenants, ok := body["readableTenants"].([]any)
-	require.True(t, ok)
-	require.Len(t, readableTenants, 1)
-	assert.Equal(t, "tenant-b", readableTenants[0])
 }
 
 func TestTokenReview_MissingAuthHeader(t *testing.T) {
