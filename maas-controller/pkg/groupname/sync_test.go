@@ -3,7 +3,6 @@ package groupname
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -19,12 +18,15 @@ import (
 // maas-api mirrors this test (internal/api_keys/groupname_sync_test.go), so a
 // change to either module's copy fails in the PR that introduces it.
 func TestPatternCopiesInSync(t *testing.T) {
-	_, thisFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("cannot locate source file")
+	// go test always runs with the working directory set to the package
+	// directory, so the checkout root is discoverable without runtime.Caller
+	// (whose source paths are module-relative under -trimpath):
+	// <repo>/maas-controller/pkg/groupname -> <repo>
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
 	}
-	// <repo>/maas-controller/pkg/groupname/sync_test.go -> <repo>
-	repo := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(thisFile))))
+	repo := filepath.Dir(filepath.Dir(filepath.Dir(wd)))
 
 	read := func(rel string) (string, bool) {
 		b, err := os.ReadFile(filepath.Join(repo, rel))

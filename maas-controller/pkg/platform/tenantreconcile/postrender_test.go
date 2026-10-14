@@ -52,6 +52,14 @@ func TestPatchAuthPolicyWithOIDC_GroupsExprUsesCanonicalPattern(t *testing.T) {
 	assert.Regexp(t, `/`, groupname.Pattern, "canonical pattern must allow slashes")
 	assert.True(t, groupname.Valid("/Engineering"))
 	assert.False(t, groupname.Valid(`bad"group`))
+
+	// Security: the group source is selected by identity type, never by claim
+	// presence — a JWT carrying a crafted "user" claim must never reach the
+	// TokenReview branch — and both sources are gated on the pattern.
+	assert.Contains(t, expr, "has(auth.identity.iss)",
+		"JWT identities must be selected by iss, not by groups-claim presence")
+	assert.Contains(t, expr, "auth.identity.user.groups.all(g, g.matches('"+groupname.Pattern+"')",
+		"TokenReview groups must be gated on the canonical group-name pattern")
 }
 
 func TestPatchAuthPolicyWithOIDCRequiresPurposePair(t *testing.T) {

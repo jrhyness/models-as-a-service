@@ -247,11 +247,20 @@ func patchAuthPolicyWithOIDC(log logr.Logger, resource *unstructured.Unstructure
 	}, "spec", "rules", "response", "success", "headers", "X-MaaS-Username-OC", "plain"); err != nil {
 		return fmt.Errorf("failed to set X-MaaS-Username-OC: %w", err)
 	}
-	groupsExpr := `has(auth.identity.groups) ? ` +
-		`(size(auth.identity.groups) > 0 && auth.identity.groups.all(g, g.matches('` + groupname.Pattern + `')) ? ` +
+	// The group source is selected by identity type, never by claim presence:
+	// JWT identities (auth.identity.iss set) use only the groups claim,
+	// TokenReview identities use only user.groups — Authorino overlays the
+	// decoded JWT payload into auth.identity, so a JWT could otherwise craft
+	// a "user" claim and reach the TokenReview branch. Both sources are
+	// gated on the canonical pattern because CEL builds the JSON by
+	// concatenation without escaping.
+	groupsExpr := `has(auth.identity.iss) ? ` +
+		`(has(auth.identity.groups) && size(auth.identity.groups) > 0 && ` +
+		`auth.identity.groups.all(g, g.matches('` + groupname.Pattern + `')) ? ` +
 		`'["system:authenticated","' + auth.identity.groups.join('","') + '"]' : ` +
 		`'["system:authenticated"]') : ` +
-		`(has(auth.identity.user.groups) && size(auth.identity.user.groups) > 0 ? ` +
+		`(has(auth.identity.user.groups) && size(auth.identity.user.groups) > 0 && ` +
+		`auth.identity.user.groups.all(g, g.matches('` + groupname.Pattern + `')) ? ` +
 		`'["system:authenticated","' + auth.identity.user.groups.join('","') + '"]' : ` +
 		`'["system:authenticated"]')`
 	if err := unstructured.SetNestedField(resource.Object, map[string]any{

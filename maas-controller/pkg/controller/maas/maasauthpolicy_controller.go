@@ -398,26 +398,41 @@ const (
 		`: (has(auth.identity.preferred_username) ? auth.identity.preferred_username ` +
 		`: (has(auth.identity.sub) ? auth.identity.sub : auth.identity.user.username))`
 
-	// celGroups extracts groups from API key, OIDC, or K8s token
-	// API key: uses apiKeyValidation.groups (snapshot at key creation)
-	// OIDC: uses groups claim (no .user. prefix)
-	// K8s: uses user.groups (from TokenReview)
+	// celGroups extracts the group list used for subscription selection,
+	// cache keys, and metrics labels.
+	// API key: uses apiKeyValidation.groups (snapshot at key creation).
+	// The source for token identities is selected by identity type, never by
+	// claim presence: JWT identities (auth.identity.iss set) use only the
+	// groups claim, TokenReview identities use only user.groups. Authorino
+	// overlays the decoded JWT payload into auth.identity, so a JWT could
+	// otherwise craft a "user" claim and impersonate TokenReview groups.
+	// JWT groups that fail the canonical pattern yield an empty list, keeping
+	// downstream evaluators consistent with the oidc-groups-safe denial.
 	celGroups = `(has(auth.metadata) && has(auth.metadata.apiKeyValidation)) ` +
 		`? auth.metadata.apiKeyValidation.groups ` +
-		`: (has(auth.identity.groups) ? auth.identity.groups : auth.identity.user.groups)`
+		`: (has(auth.identity.iss) ? ` +
+		`(has(auth.identity.groups) && ` + celOIDCGroupsSafe + ` ? auth.identity.groups : []) : ` +
+		`auth.identity.user.groups)`
 
 	safeGroupNamePattern = groupname.Pattern
 	celOIDCGroupsSafe    = `auth.identity.groups.all(g, g.matches('` + safeGroupNamePattern + `'))`
 
 	// celTokenGroupsHeaderJSON renders the X-MaaS-Group header for non-API-key
-	// identities. OIDC tokens may omit or provide an empty groups claim, but API
-	// key minting still requires at least system:authenticated to match the
-	// default subscription.
-	celTokenGroupsHeaderJSON = `has(auth.identity.groups) ? ` +
-		`(size(auth.identity.groups) > 0 && ` + celOIDCGroupsSafe + ` ? ` +
+	// identities. The group source is selected by identity type, never by
+	// claim presence: JWT identities (auth.identity.iss set) use only the
+	// groups claim, TokenReview identities use only user.groups — Authorino
+	// overlays the decoded JWT payload into auth.identity, so a JWT could
+	// otherwise craft a "user" claim and reach the TokenReview branch. Both
+	// sources are gated on the canonical group-name pattern because CEL builds
+	// the JSON by concatenation without escaping. Identities with no usable
+	// groups still get system:authenticated, which API-key minting requires
+	// to match the default subscription.
+	celTokenGroupsHeaderJSON = `has(auth.identity.iss) ? ` +
+		`(has(auth.identity.groups) && size(auth.identity.groups) > 0 && ` + celOIDCGroupsSafe + ` ? ` +
 		`'["system:authenticated","' + auth.identity.groups.join('","') + '"]' : ` +
 		`'["system:authenticated"]') : ` +
-		`(has(auth.identity.user.groups) && size(auth.identity.user.groups) > 0 ? ` +
+		`(has(auth.identity.user.groups) && size(auth.identity.user.groups) > 0 && ` +
+		`auth.identity.user.groups.all(g, g.matches('` + safeGroupNamePattern + `')) ? ` +
 		`'["system:authenticated","' + auth.identity.user.groups.join('","') + '"]' : ` +
 		`'["system:authenticated"]')`
 
