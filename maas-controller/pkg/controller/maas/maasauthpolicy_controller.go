@@ -406,13 +406,18 @@ const (
 	// groups claim, TokenReview identities use only user.groups. Authorino
 	// overlays the decoded JWT payload into auth.identity, so a JWT could
 	// otherwise craft a "user" claim and impersonate TokenReview groups.
-	// JWT groups that fail the canonical pattern yield an empty list, keeping
-	// downstream evaluators consistent with the oidc-groups-safe denial.
+	// Both sources are gated on the canonical pattern and yield an empty
+	// list on failure, keeping subscription selection, the cache key, and
+	// the X-MaaS-Group header consistent with the oidc-groups-safe denial:
+	// a TokenReview group that fails the pattern must never authorize a
+	// subscription the forwarded identity header omits.
 	celGroups = `(has(auth.metadata) && has(auth.metadata.apiKeyValidation)) ` +
 		`? auth.metadata.apiKeyValidation.groups ` +
 		`: (has(auth.identity.iss) ? ` +
 		`(has(auth.identity.groups) && ` + celOIDCGroupsSafe + ` ? auth.identity.groups : []) : ` +
-		`auth.identity.user.groups)`
+		`(has(auth.identity.user.groups) && ` +
+		`auth.identity.user.groups.all(g, g.matches('` + safeGroupNamePattern + `')) ? ` +
+		`auth.identity.user.groups : []))`
 
 	safeGroupNamePattern = groupname.Pattern
 	celOIDCGroupsSafe    = `auth.identity.groups.all(g, g.matches('` + safeGroupNamePattern + `'))`

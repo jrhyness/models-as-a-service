@@ -399,6 +399,8 @@ func TestCELExpressions_SupportOIDC(t *testing.T) {
 		"celGroups must select the group source by identity type (iss), not claim presence")
 	assert.Contains(t, celGroups, celOIDCGroupsSafe,
 		"celGroups must gate JWT groups on the safe group-name pattern")
+	assert.Contains(t, celGroups, "auth.identity.user.groups.all(g, g.matches(",
+		"celGroups must validate TokenReview groups before subscription selection")
 }
 
 func TestCELExpressions_UserIDVsUsername(t *testing.T) {
