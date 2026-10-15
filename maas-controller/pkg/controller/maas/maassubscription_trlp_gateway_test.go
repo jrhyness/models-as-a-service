@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -507,6 +508,108 @@ func TestReconcileTRLPForModel_OwnerOnlyChangeIsPersisted(t *testing.T) {
 	}
 	if got := trlp.GetOwnerReferences()[0].UID; got != route.UID {
 		t.Fatalf("ownerRef UID = %q, want %q", got, route.UID)
+	}
+}
+
+func TestReconcileTRLPForModel_RemovedTenantReferenceCleansOnlyItsPolicy(t *testing.T) {
+	const (
+		modelNS = "user-ns"
+		subANS  = "tenant-a-admin"
+		subBNS  = "tenant-b-admin"
+	)
+
+	modelA := newMaaSModelRef("model-a", modelNS, "ExternalModel", "shared")
+	modelA.Status.HTTPRouteGatewayName = testGatewayA.Name
+	modelA.Status.HTTPRouteGatewayNamespace = testGatewayA.Namespace
+
+	modelB := newMaaSModelRef("model-b", modelNS, "ExternalModel", "shared")
+	modelB.Status.HTTPRouteGatewayName = testGatewayB.Name
+	modelB.Status.HTTPRouteGatewayNamespace = testGatewayB.Namespace
+
+	subA := newTenantSubscription("sub-a", subANS, modelNS, "model-a", 100)
+	subB := newTenantSubscription("sub-b", subBNS, modelNS, "model-b", 200)
+
+	objs := append(newSharedExternalModelObjects(
+		newGatewayResult(testGatewayA, metav1.ConditionTrue),
+		newGatewayResult(testGatewayB, metav1.ConditionTrue),
+	),
+		modelA,
+		modelB,
+		subA,
+		subB,
+		newDiscoveredTenantNamespace(subANS, "tenant-a"),
+		newDiscoveredTenantNamespace(subBNS, "tenant-b"),
+		newAITenantManagedTenantConfig(subANS, "tenant-a"),
+		newAITenantManagedTenantConfig(subBNS, "tenant-b"),
+	)
+
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithRESTMapper(testRESTMapper()).
+		WithObjects(objs...).
+		WithStatusSubresource(&maasv1alpha1.MaaSSubscription{}).
+		WithIndex(&maasv1alpha1.MaaSSubscription{}, modelRefIndexKey, subscriptionModelRefIndexer).
+		Build()
+
+	r := &MaaSSubscriptionReconciler{
+		Client:                          c,
+		APIReader:                       c,
+		Scheme:                          scheme,
+		DefaultTenantNamespace:          "models-as-a-service",
+		TenantNamespaceDiscoveryEnabled: true,
+	}
+
+	for _, req := range []ctrl.Request{
+		{NamespacedName: types.NamespacedName{Name: subA.Name, Namespace: subA.Namespace}},
+		{NamespacedName: types.NamespacedName{Name: subB.Name, Namespace: subB.Namespace}},
+	} {
+		if _, err := r.Reconcile(context.Background(), req); err != nil {
+			t.Fatalf("Reconcile %s/%s: %v", req.Namespace, req.Name, err)
+		}
+	}
+
+	trlpA := &unstructured.Unstructured{}
+	trlpA.SetGroupVersionKind(schema.GroupVersionKind{Group: "kuadrant.io", Version: "v1alpha1", Kind: "TokenRateLimitPolicy"})
+	if err := c.Get(context.Background(), types.NamespacedName{Name: "maas-trlp-model-a", Namespace: modelNS}, trlpA); err != nil {
+		t.Fatalf("Get TRLP model-a before removal: %v", err)
+	}
+	targetA, _, _ := unstructured.NestedString(trlpA.Object, "spec", "targetRef", "name")
+	labelsA := trlpA.GetLabels()
+
+	trlpB := &unstructured.Unstructured{}
+	trlpB.SetGroupVersionKind(schema.GroupVersionKind{Group: "kuadrant.io", Version: "v1alpha1", Kind: "TokenRateLimitPolicy"})
+	if err := c.Get(context.Background(), types.NamespacedName{Name: "maas-trlp-model-b", Namespace: modelNS}, trlpB); err != nil {
+		t.Fatalf("Get TRLP model-b before removal: %v", err)
+	}
+
+	// Remove model-b reference from tenant-b subscription.
+	if err := c.Get(context.Background(), types.NamespacedName{Name: subB.Name, Namespace: subB.Namespace}, subB); err != nil {
+		t.Fatalf("Reload sub-b: %v", err)
+	}
+	subB.Spec.ModelRefs = nil
+	if err := c.Update(context.Background(), subB); err != nil {
+		t.Fatalf("Update sub-b to remove modelRefs: %v", err)
+	}
+
+	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: subB.Name, Namespace: subB.Namespace}}); err != nil {
+		t.Fatalf("Reconcile sub-b after modelRef removal: %v", err)
+	}
+
+	if err := c.Get(context.Background(), types.NamespacedName{Name: "maas-trlp-model-b", Namespace: modelNS}, trlpB); !apierrors.IsNotFound(err) {
+		t.Fatalf("expected TRLP model-b to be removed, got err=%v", err)
+	}
+
+	if err := c.Get(context.Background(), types.NamespacedName{Name: "maas-trlp-model-a", Namespace: modelNS}, trlpA); err != nil {
+		t.Fatalf("TRLP model-a should remain: %v", err)
+	}
+	if got, _, _ := unstructured.NestedString(trlpA.Object, "spec", "targetRef", "name"); got != targetA {
+		t.Fatalf("TRLP model-a target changed: got %q want %q", got, targetA)
+	}
+	if got := trlpA.GetLabels()[trlpLabelGatewayName]; got != labelsA[trlpLabelGatewayName] {
+		t.Fatalf("TRLP model-a gateway-name changed: got %q want %q", got, labelsA[trlpLabelGatewayName])
+	}
+	if got := trlpA.GetLabels()[trlpLabelGatewayNamespace]; got != labelsA[trlpLabelGatewayNamespace] {
+		t.Fatalf("TRLP model-a gateway-namespace changed: got %q want %q", got, labelsA[trlpLabelGatewayNamespace])
 	}
 }
 
