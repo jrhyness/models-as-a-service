@@ -1774,7 +1774,7 @@ func assertSubscriptionAdminAllowed(t *testing.T, response map[string]any, expec
 
 type panickingModelAccessChecker struct{}
 
-func (panickingModelAccessChecker) AuthorizedModels([]string, string) map[authpolicy.ModelKey]bool {
+func (panickingModelAccessChecker) AuthorizedModels([]string, string) (map[authpolicy.ModelKey]bool, error) {
 	panic("inference model-access checker must not be used for subscription administration")
 }
 
