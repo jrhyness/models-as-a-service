@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	maasv1alpha1 "github.com/opendatahub-io/models-as-a-service/maas-controller/api/maas/v1alpha1"
 	"github.com/opendatahub-io/models-as-a-service/maas-controller/pkg/platform/tenantreconcile"
@@ -361,3 +362,152 @@ func TestReconcileTRLPForModel_RouteTransitionRetargetsPolicy(t *testing.T) {
 		t.Fatalf("gateway label namespace = %q, want %q", got, testGatewayB.Namespace)
 	}
 }
+
+func TestReconcileTRLPForModel_GatewayLabelsFollowSelectedGatewayNotParentRefOrder(t *testing.T) {
+	const (
+		modelNS = "user-ns"
+		subNS   = "tenant-b-admin"
+	)
+
+	model := newMaaSModelRef("model-b", modelNS, "ExternalModel", "shared")
+	model.Status.HTTPRouteGatewayName = testGatewayB.Name
+	model.Status.HTTPRouteGatewayNamespace = testGatewayB.Namespace
+	sub := newTenantSubscription("sub-b", subNS, modelNS, "model-b", 200)
+
+	objs := append(newSharedExternalModelObjects(
+		newGatewayResult(testGatewayA, metav1.ConditionTrue),
+		newGatewayResult(testGatewayB, metav1.ConditionTrue),
+	),
+		model,
+		sub,
+		newDiscoveredTenantNamespace(subNS, "tenant-b"),
+		newAITenantManagedTenantConfig(subNS, "tenant-b"),
+	)
+
+	for _, obj := range objs {
+		route, ok := obj.(*gatewayapiv1.HTTPRoute)
+		if !ok || route.Name != "route-gw-b" || route.Namespace != modelNS {
+			continue
+		}
+		gwANS := gatewayapiv1.Namespace(testGatewayA.Namespace)
+		route.Spec.ParentRefs = append([]gatewayapiv1.ParentReference{{
+			Name:      gatewayapiv1.ObjectName(testGatewayA.Name),
+			Namespace: &gwANS,
+		}}, route.Spec.ParentRefs...)
+		break
+	}
+
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithRESTMapper(testRESTMapper()).
+		WithObjects(objs...).
+		WithStatusSubresource(&maasv1alpha1.MaaSSubscription{}).
+		WithIndex(&maasv1alpha1.MaaSSubscription{}, modelRefIndexKey, subscriptionModelRefIndexer).
+		Build()
+
+	r := &MaaSSubscriptionReconciler{
+		Client:                          c,
+		APIReader:                       c,
+		Scheme:                          scheme,
+		DefaultTenantNamespace:          "models-as-a-service",
+		TenantNamespaceDiscoveryEnabled: true,
+	}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: sub.Name, Namespace: sub.Namespace}}
+	if _, err := r.Reconcile(context.Background(), req); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	trlp := &unstructured.Unstructured{}
+	trlp.SetGroupVersionKind(schema.GroupVersionKind{Group: "kuadrant.io", Version: "v1alpha1", Kind: "TokenRateLimitPolicy"})
+	if err := c.Get(context.Background(), types.NamespacedName{Name: "maas-trlp-model-b", Namespace: modelNS}, trlp); err != nil {
+		t.Fatalf("Get TokenRateLimitPolicy: %v", err)
+	}
+
+	if got := trlp.GetLabels()[trlpLabelGatewayName]; got != testGatewayB.Name {
+		t.Fatalf("gateway label name = %q, want selected gateway %q", got, testGatewayB.Name)
+	}
+	if got := trlp.GetLabels()[trlpLabelGatewayNamespace]; got != testGatewayB.Namespace {
+		t.Fatalf("gateway label namespace = %q, want selected gateway namespace %q", got, testGatewayB.Namespace)
+	}
+}
+
+func TestReconcileTRLPForModel_OwnerOnlyChangeIsPersisted(t *testing.T) {
+	const (
+		modelNS = "user-ns"
+		subNS   = "tenant-b-admin"
+	)
+
+	model := newMaaSModelRef("model-b", modelNS, "ExternalModel", "shared")
+	model.Status.HTTPRouteGatewayName = testGatewayB.Name
+	model.Status.HTTPRouteGatewayNamespace = testGatewayB.Namespace
+	sub := newTenantSubscription("sub-b", subNS, modelNS, "model-b", 200)
+
+	objs := append(newSharedExternalModelObjects(
+		newGatewayResult(testGatewayA, metav1.ConditionTrue),
+		newGatewayResult(testGatewayB, metav1.ConditionTrue),
+	),
+		model,
+		sub,
+		newDiscoveredTenantNamespace(subNS, "tenant-b"),
+		newAITenantManagedTenantConfig(subNS, "tenant-b"),
+	)
+
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithRESTMapper(testRESTMapper()).
+		WithObjects(objs...).
+		WithStatusSubresource(&maasv1alpha1.MaaSSubscription{}).
+		WithIndex(&maasv1alpha1.MaaSSubscription{}, modelRefIndexKey, subscriptionModelRefIndexer).
+		Build()
+
+	r := &MaaSSubscriptionReconciler{
+		Client:                          c,
+		APIReader:                       c,
+		Scheme:                          scheme,
+		DefaultTenantNamespace:          "models-as-a-service",
+		TenantNamespaceDiscoveryEnabled: true,
+	}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: sub.Name, Namespace: sub.Namespace}}
+	if _, err := r.Reconcile(context.Background(), req); err != nil {
+		t.Fatalf("Reconcile (create): %v", err)
+	}
+
+	route := &gatewayapiv1.HTTPRoute{}
+	if err := c.Get(context.Background(), types.NamespacedName{Name: "route-gw-b", Namespace: modelNS}, route); err != nil {
+		t.Fatalf("Get route-gw-b: %v", err)
+	}
+
+	trlp := &unstructured.Unstructured{}
+	trlp.SetGroupVersionKind(schema.GroupVersionKind{Group: "kuadrant.io", Version: "v1alpha1", Kind: "TokenRateLimitPolicy"})
+	if err := c.Get(context.Background(), types.NamespacedName{Name: "maas-trlp-model-b", Namespace: modelNS}, trlp); err != nil {
+		t.Fatalf("Get TokenRateLimitPolicy: %v", err)
+	}
+
+	// Force an owner-only drift: same owner name/kind, stale UID.
+	trlp.SetOwnerReferences([]metav1.OwnerReference{{
+		APIVersion: gatewayapiv1.GroupVersion.String(),
+		Kind:       "HTTPRoute",
+		Name:       route.Name,
+		UID:        types.UID("00000000-0000-0000-0000-000000000000"),
+		Controller: ptrTo(true),
+	}})
+	if err := c.Update(context.Background(), trlp); err != nil {
+		t.Fatalf("Update TokenRateLimitPolicy with stale owner UID: %v", err)
+	}
+
+	if _, err := r.Reconcile(context.Background(), req); err != nil {
+		t.Fatalf("Reconcile (owner correction): %v", err)
+	}
+
+	if err := c.Get(context.Background(), types.NamespacedName{Name: "maas-trlp-model-b", Namespace: modelNS}, trlp); err != nil {
+		t.Fatalf("Get TokenRateLimitPolicy after owner correction: %v", err)
+	}
+	if len(trlp.GetOwnerReferences()) != 1 {
+		t.Fatalf("ownerRefs len = %d, want 1", len(trlp.GetOwnerReferences()))
+	}
+	if got := trlp.GetOwnerReferences()[0].UID; got != route.UID {
+		t.Fatalf("ownerRef UID = %q, want %q", got, route.UID)
+	}
+}
+
+func ptrTo[T any](v T) *T { return &v }
