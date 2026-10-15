@@ -49,7 +49,12 @@ var ErrInvalidGroupName = errors.New("invalid group name")
 func validateGroupNames(groups []string) error {
 	for _, group := range groups {
 		if !validGroupNamePattern.MatchString(group) {
-			return fmt.Errorf("%w %q contains invalid characters (only alphanumerics, colons, hashes, dots, underscores, hyphens, spaces, and slashes are allowed)", ErrInvalidGroupName, group)
+			return fmt.Errorf(
+				"%w %q contains invalid characters "+
+					"(only alphanumerics, colons, hashes, dots, underscores, hyphens, spaces, and slashes are allowed)",
+				ErrInvalidGroupName,
+				group,
+			)
 		}
 	}
 	return nil
