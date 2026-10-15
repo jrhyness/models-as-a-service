@@ -312,7 +312,7 @@ func (r *MaaSSubscriptionReconciler) checkTokenRateLimitHealth(ctx context.Conte
 		status.Namespace = httpRouteNS
 
 		gatewaySuffix := ""
-		if gateway, ok := selectedGatewayForModel(ctx, r.Client, ref.Namespace, ref.Name); ok {
+		if gateway, ok, err := selectedGatewayForModel(ctx, r.Client, ref.Namespace, ref.Name); err == nil && ok {
 			gatewaySuffix = fmt.Sprintf(" on gateway %s/%s", gateway.Namespace, gateway.Name)
 		} else {
 			route := &gatewayapiv1.HTTPRoute{}
@@ -671,7 +671,9 @@ func (r *MaaSSubscriptionReconciler) reconcileTRLPForModel(ctx context.Context, 
 
 	trlpGatewayName := ""
 	trlpGatewayNamespace := ""
-	if gateway, ok := gatewayIdentityForTRLP(ctx, r.Client, modelNamespace, modelName, route); ok {
+	if gateway, ok, err := gatewayIdentityForTRLP(ctx, r.Client, modelNamespace, modelName, route); err != nil {
+		return fmt.Errorf("failed to resolve selected gateway for model %s/%s: %w", modelNamespace, modelName, err)
+	} else if ok {
 		trlpGatewayName = gateway.Name
 		trlpGatewayNamespace = gateway.Namespace
 	}
@@ -966,28 +968,34 @@ func routeGatewayForTRLP(route *gatewayapiv1.HTTPRoute) (types.NamespacedName, b
 
 // selectedGatewayForModel returns the model's currently selected gateway from status,
 // if available.
-func selectedGatewayForModel(ctx context.Context, c client.Reader, modelNamespace, modelName string) (types.NamespacedName, bool) {
+func selectedGatewayForModel(ctx context.Context, c client.Reader, modelNamespace, modelName string) (types.NamespacedName, bool, error) {
 	model := &maasv1alpha1.MaaSModelRef{}
 	if err := c.Get(ctx, types.NamespacedName{Name: modelName, Namespace: modelNamespace}, model); err != nil {
-		return types.NamespacedName{}, false
+		if apierrors.IsNotFound(err) {
+			return types.NamespacedName{}, false, nil
+		}
+		return types.NamespacedName{}, false, fmt.Errorf("get MaaSModelRef %s/%s: %w", modelNamespace, modelName, err)
 	}
 	if model.Status.HTTPRouteGatewayName == "" || model.Status.HTTPRouteGatewayNamespace == "" {
-		return types.NamespacedName{}, false
+		return types.NamespacedName{}, false, nil
 	}
 	return types.NamespacedName{
 		Name:      model.Status.HTTPRouteGatewayName,
 		Namespace: model.Status.HTTPRouteGatewayNamespace,
-	}, true
+	}, true, nil
 }
 
 // gatewayIdentityForTRLP returns the gateway identity to label/report on for the
 // model's TRLP, preferring the model's selected gateway and falling back to the
 // route's first gateway parentRef.
-func gatewayIdentityForTRLP(ctx context.Context, c client.Reader, modelNamespace, modelName string, route *gatewayapiv1.HTTPRoute) (types.NamespacedName, bool) {
-	if gateway, ok := selectedGatewayForModel(ctx, c, modelNamespace, modelName); ok {
-		return gateway, true
+func gatewayIdentityForTRLP(ctx context.Context, c client.Reader, modelNamespace, modelName string, route *gatewayapiv1.HTTPRoute) (types.NamespacedName, bool, error) {
+	if gateway, ok, err := selectedGatewayForModel(ctx, c, modelNamespace, modelName); err != nil {
+		return types.NamespacedName{}, false, err
+	} else if ok {
+		return gateway, true, nil
 	}
-	return routeGatewayForTRLP(route)
+	gateway, ok := routeGatewayForTRLP(route)
+	return gateway, ok, nil
 }
 
 // setHTTPRouteControllerOwner records the HTTPRoute as controller owner. Managed TRLPs can
