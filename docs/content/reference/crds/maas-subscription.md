@@ -2,6 +2,8 @@
 
 Defines a subscription plan with per-model token rate limits. Creates Kuadrant TokenRateLimitPolicies enforced by Limitador. Must be created in the `models-as-a-service` namespace.
 
+For AGC ExternalModels with per-gateway routes, each referenced MaaSModelRef reconciles a TokenRateLimitPolicy on its selected tenant route (in the model/route namespace). Policies keep existing names (`maas-trlp-<maasmodelref-name>`) and are labeled with the selected full gateway identity (`maas.opendatahub.io/gateway-namespace`, `maas.opendatahub.io/gateway-name`) for diagnostics and operational context.
+
 When a `MaaSSubscription` is deleted, its finalizer waits for a subscription-scoped cleanup Job to soft-delete and invalidate only the API keys bound to that subscription. Keys for other subscriptions in the tenant are not affected. Cleanup failures keep the subscription in `Terminating`, are retried, and emit a Kubernetes Warning event.
 
 ## MaaSSubscriptionSpec
