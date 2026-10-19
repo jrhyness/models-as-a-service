@@ -277,6 +277,15 @@ func (r *MaaSSubscriptionReconciler) validateModelRefs(ctx context.Context, subs
 func (r *MaaSSubscriptionReconciler) checkTokenRateLimitHealth(ctx context.Context, subscription *maasv1alpha1.MaaSSubscription) []maasv1alpha1.TokenRateLimitStatus {
 	statuses := make([]maasv1alpha1.TokenRateLimitStatus, 0, len(subscription.Spec.ModelRefs))
 	seen := make(map[string]struct{})
+	gatewayRef, gatewayErr := tenantGatewayRefForNamespace(
+		ctx,
+		r.Client,
+		subscription.Namespace,
+		r.DefaultTenantNamespace,
+		r.GatewayName,
+		r.GatewayNamespace,
+		r.TenantNamespaceDiscoveryEnabled,
+	)
 
 	for _, ref := range subscription.Spec.ModelRefs {
 		key := ref.Namespace + "/" + ref.Name
@@ -311,15 +320,6 @@ func (r *MaaSSubscriptionReconciler) checkTokenRateLimitHealth(ctx context.Conte
 		}
 		status.Namespace = httpRouteNS
 
-		gatewayRef, gatewayErr := tenantGatewayRefForNamespace(
-			ctx,
-			r.Client,
-			subscription.Namespace,
-			r.DefaultTenantNamespace,
-			r.GatewayName,
-			r.GatewayNamespace,
-			r.TenantNamespaceDiscoveryEnabled,
-		)
 		if gatewayErr != nil {
 			status.Ready = false
 			status.Reason = maasv1alpha1.ReasonGetFailed
@@ -872,6 +872,7 @@ func (r *MaaSSubscriptionReconciler) validateSubscriptionTenantGatewaysForRoute(
 	// policy to another tenant's Gateway. Subscriptions from mismatched tenant
 	// gateways are skipped rather than failing all contributors for the model.
 	validatedTenantNamespaces := make(map[string]struct{})
+	validatedGateways := make(map[string]error)
 	skippedNamespaces := make(map[string]string)
 	for _, sub := range subscriptions {
 		if _, ok := validatedTenantNamespaces[sub.Namespace]; ok {
@@ -891,9 +892,18 @@ func (r *MaaSSubscriptionReconciler) validateSubscriptionTenantGatewaysForRoute(
 		if err != nil {
 			return nil, nil, err
 		}
+		gatewayKey := qualifiedName(gatewayRef.Namespace, gatewayRef.Name)
+		if gatewayErr, ok := validatedGateways[gatewayKey]; ok {
+			if gatewayErr != nil {
+				skippedNamespaces[sub.Namespace] = fmt.Sprintf("model %s/%s is not attached to tenant gateway for subscription %s: %v",
+					modelNamespace, modelName, qualifiedName(sub.Namespace, sub.Name), gatewayErr)
+			}
+			continue
+		}
 
 		if err := validateHTTPRouteReferencesGateway(ctx, r.Client, httpRouteName, httpRouteNS, gatewayRef); err != nil {
 			if errors.Is(err, ErrHTTPRouteNotOnTenantGateway) {
+				validatedGateways[gatewayKey] = err
 				skippedNamespaces[sub.Namespace] = fmt.Sprintf("model %s/%s is not attached to tenant gateway for subscription %s: %v",
 					modelNamespace, modelName, qualifiedName(sub.Namespace, sub.Name), err)
 				continue
@@ -901,6 +911,7 @@ func (r *MaaSSubscriptionReconciler) validateSubscriptionTenantGatewaysForRoute(
 			return nil, nil, fmt.Errorf("model %s/%s is not attached to tenant gateway for subscription %s: %w",
 				modelNamespace, modelName, qualifiedName(sub.Namespace, sub.Name), err)
 		}
+		validatedGateways[gatewayKey] = nil
 	}
 
 	valid := make([]maasv1alpha1.MaaSSubscription, 0, len(subscriptions))
