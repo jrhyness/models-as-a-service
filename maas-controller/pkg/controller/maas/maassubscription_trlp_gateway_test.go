@@ -990,4 +990,87 @@ func TestReconcileTRLPForModel_ValidContributorRemovedAfterBecomingMismatched(t 
 	}
 }
 
+func TestReconcileTRLPForModel_MissingDiscoveredTenantConfigIsSkipped(t *testing.T) {
+	const (
+		modelNS = "user-ns"
+		subANS  = "tenant-a-admin"
+		subBNS  = "tenant-b-admin"
+	)
+
+	modelA := newMaaSModelRef("model-a", modelNS, "ExternalModel", "shared")
+	modelA.Status.HTTPRouteGatewayName = testGatewayA.Name
+	modelA.Status.HTTPRouteGatewayNamespace = testGatewayA.Namespace
+
+	validSub := newTenantSubscription("sub-a", subANS, modelNS, "model-a", 100)
+	missingCfgSub := newTenantSubscription("sub-b-missing-cfg", subBNS, modelNS, "model-a", 200)
+
+	objs := append(newSharedExternalModelObjects(
+		newGatewayResult(testGatewayA, metav1.ConditionTrue),
+		newGatewayResult(testGatewayB, metav1.ConditionTrue),
+	),
+		modelA,
+		validSub,
+		missingCfgSub,
+		newDiscoveredTenantNamespace(subANS, "tenant-a"),
+		newDiscoveredTenantNamespace(subBNS, "tenant-b"),
+		newAITenantManagedTenantConfig(subANS, "tenant-a"),
+	)
+
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithRESTMapper(testRESTMapper()).
+		WithObjects(objs...).
+		WithStatusSubresource(&maasv1alpha1.MaaSSubscription{}).
+		WithIndex(&maasv1alpha1.MaaSSubscription{}, modelRefIndexKey, subscriptionModelRefIndexer).
+		Build()
+
+	r := &MaaSSubscriptionReconciler{
+		Client:                          c,
+		APIReader:                       c,
+		Scheme:                          scheme,
+		DefaultTenantNamespace:          "models-as-a-service",
+		TenantNamespaceDiscoveryEnabled: true,
+	}
+
+	reqA := ctrl.Request{NamespacedName: types.NamespacedName{Name: validSub.Name, Namespace: validSub.Namespace}}
+	if _, err := r.Reconcile(context.Background(), reqA); err != nil {
+		t.Fatalf("Reconcile valid subscription: %v", err)
+	}
+
+	trlp := &unstructured.Unstructured{}
+	trlp.SetGroupVersionKind(schema.GroupVersionKind{Group: "kuadrant.io", Version: "v1alpha1", Kind: "TokenRateLimitPolicy"})
+	if err := c.Get(context.Background(), types.NamespacedName{Name: "maas-trlp-model-a", Namespace: modelNS}, trlp); err != nil {
+		t.Fatalf("Get TRLP model-a: %v", err)
+	}
+	ids := strings.Join(getPolicyPredicateIDs(t, trlp), ",")
+	validID := SubscriptionRateLimitID(ModelScopedSubscriptionKey(subANS, validSub.Name, modelNS, "model-a"))
+	missingCfgID := SubscriptionRateLimitID(ModelScopedSubscriptionKey(subBNS, missingCfgSub.Name, modelNS, "model-a"))
+	if !strings.Contains(ids, validID) {
+		t.Fatalf("TRLP predicate IDs %v missing valid subscription ID %s", ids, validID)
+	}
+	if strings.Contains(ids, missingCfgID) {
+		t.Fatalf("TRLP predicate IDs %v unexpectedly include missing-config subscription ID %s", ids, missingCfgID)
+	}
+
+	reqB := ctrl.Request{NamespacedName: types.NamespacedName{Name: missingCfgSub.Name, Namespace: missingCfgSub.Namespace}}
+	if _, err := r.Reconcile(context.Background(), reqB); err != nil {
+		t.Fatalf("Reconcile missing-config subscription should not fail: %v", err)
+	}
+
+	updated := &maasv1alpha1.MaaSSubscription{}
+	if err := c.Get(context.Background(), types.NamespacedName{Name: missingCfgSub.Name, Namespace: missingCfgSub.Namespace}, updated); err != nil {
+		t.Fatalf("Get missing-config subscription: %v", err)
+	}
+	if len(updated.Status.TokenRateLimitStatuses) != 1 {
+		t.Fatalf("missing-config subscription expected 1 tokenRateLimitStatus, got %d", len(updated.Status.TokenRateLimitStatuses))
+	}
+	status := updated.Status.TokenRateLimitStatuses[0]
+	if status.Reason != maasv1alpha1.ReasonGetFailed {
+		t.Fatalf("missing-config subscription token status reason = %q, want %q", status.Reason, maasv1alpha1.ReasonGetFailed)
+	}
+	if !strings.Contains(status.Message, "MaasTenantConfig") {
+		t.Fatalf("missing-config subscription token status message %q does not mention MaasTenantConfig", status.Message)
+	}
+}
+
 func ptrTo[T any](v T) *T { return &v }

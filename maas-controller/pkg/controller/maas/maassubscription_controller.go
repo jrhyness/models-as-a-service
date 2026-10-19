@@ -890,6 +890,11 @@ func (r *MaaSSubscriptionReconciler) validateSubscriptionTenantGatewaysForRoute(
 			r.TenantNamespaceDiscoveryEnabled,
 		)
 		if err != nil {
+			if errors.Is(err, ErrDiscoveredTenantConfigNotFound) {
+				skippedNamespaces[sub.Namespace] = fmt.Sprintf("model %s/%s is skipping subscription %s: %v",
+					modelNamespace, modelName, qualifiedName(sub.Namespace, sub.Name), err)
+				continue
+			}
 			return nil, nil, err
 		}
 		gatewayKey := qualifiedName(gatewayRef.Namespace, gatewayRef.Name)
