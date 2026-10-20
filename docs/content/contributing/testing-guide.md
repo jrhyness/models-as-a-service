@@ -68,6 +68,11 @@ Tests are organized into **xdist groups** for parallel execution. All tests in a
 | `tenant_inference` | `test_tenant_model_inference.py` | Cross-gateway auth isolation and per-Gateway AuthPolicy EnvoyFilter selectors |
 | `tenant_ipp` | `test_per_tenant_ipp_isolation.py` | Per-tenant IPP stacks, routing isolation |
 | `tenant_auto_resolve` | `test_tenant_auto_resolve.py` | MaaSModelRef tenant auto-resolution from the gateway parentRef |
+| `tenant_external_model` | `test_tenant_external_model_attachment.py` | Multi-tenant AGC/Praxis external models: user-ns models on tenant gateways, lifecycle cleanup, `NotAllowedByListeners` |
+| `tenant_external_model` | `test_tenant_external_model_shared.py` | Multi-tenant AGC/Praxis external models: shared model on two gateways, auth/quota isolation |
+| `tenant_external_model` | `test_tenant_external_model_conflicts.py` | Multi-tenant AGC/Praxis external models: modelName conflicts, same-named objects (overlay collision regression) |
+| `tenant_external_model` | `test_tenant_external_model_compat.py` | Multi-tenant AGC/Praxis external models: omitted-gatewayRefs compatibility; legacy IPP coexistence (`serial`, gated on `TENANT_EXTERNAL_MODEL_LEGACY_IPP_E2E`) |
+| `tenant_external_model_crossns` | `test_tenant_external_model_crossns.py` | ReferenceGrant-gated cross-namespace providers (P1; gated on `TENANT_EXTERNAL_MODEL_CROSSNS_E2E`) |
 | `external` | `test_external_oidc.py` | External OIDC token flows (skipped unless `EXTERNAL_OIDC=true`) |
 | `external` | `test_external_models.py` | ExternalModel/ExternalProvider, egress, body routing |
 

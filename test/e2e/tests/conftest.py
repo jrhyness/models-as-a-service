@@ -410,6 +410,51 @@ def api_key_headers(api_key: str):
 
 
 @pytest.fixture(scope="session")
+def tenant_external_model_tenants():
+    """
+    Shared AGC/Praxis tenants for multi-tenant external model tests.
+
+    Two AITenants with selector-admitting tenant gateways on the praxis
+    dataplane, enriched with gateway/maas-api URLs (see
+    tenant_external_model_helpers.bootstrap_external_model_tenant). Modules in the
+    tenant_external_model xdist group share these tenants; user namespaces, models and
+    tenant-scoped policies are created per module with unique names.
+
+    Skips session-wide when the installed cluster lacks the additive
+    ExternalModel schema (gatewayRefs + status.gateways), the
+    ai-gateway-controller deployment, the
+    AITenant CRD, or tenant namespace discovery.
+    """
+    from tenant_external_model_helpers import (
+        bootstrap_external_model_tenant,
+        record_tenant_external_model_evidence,
+        require_tenant_external_model_support,
+    )
+    from multitenancy_helpers import (
+        cleanup_discovery_case,
+        new_named_tenant_case,
+        require_aitenant_crd,
+        require_tenant_namespace_discovery,
+    )
+
+    require_tenant_external_model_support()
+    require_aitenant_crd()
+    require_tenant_namespace_discovery()
+    record_tenant_external_model_evidence()
+
+    worker = _xdist_worker_suffix()
+    case_a = new_named_tenant_case(f"e2e-extmod-a-{worker}")
+    case_b = new_named_tenant_case(f"e2e-extmod-b-{worker}")
+    try:
+        for case in (case_a, case_b):
+            bootstrap_external_model_tenant(case)
+        yield {"tenant_a": case_a, "tenant_b": case_b}
+    finally:
+        cleanup_discovery_case(case_a)
+        cleanup_discovery_case(case_b)
+
+
+@pytest.fixture(scope="session")
 def shared_test_tenants(gateway_host: str, is_https: bool):
     """
     Shared tenant infrastructure for multi-tenant tests.
