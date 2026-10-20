@@ -109,6 +109,15 @@ CREDENTIAL_DATA_KEY = "api-key"
 AGC_DEPLOYMENT_NAME = os.environ.get("AGC_DEPLOYMENT_NAME", "ai-gateway-controller")
 AGC_DEPLOYMENT_NAMESPACE = os.environ.get("AGC_DEPLOYMENT_NAMESPACE", DEPLOYMENT_NAMESPACE)
 
+# AGC renames per-tenant praxis resources to "<resource>-<tenant-name>". The
+# longest base name is the per-tenant EnvoyFilter
+# ("payload-processing-external-model-filters-"), which leaves 20 characters
+# for the tenant name before the Kubernetes 63-character name limit makes AGC
+# refuse to render the tenant's whole praxis stack (terminal: it does not
+# retry until the tenant name changes).
+AGC_LONGEST_RESOURCE_BASE = "payload-processing-external-model-filters-"
+MAX_AITENANT_NAME_LENGTH = 63 - len(AGC_LONGEST_RESOURCE_BASE)
+
 
 def env_flag(name: str) -> bool:
     value = os.environ.get(name, "")
@@ -298,6 +307,16 @@ def bootstrap_external_model_tenant(case: dict[str, str]) -> dict[str, str]:
     and API key minting through the tenant's own gateway. Skips when the
     per-tenant payload-processing stack is not praxis (AGC contract inactive).
     """
+    tenant_name = case["tenant_label_name"]
+    if len(tenant_name) > MAX_AITENANT_NAME_LENGTH:
+        pytest.fail(
+            f"tenant name {tenant_name!r} is {len(tenant_name)} characters; AGC per-tenant "
+            f"praxis resource naming needs it to stay at or under "
+            f"{MAX_AITENANT_NAME_LENGTH} (63-char limit minus the longest resource base "
+            f"{AGC_LONGEST_RESOURCE_BASE!r}). Longer names make AGC refuse to render the "
+            "tenant's praxis stack without retrying.",
+            pytrace=False,
+        )
     bootstrap_aitenant_tenant(case)
     wait_for_per_tenant_ipp_ready(case)
     names = per_tenant_ipp_names(case["tenant_label_name"])

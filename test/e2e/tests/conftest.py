@@ -425,16 +425,16 @@ def tenant_external_model_tenants():
     ai-gateway-controller deployment, the
     AITenant CRD, or tenant namespace discovery.
     """
-    from tenant_external_model_helpers import (
-        bootstrap_external_model_tenant,
-        record_tenant_external_model_evidence,
-        require_tenant_external_model_support,
-    )
     from multitenancy_helpers import (
         cleanup_discovery_case,
         new_named_tenant_case,
         require_aitenant_crd,
         require_tenant_namespace_discovery,
+    )
+    from tenant_external_model_helpers import (
+        bootstrap_external_model_tenant,
+        record_tenant_external_model_evidence,
+        require_tenant_external_model_support,
     )
 
     require_tenant_external_model_support()
@@ -442,9 +442,13 @@ def tenant_external_model_tenants():
     require_tenant_namespace_discovery()
     record_tenant_external_model_evidence()
 
-    worker = _xdist_worker_suffix()
-    case_a = new_named_tenant_case(f"e2e-extmod-a-{worker}")
-    case_b = new_named_tenant_case(f"e2e-extmod-b-{worker}")
+    # Tenant names must stay short: AGC renames per-tenant praxis resources
+    # to "<resource>-<tenant-name>" and the longest base name
+    # ("payload-processing-external-model-filters-") leaves only 20 characters
+    # for the tenant before hitting the Kubernetes 63-character name limit.
+    # bootstrap_external_model_tenant enforces this and fails fast.
+    case_a = new_named_tenant_case("e2e-extmod-a")
+    case_b = new_named_tenant_case("e2e-extmod-b")
     try:
         for case in (case_a, case_b):
             bootstrap_external_model_tenant(case)

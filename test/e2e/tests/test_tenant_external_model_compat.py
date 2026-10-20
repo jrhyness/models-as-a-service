@@ -228,7 +228,9 @@ class TestLegacyIppCoexistence:
             )
 
         # An AGC-served model in a user namespace on a praxis tenant gateway.
-        case_b = new_named_tenant_case("e2e-extmod-ipp")
+        # Short tenant name: AGC per-tenant resource naming caps tenant names
+        # at 20 characters (see MAX_AITENANT_NAME_LENGTH).
+        case_b = new_named_tenant_case("e2e-extmod-i")
         resources = TenantExternalModelResources()
         user_ns = new_admitted_user_namespace("e2e-extmod-ipp-user", case_b["gateway_name"])
         try:

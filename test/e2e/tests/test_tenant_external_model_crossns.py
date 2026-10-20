@@ -75,7 +75,9 @@ def crossns_env():
     require_aitenant_crd()
     require_tenant_namespace_discovery()
 
-    case = bootstrap_external_model_tenant(new_named_tenant_case("e2e-extmod-crossns"))
+    # Short tenant name: AGC per-tenant resource naming caps tenant names at
+    # 20 characters (see MAX_AITENANT_NAME_LENGTH).
+    case = bootstrap_external_model_tenant(new_named_tenant_case("e2e-extmod-x"))
     model_ns = new_admitted_user_namespace("e2e-extmod-crossns-model", case["gateway_name"])
     provider_ns = new_admitted_user_namespace("e2e-extmod-crossns-prov", case["gateway_name"])
     resources = TenantExternalModelResources()
