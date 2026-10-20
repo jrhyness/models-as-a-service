@@ -121,7 +121,9 @@ class TestUserNamespaceAttachmentServing:
         return {"model": model, "access": access}
 
     def test_attachment_status_ready(self, attachment_env, attached_model):
-        """status.gateways reports the attachment to tenant B's gateway ready."""
+        """The attachment to tenant B's gateway reports serving readiness
+        (per-gateway status.gateways entry, or the model's aggregate Ready
+        when the AGC reports aggregate status only)."""
         env = attachment_env
         model = attached_model["model"]
         wait_for_gateway_attachment_ready(

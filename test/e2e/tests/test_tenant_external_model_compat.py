@@ -194,15 +194,27 @@ def _wait_default_backend(*, praxis: bool, timeout: int = DEFAULT_BACKEND_SWITCH
 
 
 def attachment_status_snapshot(model: dict) -> dict:
-    """Stable comparable snapshot of a model's status.gateways entries."""
+    """Stable comparable snapshot of a model's attachment status.
+
+    Prefers per-gateway ``status.gateways`` entries; AGC builds that report
+    aggregate status only fall back to the model's top-level conditions, so
+    a legacy-controller write to either shape is still detected.
+    """
     external_model = get_json_or_none(EXTERNAL_MODEL_KIND, model["name"], model["namespace"]) or {}
-    gateways = (external_model.get("status") or {}).get("gateways") or []
+    status = external_model.get("status") or {}
+    gateways = status.get("gateways") or []
+    if gateways:
+        return {
+            (entry.get("name"), entry.get("namespace")): sorted(
+                (c.get("type"), c.get("status"), c.get("reason"))
+                for c in entry.get("conditions") or []
+            )
+            for entry in gateways
+        }
     return {
-        (entry.get("name"), entry.get("namespace")): sorted(
-            (c.get("type"), c.get("status"), c.get("reason"))
-            for c in entry.get("conditions") or []
+        ("aggregate", ""): sorted(
+            (c.get("type"), c.get("status"), c.get("reason")) for c in status.get("conditions") or []
         )
-        for entry in gateways
     }
 
 

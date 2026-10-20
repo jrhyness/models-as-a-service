@@ -5,8 +5,8 @@ tenant-scoped maas-api keys) and ``test_helper`` (CR plumbing, waits) to cover
 the AGC/Praxis multi-tenant external model contract:
 
 - ExternalModels in user namespaces explicitly attached to tenant gateways
-  via ``spec.gatewayRefs``, with per-gateway
-  ``status.gateways`` results.
+  via ``spec.gatewayRefs``, with per-gateway ``status.gateways`` results
+  when the AGC publishes them (see the status fallback below).
 - Controller-owned credential copies delivered into the tenant namespace.
 - Real inference through a specific tenant gateway against a header-echo
   external endpoint, proving which provider served the request and which
@@ -16,9 +16,18 @@ the AGC/Praxis multi-tenant external model contract:
 Contracts that live in the AGC repo and are probed defensively here (assert
 on observable behavior rather than assumed resource names):
 
-- Per-gateway readiness is read from ``status.gateways[]`` entries keyed by
-  gateway name/namespace; condition types are matched across the plausible
-  spellings ("Ready"/"Accepted"/"Attached") until AGC's naming is final.
+- Attachment readiness is read from the per-gateway ``status.gateways[]``
+  entry when the AGC populates it; AGC builds that report aggregate status
+  only fall back to the model's top-level conditions, whose reason/message
+  carry the first failing (or the aggregate ready) attachment result —
+  gateway reasons such as ``NotAllowedByListeners`` and
+  ``ModelNameConflict`` flow through verbatim. Condition types are matched
+  across the plausible spellings ("Ready"/"Accepted"/"Attached").
+- Provider auth must be ``apikey`` with an ``api-key`` Secret key (the only
+  strategy the AGC resolver accepts; openai + openai-chat injects the Secret
+  value as ``Authorization: Bearer``). Providers in user namespaces stay
+  ``Pending``/``TenantNotReady`` by design: the attachment path validates
+  them directly and does not gate on their own status.
 - DestinationRules and credential copies published into the tenant are found
   by ownership/content (controller ownerReferences, matching ``api-key``
   Secret data) instead of hard-coded names.
@@ -404,7 +413,10 @@ def apply_external_provider(
     """Create an ExternalProvider pointing at the header-echo endpoint.
 
     The echo path tag that identifies this provider's traffic is configured on
-    the ExternalModel binding (see ``apply_external_model``).
+    the ExternalModel binding (see ``apply_external_model``). Auth must be
+    ``apikey``: the AGC resolver only accepts that strategy (openai +
+    openai-chat injects the Secret value as ``Authorization: Bearer``), and
+    the credential Secret must carry the ``api-key`` key.
     """
     external_provider = {
         "apiVersion": INFERENCE_API_VERSION,
@@ -414,7 +426,7 @@ def apply_external_provider(
             "provider": provider,
             "endpoint": endpoint,
             "auth": {
-                "type": "simple",
+                "type": "apikey",
                 "secretRef": {"name": credential_secret},
             },
         },
@@ -464,7 +476,7 @@ def apply_external_model(
     }
     if credential_secret:
         binding["auth"] = {
-            "type": "simple",
+            "type": "apikey",
             "secretRef": {"name": credential_secret},
         }
     bindings = [binding]
@@ -669,6 +681,36 @@ def gateway_status_entry(
     return None
 
 
+def _attachment_conditions(
+    external_model: dict,
+    gateway_name: str,
+    gateway_namespace: str,
+) -> tuple[list[dict], str]:
+    """Conditions describing one gateway attachment.
+
+    Prefers the per-gateway ``status.gateways[]`` entry when the AGC
+    populates it. AGC builds that report aggregate status only fall back to
+    the model's top-level conditions: the aggregate carries the first
+    failing (or the overall ready) attachment result, and gateway reasons
+    (``NotAllowedByListeners``, ``ModelNameConflict``, ...) flow through
+    verbatim. Returns ``(conditions, where)`` with ``where`` describing the
+    source for error messages.
+    """
+    entries = (external_model.get("status") or {}).get("gateways") or []
+    entry = next(
+        (
+            item
+            for item in entries
+            if item.get("name") == gateway_name and item.get("namespace") == gateway_namespace
+        ),
+        None,
+    )
+    if entry is not None and entry.get("conditions"):
+        return entry["conditions"], f"attachment to {gateway_namespace}/{gateway_name}"
+    status = external_model.get("status") or {}
+    return (status.get("conditions") or []), "aggregate model status"
+
+
 def _wait_for_gateway_attachment(
     model_name: str,
     model_namespace: str,
@@ -682,20 +724,12 @@ def _wait_for_gateway_attachment(
     def _check():
         external_model = get_json_or_none(EXTERNAL_MODEL_KIND, model_name, model_namespace)
         assert external_model is not None, f"{EXTERNAL_MODEL_KIND}/{model_namespace}/{model_name} not found"
-        entries = (external_model.get("status") or {}).get("gateways") or []
-        entry = next(
-            (
-                item
-                for item in entries
-                if item.get("name") == gateway_name and item.get("namespace") == gateway_namespace
-            ),
-            None,
+        conditions, where = _attachment_conditions(external_model, gateway_name, gateway_namespace)
+        assert conditions, (
+            f"no attachment conditions for {gateway_namespace}/{gateway_name} on "
+            f"{model_namespace}/{model_name}; status: {redact_sensitive(external_model.get('status'))}"
         )
-        assert entry is not None, (
-            f"no status.gateways entry for {gateway_namespace}/{gateway_name} on "
-            f"{model_namespace}/{model_name}; entries: {redact_sensitive(entries)}"
-        )
-        return matcher(entry)
+        return matcher(conditions, where)
 
     return wait_until(
         _check,
@@ -714,13 +748,13 @@ def wait_for_gateway_attachment_ready(
 ) -> dict:
     """Wait until one gateway attachment reports serving readiness."""
 
-    def _matcher(entry: dict) -> dict:
-        conditions = {c.get("type"): c for c in entry.get("conditions") or []}
+    def _matcher(conditions: list[dict], where: str) -> dict:
+        by_type = {c.get("type"): c for c in conditions}
         for condition_type in _READY_CONDITION_TYPES:
-            condition = conditions.get(condition_type)
+            condition = by_type.get(condition_type)
             if condition and condition.get("status") == "True":
                 return condition
-        raise AssertionError(f"attachment not ready; conditions: {entry.get('conditions')}")
+        raise AssertionError(f"attachment not ready on {where}; conditions: {conditions}")
 
     return _wait_for_gateway_attachment(
         model_name,
@@ -745,13 +779,15 @@ def wait_for_gateway_attachment_reason(
     """Wait until one gateway attachment reports a condition with *reason*.
 
     Used for NotAllowedByListeners (gateway-attachment authorization) and
-    ModelNameConflict (client-facing name conflicts) — the condition type is
-    AGC-internal, the reason is the contract.
+    ModelNameConflict (client-facing name conflicts). The reason is the
+    contract: it is matched on the per-gateway ``status.gateways`` entry
+    when present, otherwise on the model's aggregate conditions, into which
+    the AGC flows the gateway's reason verbatim.
     """
 
-    def _matcher(entry: dict) -> dict:
-        matches = [c for c in entry.get("conditions") or [] if c.get("reason") == reason]
-        assert matches, f"no condition with reason {reason!r}; conditions: {entry.get('conditions')}"
+    def _matcher(conditions: list[dict], where: str) -> dict:
+        matches = [c for c in conditions if c.get("reason") == reason]
+        assert matches, f"no condition with reason {reason!r} on {where}; conditions: {conditions}"
         return matches[0]
 
     return _wait_for_gateway_attachment(
@@ -804,29 +840,12 @@ def wait_for_gateway_attachment_not_ready(
     def _check():
         external_model = get_json_or_none(EXTERNAL_MODEL_KIND, model_name, model_namespace)
         assert external_model is not None, f"{EXTERNAL_MODEL_KIND}/{model_namespace}/{model_name} not found"
-        status = external_model.get("status") or {}
-        entries = status.get("gateways") or []
-        entry = next(
-            (
-                item
-                for item in entries
-                if item.get("name") == gateway_name and item.get("namespace") == gateway_namespace
-            ),
-            None,
+        conditions, where = _attachment_conditions(external_model, gateway_name, gateway_namespace)
+        assert conditions, (
+            f"no attachment conditions for {gateway_namespace}/{gateway_name} on "
+            f"{model_namespace}/{model_name}; status: {redact_sensitive(external_model.get('status'))}"
         )
-        if entry is not None:
-            conditions = entry.get("conditions") or []
-            if conditions:
-                return _match_condition(conditions, f"attachment to {gateway_namespace}/{gateway_name}")
-        # No per-gateway entry (or no conditions): accept an aggregate failure.
-        aggregate_conditions = status.get("conditions") or []
-        assert status.get("phase") == "Failed" or any(
-            c.get("status") == "False" for c in aggregate_conditions
-        ), (
-            f"no status.gateways entry for {gateway_namespace}/{gateway_name} and no aggregate "
-            f"failure; status: {redact_sensitive(status)}"
-        )
-        return _match_condition(aggregate_conditions, "aggregate status")
+        return _match_condition(conditions, where)
 
     return wait_until(
         _check,
@@ -864,6 +883,36 @@ def external_model_http_route_name(model_name: str, model_namespace: str) -> str
     if external_model:
         return (external_model.get("status") or {}).get("httpRouteName") or model_name
     return model_name
+
+
+def external_model_reports_maas_route(model_name: str, model_namespace: str) -> bool:
+    """Whether the MaaS stack can resolve this ExternalModel's serving route.
+
+    maas-controller resolves an attached model's HTTPRoute from the AGC's
+    per-gateway ``status.gateways[]`` results (entries with an
+    ``httpRouteRef`` and a Ready condition) or, on aggregate-status AGC
+    builds, from ``status.httpRouteName`` — which those builds write only
+    for single-attachment models. A model attached to several gateways on an
+    aggregate-status build reports no MaaS-resolvable route even while every
+    attachment serves: its MaaSModelRef stays without a route and the
+    subscription TRLP backend is not ready, so auth keys and quotas cannot
+    be wired for it.
+    """
+    external_model = get_json_or_none(EXTERNAL_MODEL_KIND, model_name, model_namespace)
+    if not external_model:
+        return False
+    status = external_model.get("status") or {}
+    if status.get("httpRouteName"):
+        return True
+    for entry in status.get("gateways") or []:
+        if not entry.get("httpRouteRef"):
+            continue
+        if any(
+            c.get("type") in _READY_CONDITION_TYPES and c.get("status") == "True"
+            for c in entry.get("conditions") or []
+        ):
+            return True
+    return False
 
 
 # ─── HTTPRoute discovery per attachment ─────────────────────────────────────

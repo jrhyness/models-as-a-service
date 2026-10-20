@@ -11,6 +11,13 @@ P0 scenario 2:
 
 Shares the tenant_external_model session tenants (see conftest.tenant_external_model_tenants);
 this module creates its own user namespace with unique names.
+
+The route/status tests always run. The serving tests (auth and quota
+isolation, real inference) additionally need the MaaS stack to resolve the
+multi-gateway model's route, which requires the AGC's per-gateway
+``status.gateways`` results: aggregate-status AGC builds write
+``status.httpRouteName`` for single-attachment models only, so those tests
+skip there (see ``_require_maas_route``).
 """
 
 from __future__ import annotations
@@ -24,7 +31,9 @@ from multitenancy_helpers import delete_namespace_best_effort, redact_sensitive
 from tenant_external_model_helpers import (
     TenantExternalModelResources,
     assert_served_by_provider,
+    external_model_reports_maas_route,
     gateway_ref,
+    gateway_status_entry,
     infer_external_chat,
     new_admitted_user_namespace,
     provision_external_model_stack,
@@ -77,6 +86,28 @@ def _serve_in_tenant(env: dict, case: dict, model: dict, **kwargs) -> dict:
     return access
 
 
+def _wait_attachments_ready(env: dict, model: dict) -> None:
+    for case in (env["tenant_a"], env["tenant_b"]):
+        wait_for_gateway_attachment_ready(model["name"], model["namespace"], case["gateway_name"])
+
+
+def _require_maas_route(model: dict) -> None:
+    """Skip when the MaaS stack cannot resolve this multi-gateway model.
+
+    Aggregate-status AGC builds report no per-gateway ``status.gateways``
+    results and no ``status.httpRouteName`` for multi-attachment models, so
+    maas-controller cannot select a route: the MaaSModelRef never reports an
+    endpoint and the subscription TRLP backend stays not-ready, which makes
+    per-tenant auth keys and quotas impossible to wire for the shared model.
+    """
+    if not external_model_reports_maas_route(model["name"], model["namespace"]):
+        pytest.skip(
+            "AGC reports aggregate model status only (no per-gateway status.gateways "
+            "results); the MaaS stack cannot resolve a multi-gateway model's route, so "
+            "per-tenant auth/quota serving for a shared model cannot be exercised"
+        )
+
+
 class TestSharedModelTwoGateways:
     """One model, two attachments: routes, status and serving on both."""
 
@@ -92,9 +123,18 @@ class TestSharedModelTwoGateways:
                 gateway_ref(env["tenant_b"]["gateway_name"]),
             ],
         )
+        _wait_attachments_ready(env, model)
+        return {"model": model}
+
+    @pytest.fixture(scope="class")
+    def shared_serving(self, shared_env, shared_model):
+        """Per-tenant auth/subscription stacks and API keys for the shared model."""
+        env = shared_env
+        model = shared_model["model"]
+        _require_maas_route(model)
         access_a = _serve_in_tenant(env, env["tenant_a"], model)
         access_b = _serve_in_tenant(env, env["tenant_b"], model)
-        return {"model": model, "access_a": access_a, "access_b": access_b}
+        return {"access_a": access_a, "access_b": access_b}
 
     def test_one_httproute_per_attachment(self, shared_env, shared_model):
         """Each attachment has its own HTTPRoute in the model namespace."""
@@ -118,17 +158,24 @@ class TestSharedModelTwoGateways:
         """status.gateways carries an independent ready result per gateway."""
         env = shared_env
         model = shared_model["model"]
+        if gateway_status_entry(
+            model["name"], model["namespace"], env["tenant_a"]["gateway_name"]
+        ) is None:
+            pytest.skip(
+                "AGC reports aggregate model status only (no status.gateways entries); "
+                "per-gateway readiness is covered by test_both_gateways_serve"
+            )
         for case in (env["tenant_a"], env["tenant_b"]):
             wait_for_gateway_attachment_ready(model["name"], model["namespace"], case["gateway_name"])
 
-    def test_both_gateways_serve(self, shared_env, shared_model):
+    def test_both_gateways_serve(self, shared_env, shared_model, shared_serving):
         """Real inference succeeds through both gateways with the same provider
         binding and credential."""
         env = shared_env
         model = shared_model["model"]
         for case, access in (
-            (env["tenant_a"], shared_model["access_a"]),
-            (env["tenant_b"], shared_model["access_b"]),
+            (env["tenant_a"], shared_serving["access_a"]),
+            (env["tenant_b"], shared_serving["access_b"]),
         ):
             response = infer_external_chat(
                 case["gateway_url"], model["namespace"], model["client_name"], access["api_key"]
@@ -152,6 +199,8 @@ class TestTenantAuthIsolation:
                 gateway_ref(env["tenant_b"]["gateway_name"]),
             ],
         )
+        _wait_attachments_ready(env, model)
+        _require_maas_route(model)
         # Only tenant A gets a policy/subscription: its key is the authorized one.
         access_a = _serve_in_tenant(env, env["tenant_a"], model)
         return {"model": model, "key_a": access_a["api_key"]}
@@ -212,6 +261,8 @@ class TestTenantQuotaIsolation:
                 gateway_ref(env["tenant_b"]["gateway_name"]),
             ],
         )
+        _wait_attachments_ready(env, model)
+        _require_maas_route(model)
         access_a = _serve_in_tenant(
             env, env["tenant_a"], model, token_limit=LIMITED_TOKEN_LIMIT, window="1m"
         )
