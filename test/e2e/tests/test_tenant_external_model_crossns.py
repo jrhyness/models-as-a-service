@@ -195,6 +195,7 @@ class TestCrossNsProviderGrant:
             model["namespace"],
             model["client_name"],
             access["api_key"],
+            path_tag=model["path_tag"],
         )
         assert_served_by_provider(response, model["path_tag"], credential=model["credential"])
 
@@ -223,6 +224,7 @@ class TestMissingGrant:
             model["namespace"],
             model["client_name"],
             access["api_key"],
+            path_tag=model["path_tag"],
         )
         assert_served_by_provider(response, model["path_tag"], credential=model["credential"])
 
@@ -256,6 +258,7 @@ class TestGrantRevocation:
             model["namespace"],
             model["client_name"],
             access["api_key"],
+            path_tag=model["path_tag"],
         )
         assert_served_by_provider(response, model["path_tag"], credential=model["credential"])
 
@@ -273,6 +276,7 @@ class TestGrantRevocation:
             model["namespace"],
             model["client_name"],
             access["api_key"],
+            path_tag=model["path_tag"],
             retries=1,
         )
         assert denied.status_code != 200, (
@@ -300,6 +304,7 @@ class TestGrantRevocation:
             model["namespace"],
             model["client_name"],
             access["api_key"],
+            path_tag=model["path_tag"],
             retries=1,
         )
         assert denied.status_code != 200, (
@@ -338,6 +343,7 @@ class TestCredentialSourceSelection:
             default_model["namespace"],
             default_model["client_name"],
             access["api_key"],
+            path_tag=default_model["path_tag"],
         )
         assert_served_by_provider(response, default_model["path_tag"], credential=provider_credential)
         assert model_credential not in response.text, (
@@ -358,6 +364,7 @@ class TestCredentialSourceSelection:
             override_model["namespace"],
             override_model["client_name"],
             access["api_key"],
+            path_tag=override_model["path_tag"],
         )
         assert_served_by_provider(response, override_model["path_tag"], credential=model_credential)
         assert provider_credential not in response.text, (
@@ -409,6 +416,10 @@ class TestSameNamedProvidersTwoNamespaces:
         shared_secret = f"{shared_provider}-cred"
         tag_1 = f"{shared_provider}-ns1"
         tag_2 = f"{shared_provider}-ns2"
+        # The request path is the client's choice and is passed through to
+        # whichever provider the gateway selects, so a single client tag is
+        # used and the injected credentials distinguish the two providers.
+        client_tag = f"{shared_provider}-client"
 
         try:
             for provider_ns, credential in ((provider_ns_1, credential_1), (provider_ns_2, credential_2)):
@@ -455,27 +466,28 @@ class TestSameNamedProvidersTwoNamespaces:
             access = _serve(env, model)
             wait_for_gateway_attachment_ready(name, env["model_ns"], case["gateway_name"])
 
-            # Weighted random selection across the two bindings: both
-            # providers must receive traffic across a dozen requests.
-            seen_tags = set()
+            # Weighted selection across the two bindings: both providers must
+            # receive traffic across a dozen requests. The injected
+            # credential — not the echoed path — identifies which same-named
+            # provider served each request.
+            seen = set()
             for _ in range(12):
                 response = infer_external_chat(
                     case["gateway_url"],
                     model["namespace"],
                     model["client_name"],
                     access["api_key"],
+                    path_tag=client_tag,
                 )
                 assert response.status_code == 200, (
                     f"inference failed on multi-provider model: {redact_sensitive(response.text)}"
                 )
-                for tag, credential in ((tag_1, credential_1), (tag_2, credential_2)):
-                    if tag in response.text:
-                        seen_tags.add(tag)
-                        assert credential in response.text, (
-                            f"provider {tag} served with the wrong credential"
-                        )
-            assert seen_tags == {tag_1, tag_2}, (
-                f"expected both same-named providers to serve, saw {seen_tags}"
+                if credential_1 in response.text:
+                    seen.add("provider-ns-1")
+                if credential_2 in response.text:
+                    seen.add("provider-ns-2")
+            assert seen == {"provider-ns-1", "provider-ns-2"}, (
+                f"expected both same-named providers to serve, saw {seen}"
             )
         finally:
             delete_namespace_best_effort(provider_ns_1)

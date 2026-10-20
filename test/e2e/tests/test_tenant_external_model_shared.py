@@ -178,7 +178,8 @@ class TestSharedModelTwoGateways:
             (env["tenant_b"], shared_serving["access_b"]),
         ):
             response = infer_external_chat(
-                case["gateway_url"], model["namespace"], model["client_name"], access["api_key"]
+                case["gateway_url"], model["namespace"], model["client_name"], access["api_key"],
+                path_tag=model["path_tag"],
             )
             assert_served_by_provider(response, model["path_tag"], credential=model["credential"])
 
@@ -213,6 +214,7 @@ class TestTenantAuthIsolation:
             model["namespace"],
             model["client_name"],
             isolated_keys["key_a"],
+            path_tag=model["path_tag"],
         )
         assert_served_by_provider(response, model["path_tag"])
 
@@ -221,6 +223,7 @@ class TestTenantAuthIsolation:
             model["namespace"],
             model["client_name"],
             isolated_keys["key_a"],
+            path_tag=model["path_tag"],
             retries=1,
         )
         assert response.status_code in (401, 403), (
@@ -237,6 +240,7 @@ class TestTenantAuthIsolation:
                 model["namespace"],
                 model["client_name"],
                 api_key=f"sk-extmod-invalid-{uuid.uuid4().hex[:8]}",
+                path_tag=model["path_tag"],
                 retries=1,
             )
             assert response.status_code in (401, 403), (
@@ -287,6 +291,7 @@ class TestTenantQuotaIsolation:
                 model["namespace"],
                 model["client_name"],
                 quota_model["access_a"]["api_key"],
+                path_tag=model["path_tag"],
             )
             if limited.status_code == 200:
                 successes += 1
@@ -310,6 +315,7 @@ class TestTenantQuotaIsolation:
             model["namespace"],
             model["client_name"],
             quota_model["access_b"]["api_key"],
+            path_tag=model["path_tag"],
         )
         assert_served_by_provider(response, model["path_tag"], credential=model["credential"])
 
@@ -319,6 +325,7 @@ class TestTenantQuotaIsolation:
             model["namespace"],
             model["client_name"],
             quota_model["access_a"]["api_key"],
+            path_tag=model["path_tag"],
             retries=1,
         )
         assert still_limited.status_code == 429, (
@@ -330,5 +337,6 @@ class TestTenantQuotaIsolation:
             model["namespace"],
             model["client_name"],
             quota_model["access_b"]["api_key"],
+            path_tag=model["path_tag"],
         )
         assert_served_by_provider(again_b, model["path_tag"])

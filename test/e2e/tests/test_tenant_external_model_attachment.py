@@ -38,6 +38,7 @@ from tenant_external_model_helpers import (
     new_admitted_user_namespace,
     new_unadmitted_namespace,
     patch_external_model_gateway_refs,
+    provider_external_name_service,
     provision_external_model_stack,
     serve_external_model_in_tenant,
     wait_for_attachment_httproute,
@@ -148,9 +149,10 @@ class TestUserNamespaceAttachmentServing:
             for rule in route.get("spec", {}).get("rules", [])
             for backend in rule.get("backendRefs", [])
         ]
-        assert model["provider"] in backend_names, (
-            f"HTTPRoute backendRefs {backend_names} do not reference provider "
-            f"Service {model['provider']}"
+        provider_service = provider_external_name_service(model["provider"])
+        assert provider_service in backend_names, (
+            f"HTTPRoute backendRefs {backend_names} do not reference the provider's "
+            f"ExternalName Service {provider_service}"
         )
 
     def test_credential_copy_delivered_to_tenant(self, attachment_env, attached_model):
@@ -182,6 +184,10 @@ class TestUserNamespaceAttachmentServing:
             model["namespace"],
             model["client_name"],
             attached_model["access"]["api_key"],
+            # The same request that serves on tenant B, with no retries: A
+            # has no route, so the refusal is immediate and stable.
+            path_tag=model["path_tag"],
+            retries=1,
         )
         _assert_not_served(response)
 
@@ -196,6 +202,7 @@ class TestUserNamespaceAttachmentServing:
             model["namespace"],
             model["client_name"],
             attached_model["access"]["api_key"],
+            path_tag=model["path_tag"],
         )
         assert_served_by_provider(response, model["path_tag"], credential=model["credential"])
 
@@ -238,7 +245,8 @@ class TestAttachmentLifecycleCleanup:
         # Baseline: both attachments serve.
         for case, access in ((tenant_a, access_a), (tenant_b, access_b)):
             response = infer_external_chat(
-                case["gateway_url"], model["namespace"], model["client_name"], access["api_key"]
+                case["gateway_url"], model["namespace"], model["client_name"], access["api_key"],
+                path_tag=model["path_tag"],
             )
             assert_served_by_provider(response, model["path_tag"])
 
@@ -261,6 +269,7 @@ class TestAttachmentLifecycleCleanup:
             model["namespace"],
             model["client_name"],
             access_b["api_key"],
+            path_tag=model["path_tag"],
         )
         assert_served_by_provider(response, model["path_tag"], credential=model["credential"])
 
@@ -297,6 +306,7 @@ class TestAttachmentLifecycleCleanup:
             unrelated["namespace"],
             unrelated["client_name"],
             unrelated_model["access"]["api_key"],
+            path_tag=unrelated["path_tag"],
         )
         assert_served_by_provider(response, unrelated["path_tag"], credential=unrelated["credential"])
 
@@ -360,5 +370,7 @@ class TestListenerNotAllowed:
             model["namespace"],
             model["client_name"],
             api_key=f"sk-extmod-unused-{uuid.uuid4().hex[:8]}",
+            path_tag=model["path_tag"],
+            retries=1,
         )
         _assert_not_served(response)

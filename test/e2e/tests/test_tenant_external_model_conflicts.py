@@ -107,12 +107,17 @@ class TestModelNameConflict:
         wait_for_gateway_attachment_reason(
             older["name"], older["namespace"], tenant_a["gateway_name"], "ModelNameConflict"
         )
-        response = infer_bbr_chat(tenant_a["gateway_url"], CONFLICT_MODEL_NAME, access["api_key"])
+        response = infer_bbr_chat(
+            tenant_a["gateway_url"],
+            CONFLICT_MODEL_NAME,
+            access["api_key"],
+            path_tag=tenant_own["path_tag"],
+        )
+        # The request path is the client's choice and passes through to
+        # whichever binding serves, so the injected credential — not the
+        # path — proves the winner served and the loser did not.
         assert_served_by_provider(
             response, tenant_own["path_tag"], credential=tenant_own["credential"]
-        )
-        assert older["path_tag"] not in response.text, (
-            "the losing (older, user-namespace) model must not receive traffic"
         )
 
     def test_oldest_wins_when_no_tenant_own_model(self, conflicts_env):
@@ -141,11 +146,14 @@ class TestModelNameConflict:
         wait_for_gateway_attachment_reason(
             youngest["name"], youngest["namespace"], tenant_a["gateway_name"], "ModelNameConflict"
         )
-        response = infer_bbr_chat(tenant_a["gateway_url"], CONFLICT_MODEL_NAME, access["api_key"])
-        assert_served_by_provider(response, oldest["path_tag"], credential=oldest["credential"])
-        assert youngest["path_tag"] not in response.text, (
-            "the losing (younger) model must not receive traffic"
+        response = infer_bbr_chat(
+            tenant_a["gateway_url"],
+            CONFLICT_MODEL_NAME,
+            access["api_key"],
+            path_tag=oldest["path_tag"],
         )
+        # As above: the injected credential proves the oldest binding served.
+        assert_served_by_provider(response, oldest["path_tag"], credential=oldest["credential"])
 
 
 class TestSameNamedObjectsTwoNamespaces:
@@ -193,6 +201,7 @@ class TestSameNamedObjectsTwoNamespaces:
             model_1["namespace"],
             model_1["client_name"],
             access_1["api_key"],
+            path_tag=model_1["path_tag"],
         )
         assert_served_by_provider(
             response_1, model_1["path_tag"], credential=model_1["credential"]
@@ -202,6 +211,7 @@ class TestSameNamedObjectsTwoNamespaces:
             model_2["namespace"],
             model_2["client_name"],
             access_2["api_key"],
+            path_tag=model_2["path_tag"],
         )
         assert_served_by_provider(
             response_2, model_2["path_tag"], credential=model_2["credential"]

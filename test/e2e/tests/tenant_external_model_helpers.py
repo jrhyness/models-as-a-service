@@ -31,9 +31,17 @@ on observable behavior rather than assumed resource names):
 - DestinationRules and credential copies published into the tenant are found
   by ownership/content (controller ownerReferences, matching ``api-key``
   Secret data) instead of hard-coded names.
-- The inference URL is derived from the MaaSModelRef ``status.endpoint``
-  (per-tenant route resolution) with the legacy ``/{namespace}/{model}/v1`` path as
-  fallback.
+- The inference URL is ``{gateway}/{model-namespace}/{modelName}`` plus the
+  provider's own path: the AGC's attachment route matches that path prefix
+  and rewrites the matched prefix to ``/``, so whatever the client appends
+  after the model name reaches the provider verbatim (OpenAI-style clients
+  append ``/v1/chat/completions``; the echo endpoint serves
+  ``/anything/<tag>``). Body-routed requests keep their original path
+  (hostname rewrite only). The MaaSModelRef ``status.endpoint`` is never
+  used as a request base: it only identifies the serving gateway (it may be
+  a cluster-local address and carries no model path). The AGC names the
+  provider's ExternalName Service in the model namespace
+  ``provider-<ExternalModelProvider name>``.
 
 Environment variables:
 - E2E_EXTERNAL_ENDPOINT: external echo endpoint FQDN (default: httpbingo.org)
@@ -472,7 +480,7 @@ def apply_external_model(
         "ref": ref,
         "targetModel": target_model,
         "apiFormat": "openai-chat",
-        "path": f"/anything/{path_tag}",
+        "path": echo_provider_path(path_tag),
     }
     if credential_secret:
         binding["auth"] = {
@@ -1135,10 +1143,26 @@ def wait_for_no_destination_rules_referencing(
 # ─── Inference through a specific gateway ───────────────────────────────────
 
 
-def external_model_endpoint(model_name: str, model_namespace: str) -> str:
-    """The MaaSModelRef status endpoint (per-tenant route resolution)."""
-    model_ref = get_json_or_none("maasmodelref", model_name, model_namespace)
-    return ((model_ref or {}).get("status") or {}).get("endpoint") or ""
+def provider_external_name_service(provider_name: str) -> str:
+    """The AGC's ExternalName Service name for a provider.
+
+    The attachment HTTPRoute's backendRefs reference this Service (created in
+    the model namespace, resolving to the provider endpoint), alongside the
+    provider-selection sink Service.
+    """
+    return f"provider-{provider_name}"
+
+
+def echo_provider_path(path_tag: str) -> str:
+    """Provider path of an echo binding: the external endpoint echoes any
+    request under ``/anything/<tag>``.
+
+    The AGC passes the client's path after the ``/{namespace}/{modelName}``
+    prefix through to the provider verbatim, so requests to echo bindings
+    must ask for this path (real OpenAI-style providers instead receive the
+    client's natural ``/v1/chat/completions`` suffix).
+    """
+    return f"/anything/{path_tag}"
 
 
 def external_chat_url(
@@ -1146,56 +1170,34 @@ def external_chat_url(
     model_namespace: str,
     client_model_name: str,
     *,
-    ref_name: str | None = None,
-    endpoint: str | None = None,
+    provider_path: str = "/v1/chat/completions",
 ) -> str:
     """Chat-completions URL for an external model through a given gateway.
 
-    Prefers the MaaSModelRef status endpoint (tenant/gateway-resolved route;
-    *ref_name* is the MaaSModelRef/ExternalModel metadata name, which differs
-    from the client-facing modelName when spec.modelName is set); falls back
-    to the legacy ``/{namespace}/{model}/v1`` path convention.
+    The AGC's attachment HTTPRoute matches the ``/{namespace}/{modelName}``
+    path prefix (namespace = the model's namespace, modelName = the
+    client-facing name) and rewrites the matched prefix to ``/``, so
+    whatever the client appends after the model name reaches the provider
+    verbatim: OpenAI-style clients append ``/v1/chat/completions`` (the
+    default) and the echo endpoint serves ``/anything/<tag>``. The
+    MaaSModelRef ``status.endpoint`` is NOT used: it identifies the serving
+    gateway (its value may even be the cluster-local Gateway address) and
+    carries no model path.
     """
-    if endpoint is None:
-        endpoint = external_model_endpoint(ref_name or client_model_name, model_namespace)
-    if not endpoint:
-        endpoint = f"/{model_namespace}/{client_model_name}/v1"
-    if endpoint.startswith(("http://", "https://")):
-        base = endpoint.rstrip("/")
-    else:
-        base = f"{gateway_url.rstrip('/')}/{endpoint.strip('/')}"
-    if not base.endswith("/v1"):
-        base = f"{base}/v1"
-    return f"{base}/chat/completions"
+    base = gateway_url.rstrip("/")
+    return f"{base}/{model_namespace}/{client_model_name}{provider_path}"
 
 
-def infer_external_chat(
-    gateway_url: str,
-    model_namespace: str,
-    client_model_name: str,
-    api_key: str,
+def _post_with_retries(
+    url: str,
+    headers: dict[str, str],
+    body: dict,
     *,
-    content: str = "multi-tenant external model e2e",
-    ref_name: str | None = None,
-    endpoint: str | None = None,
-    retries: int = 6,
-    delay: int = 5,
+    retries: int,
+    delay: int,
+    label: str,
 ) -> requests.Response:
-    """POST a chat completion through a specific gateway, retrying route
-    propagation (404) and transient gateway responses."""
-    url = external_chat_url(
-        gateway_url,
-        model_namespace,
-        client_model_name,
-        ref_name=ref_name,
-        endpoint=endpoint,
-    )
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    body = {
-        "model": client_model_name,
-        "messages": [{"role": "user", "content": content}],
-        "max_tokens": 8,
-    }
+    """POST, retrying route propagation (404) and transient responses."""
     response = None
     for attempt in range(1, retries + 1):
         response = requests.post(url, headers=headers, json=body, timeout=45, verify=TLS_VERIFY)
@@ -1204,8 +1206,8 @@ def infer_external_chat(
         transient = response.status_code == 404 or _looks_transient(response)
         if transient and attempt < retries:
             log.info(
-                "inference via %s got %d (attempt %d/%d), retrying in %ds",
-                gateway_url,
+                "%s got %d (attempt %d/%d), retrying in %ds",
+                label,
                 response.status_code,
                 attempt,
                 retries,
@@ -1217,24 +1219,74 @@ def infer_external_chat(
     return response
 
 
-def infer_bbr_chat(gateway_url: str, client_model_name: str, api_key: str, *, content: str = "tenant external model e2e") -> requests.Response:
+def infer_external_chat(
+    gateway_url: str,
+    model_namespace: str,
+    client_model_name: str,
+    api_key: str,
+    *,
+    path_tag: str | None = None,
+    content: str = "multi-tenant external model e2e",
+    retries: int = 6,
+    delay: int = 5,
+) -> requests.Response:
+    """POST a chat completion through a specific gateway, retrying route
+    propagation (404) and transient gateway responses.
+
+    ``path_tag`` requests the echo binding's provider path — see
+    external_chat_url for why the provider's own path must follow the
+    model-name prefix.
+    """
+    provider_path = echo_provider_path(path_tag) if path_tag else "/v1/chat/completions"
+    url = external_chat_url(
+        gateway_url, model_namespace, client_model_name, provider_path=provider_path
+    )
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    body = {
+        "model": client_model_name,
+        "messages": [{"role": "user", "content": content}],
+        "max_tokens": 8,
+    }
+    return _post_with_retries(
+        url, headers, body, retries=retries, delay=delay, label=f"inference via {gateway_url}"
+    )
+
+
+def infer_bbr_chat(
+    gateway_url: str,
+    client_model_name: str,
+    api_key: str,
+    *,
+    path_tag: str | None = None,
+    content: str = "tenant external model e2e",
+    retries: int = 6,
+    delay: int = 5,
+) -> requests.Response:
     """POST a body-routed chat completion at the gateway root.
 
     Used where the client-facing modelName (not the URL path) selects the
     model — e.g. model-name conflict scenarios where two namespaces expose
-    the same client-facing name on one gateway.
+    the same client-facing name on one gateway. The body's model field (and
+    the X-Gateway-Model-Name header) select the model, the gateway's ExtProc
+    selects the provider, and the header-matched route rule preserves the
+    original request path (hostname rewrite only) — so the echo endpoint
+    sees the path_tag path while real OpenAI-style providers receive
+    ``/v1/chat/completions``.
     """
-    url = f"{gateway_url.rstrip('/')}/v1/chat/completions"
-    return requests.post(
-        url,
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        json={
-            "model": client_model_name,
-            "messages": [{"role": "user", "content": content}],
-            "max_tokens": 8,
-        },
-        timeout=45,
-        verify=TLS_VERIFY,
+    suffix = echo_provider_path(path_tag) if path_tag else "/v1/chat/completions"
+    url = f"{gateway_url.rstrip('/')}{suffix}"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "X-Gateway-Model-Name": client_model_name,
+    }
+    body = {
+        "model": client_model_name,
+        "messages": [{"role": "user", "content": content}],
+        "max_tokens": 8,
+    }
+    return _post_with_retries(
+        url, headers, body, retries=retries, delay=delay, label=f"body-routed inference via {gateway_url}"
     )
 
 
@@ -1251,8 +1303,10 @@ def assert_served_by_provider(response: requests.Response, path_tag: str, *, cre
     """Assert a request reached the expected provider (and credential).
 
     The echo endpoint reflects the outgoing request URL and headers in the
-    response body: the path tag identifies the provider binding and the
-    credential marker identifies the injected Secret.
+    response body: the path tag confirms the path the client requested is
+    the path the provider received (the gateway rewrites only the
+    ``/{namespace}/{modelName}`` prefix), and the credential marker
+    identifies the injected Secret — i.e. which provider binding served.
     """
     assert response.status_code == 200, (
         f"expected 200 from external model inference, got {response.status_code}: "

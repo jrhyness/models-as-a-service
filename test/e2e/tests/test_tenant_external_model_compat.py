@@ -47,6 +47,7 @@ from tenant_external_model_helpers import (
     infer_external_chat,
     new_admitted_user_namespace,
     patch_external_model_gateway_refs,
+    provider_external_name_service,
     provision_external_model_stack,
     require_legacy_ipp_coexistence_support,
     serve_external_model_in_tenant,
@@ -115,6 +116,7 @@ class TestOmittedGatewayRefsUnchanged:
             model["namespace"],
             model["client_name"],
             legacy_shaped_model["access"]["api_key"],
+            path_tag=model["path_tag"],
         )
         assert_served_by_provider(response, model["path_tag"], credential=model["credential"])
 
@@ -165,6 +167,7 @@ class TestOmittedGatewayRefsUnchanged:
             model["namespace"],
             model["client_name"],
             legacy_shaped_model["access"]["api_key"],
+            path_tag=model["path_tag"],
         )
         assert_served_by_provider(response, model["path_tag"], credential=model["credential"])
 
@@ -256,7 +259,9 @@ class TestLegacyIppCoexistence:
             access = _serve_in_tenant(resources, case_b, model)
 
             wait_for_gateway_attachment_ready(model["name"], model["namespace"], case_b["gateway_name"])
-            provider_service = get_json_or_none("service", model["provider"], model["namespace"])
+            provider_service = get_json_or_none(
+                "service", provider_external_name_service(model["provider"]), model["namespace"]
+            )
             status_before = attachment_status_snapshot(model)
 
             # Flip the default tenant to legacy IPP (backend selection +
@@ -299,6 +304,7 @@ class TestLegacyIppCoexistence:
             model["namespace"],
             model["client_name"],
             coexistence["access"]["api_key"],
+            path_tag=model["path_tag"],
             retries=1,
         )
         assert response.status_code in (401, 403, 404), (
@@ -320,7 +326,9 @@ class TestLegacyIppCoexistence:
         """The provider's reconciled Service keeps its identity (the legacy
         controller neither claims nor deletes it)."""
         model = coexistence["model"]
-        service = get_json_or_none("service", model["provider"], model["namespace"])
+        service = get_json_or_none(
+            "service", provider_external_name_service(model["provider"]), model["namespace"]
+        )
         expected_uid = coexistence["provider_service_uid"]
         assert service is not None, "provider Service disappeared during legacy/Praxis coexistence"
         if expected_uid:
@@ -338,5 +346,6 @@ class TestLegacyIppCoexistence:
             model["namespace"],
             model["client_name"],
             coexistence["access"]["api_key"],
+            path_tag=model["path_tag"],
         )
         assert_served_by_provider(response, model["path_tag"], credential=model["credential"])
