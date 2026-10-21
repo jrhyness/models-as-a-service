@@ -122,7 +122,13 @@ func (s *Selector) buildModelIndex() map[string]*unstructured.Unstructured {
 
 // resolveModelAlias maps a body-based-routing model identity (e.g. publisher ID
 // or targetModel) back to canonical "namespace/name" using MaaSModelRef
-// status.resolvedModelAlias. Returns the input unchanged when no alias matches.
+// status.resolvedModelAlias. Returns the input unchanged when no alias matches,
+// or when several MaaSModelRefs carry the alias: a shared model has one
+// modelRef per tenant in the model's namespace, and distinct models may share
+// a client-facing name across namespaces — rewriting to an arbitrary carrier
+// would fail every other tenant's subscription matching. The raw name is left
+// for findModelRef to match against the caller's own subscription, which is
+// the tenant-scoped disambiguator.
 func (s *Selector) resolveModelAlias(requestedModel string) string {
 	if s.modelLister == nil || requestedModel == "" {
 		return requestedModel
@@ -131,11 +137,23 @@ func (s *Selector) resolveModelAlias(requestedModel string) string {
 	if err != nil {
 		return requestedModel
 	}
+	resolved := ""
 	for _, u := range items {
 		alias, found, _ := unstructured.NestedString(u.Object, "status", "resolvedModelAlias")
-		if found && alias == requestedModel {
-			return u.GetNamespace() + "/" + u.GetName()
+		if !found || alias != requestedModel {
+			continue
 		}
+		if resolved != "" {
+			// The alias is shared by several MaaSModelRefs (per-tenant
+			// modelRefs for one shared model, or distinct models with one
+			// client-facing name): leave the raw name so findModelRef
+			// matches it against the caller's own subscription.
+			return requestedModel
+		}
+		resolved = u.GetNamespace() + "/" + u.GetName()
+	}
+	if resolved != "" {
+		return resolved
 	}
 	return requestedModel
 }
@@ -1067,6 +1085,16 @@ func subscriptionIncludesModel(sub *subscription, requestedModel string) bool {
 // holds the model name from the request body, not the CRD namespace/name.
 // Raw model names may themselves contain "/", so alias matching runs even
 // when the value parses as namespace/name.
+//
+// Matching precedence: the modelRef's own "namespace/name" pair first, then
+// the pair's namespace plus the modelRef's resolved alias (ModelName), then
+// the full raw value against the alias, then against the modelRef name. The
+// pair-plus-alias step serves path-routed requests, which carry the
+// client-facing model name — it differs from the modelRef name for renamed
+// models and for per-tenant modelRefs serving one shared model. A pair whose
+// alias matches several distinct modelRefs in the subscription fails closed:
+// one client-facing identity claimed twice is ambiguous, and an arbitrary
+// pick could authorize against the wrong modelRef's rate limits.
 func findModelRef(sub *subscription, requestedModel string) *ModelRefInfo {
 	parts := strings.SplitN(requestedModel, "/", 2)
 	if len(parts) == 2 {
@@ -1074,6 +1102,25 @@ func findModelRef(sub *subscription, requestedModel string) *ModelRefInfo {
 			if sub.ModelRefs[i].Namespace == parts[0] && sub.ModelRefs[i].Name == parts[1] {
 				return &sub.ModelRefs[i]
 			}
+		}
+		// Path-routed requests carry the client-facing model name as the
+		// pair's name segment, but the modelRef may be named differently
+		// (renamed models, per-tenant modelRefs for a shared model). Fall
+		// back to the pair's namespace plus the modelRef's resolved alias,
+		// which carries the client-facing name.
+		var aliasMatch *ModelRefInfo
+		for i := range sub.ModelRefs {
+			ref := &sub.ModelRefs[i]
+			if ref.ModelName == "" || ref.Namespace != parts[0] || ref.ModelName != parts[1] {
+				continue
+			}
+			if aliasMatch != nil && aliasMatch.Name != ref.Name {
+				return nil
+			}
+			aliasMatch = ref
+		}
+		if aliasMatch != nil {
+			return aliasMatch
 		}
 	}
 	for i := range sub.ModelRefs {
