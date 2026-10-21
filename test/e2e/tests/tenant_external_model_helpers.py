@@ -264,21 +264,33 @@ def record_tenant_external_model_evidence() -> dict:
     """Write installed-version/configuration evidence for these suites.
 
     The acceptance criteria require recording installed AGC/Praxis
-    versions and configuration as completion evidence. Best effort: failures
-    to write the artifact never fail tests.
+    versions and configuration as completion evidence. Best effort: neither
+    the cluster lookups nor the artifact write ever fail tests — this runs
+    in session-fixture setup, where one throttled or forbidden lookup would
+    otherwise error every test in the tenant_external_model group.
     """
+
+    def _safe(fn, default):
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001 - evidence is best effort
+            log.warning("evidence lookup failed: %s", exc)
+            return default
+
     evidence = {
         "recordedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "agc": {
             "deploymentName": AGC_DEPLOYMENT_NAME,
             "deploymentNamespace": AGC_DEPLOYMENT_NAMESPACE,
-            "image": agc_controller_image(),
+            "image": _safe(agc_controller_image, ""),
         },
         "praxis": {
-            "defaultPayloadProcessingImage": _deployment_image("payload-processing", GATEWAY_NAMESPACE),
+            "defaultPayloadProcessingImage": _safe(
+                lambda: _deployment_image("payload-processing", GATEWAY_NAMESPACE), ""
+            ),
         },
-        "externalModelCrd": installed_crd_capabilities(),
-        "referenceGrantCrdInstalled": _crd_exists(REFERENCE_GRANT_CRD),
+        "externalModelCrd": _safe(installed_crd_capabilities, {}),
+        "referenceGrantCrdInstalled": _safe(lambda: _crd_exists(REFERENCE_GRANT_CRD), False),
         "gates": {
             "TENANT_EXTERNAL_MODEL_CROSSNS_E2E": env_flag("TENANT_EXTERNAL_MODEL_CROSSNS_E2E"),
             "TENANT_EXTERNAL_MODEL_LEGACY_IPP_E2E": env_flag("TENANT_EXTERNAL_MODEL_LEGACY_IPP_E2E"),
@@ -1164,6 +1176,19 @@ def wait_for_no_attachment_httproute(
 # ─── Tenant-published resources (credential copies, DestinationRules) ───────
 
 
+def _find_credential_copy(tenant_namespace: str, expected: str, *, exclude_uid: str | None) -> dict | None:
+    """Find a Secret in *tenant_namespace* carrying *expected*, excluding the
+    source object itself (matched by uid, for sources living in the tenant
+    namespace)."""
+    for secret in list_json("secret", tenant_namespace):
+        metadata = secret.get("metadata") or {}
+        if metadata.get("uid") == exclude_uid:
+            continue
+        if (secret.get("data") or {}).get(CREDENTIAL_DATA_KEY) == expected:
+            return secret
+    return None
+
+
 def credential_copy_in(tenant_namespace: str, source_secret_name: str, source_namespace: str) -> dict | None:
     """Find the controller-owned copy of a credential Secret in a tenant namespace.
 
@@ -1178,14 +1203,9 @@ def credential_copy_in(tenant_namespace: str, source_secret_name: str, source_na
     expected = (source.get("data") or {}).get(CREDENTIAL_DATA_KEY)
     if not expected:
         return None
-    source_uid = (source.get("metadata") or {}).get("uid")
-    for secret in list_json("secret", tenant_namespace):
-        metadata = secret.get("metadata") or {}
-        if metadata.get("uid") == source_uid:
-            continue
-        if (secret.get("data") or {}).get(CREDENTIAL_DATA_KEY) == expected:
-            return secret
-    return None
+    return _find_credential_copy(
+        tenant_namespace, expected, exclude_uid=(source.get("metadata") or {}).get("uid")
+    )
 
 
 def wait_for_credential_copy(
@@ -1217,8 +1237,31 @@ def wait_for_no_credential_copy(
     *,
     timeout: int | None = None,
 ) -> None:
+    """Wait until no controller-owned copy of the credential remains.
+
+    The expected ``api-key`` is captured from the source Secret up front:
+    an unreadable source fails the wait rather than passing vacuously.
+    "No copy left" and "cannot know what to look for" are different
+    outcomes — a stale controller-owned copy would otherwise go undetected
+    once the source is cleaned up.
+    """
+    source = get_json_or_none("secret", source_secret_name, source_namespace)
+    if not source:
+        pytest.fail(
+            f"source secret {source_namespace}/{source_secret_name} is unreadable; "
+            "the absence of a credential copy cannot be proven without it"
+        )
+    expected = (source.get("data") or {}).get(CREDENTIAL_DATA_KEY)
+    if not expected:
+        pytest.fail(
+            f"source secret {source_namespace}/{source_secret_name} carries no "
+            f"{CREDENTIAL_DATA_KEY} data; the absence of a credential copy "
+            "cannot be proven without it"
+        )
+    source_uid = (source.get("metadata") or {}).get("uid")
+
     def _check() -> bool:
-        copy = credential_copy_in(tenant_namespace, source_secret_name, source_namespace)
+        copy = _find_credential_copy(tenant_namespace, expected, exclude_uid=source_uid)
         assert copy is None, (
             f"stale credential copy {copy.get('metadata', {}).get('name')} still present "
             f"in {tenant_namespace}"

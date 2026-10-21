@@ -6,8 +6,10 @@ P0 scenario 2:
   routes (one HTTPRoute per attachment, in the model namespace) and
   per-gateway status.
 - Requests verify that authorization and quota consumption remain isolated:
-  a user authorized in tenant A cannot call the model through tenant B's
-  gateway, and exhausting tenant A's token budget does not consume tenant B's.
+  a user authorized in one tenant cannot call the model through the other
+  tenant's gateway (both tenants authorize the model, so the cross-tenant
+  rejections prove key isolation rather than an absent grant), and
+  exhausting tenant A's token budget does not consume tenant B's.
 
 Shares the tenant_external_model session tenants (see conftest.tenant_external_model_tenants);
 this module creates its own user namespace with unique names.
@@ -237,8 +239,11 @@ class TestSharedModelTwoGateways:
 
 
 class TestTenantAuthIsolation:
-    """A user authorized in tenant A cannot call the model through tenant B's
-    gateway (and symmetrically)."""
+    """Each tenant's key serves only through its own gateway.
+
+    Both tenants authorize the model, so a cross-tenant rejection proves
+    key isolation rather than an absent grant on the rejecting tenant's
+    gateway."""
 
     @pytest.fixture(scope="class")
     def isolated_keys(self, shared_env):
@@ -253,40 +258,61 @@ class TestTenantAuthIsolation:
                 gateway_ref(env["tenant_b"]["gateway_name"]),
             ],
             model_name=f"{name}-client",
-            # Only tenant A gets a policy/subscription (its key is the
-            # authorized one), so only its modelRef is needed.
-            tenant_refs=[env["tenant_a"]["tenant_label_name"]],
+            # Both tenants authorize the model, so a cross-tenant rejection
+            # proves key isolation rather than a missing grant on the
+            # rejecting tenant.
+            tenant_refs=[
+                env["tenant_a"]["tenant_label_name"],
+                env["tenant_b"]["tenant_label_name"],
+            ],
         )
         _wait_attachments_ready(env, model)
         _require_maas_route(model)
         access_a = _serve_in_tenant(env, env["tenant_a"], model)
-        return {"model": model, "key_a": access_a["api_key"]}
+        access_b = _serve_in_tenant(env, env["tenant_b"], model)
+        return {
+            "model": model,
+            "key_a": access_a["api_key"],
+            "key_b": access_b["api_key"],
+        }
 
-    def test_tenant_a_key_authorized_only_on_tenant_a_gateway(self, shared_env, isolated_keys):
+    def test_tenant_keys_authorized_only_on_their_own_gateway(self, shared_env, isolated_keys):
+        """Each tenant's key serves through its own gateway and is rejected
+        by the other's.
+
+        The own-gateway 200 is the positive control: the other tenant's
+        stack is live and authorizing the model, so the cross-tenant 401/403
+        is a key-isolation verdict, not a missing grant."""
         env = shared_env
         model = isolated_keys["model"]
         _require_client_name_alias(model, env["tenant_a"])
-        response = infer_external_chat(
-            env["tenant_a"]["gateway_url"],
-            model["namespace"],
-            model["client_name"],
-            isolated_keys["key_a"],
-            path_tag=model["path_tag"],
-        )
-        assert_served_by_provider(response, model["path_tag"])
-
-        response = infer_external_chat(
-            env["tenant_b"]["gateway_url"],
-            model["namespace"],
-            model["client_name"],
-            isolated_keys["key_a"],
-            path_tag=model["path_tag"],
-            retries=1,
-        )
-        assert response.status_code in (401, 403), (
-            f"tenant A's API key must be rejected by tenant B's gateway, got "
-            f"{response.status_code}: {redact_sensitive(response.text)}"
-        )
+        for case, other, api_key in (
+            (env["tenant_a"], env["tenant_b"], isolated_keys["key_a"]),
+            (env["tenant_b"], env["tenant_a"], isolated_keys["key_b"]),
+        ):
+            served = infer_external_chat(
+                case["gateway_url"],
+                model["namespace"],
+                model["client_name"],
+                api_key,
+                path_tag=model["path_tag"],
+            )
+            assert_served_by_provider(
+                served, model["path_tag"], credential=model["credential"]
+            )
+            rejected = infer_external_chat(
+                other["gateway_url"],
+                model["namespace"],
+                model["client_name"],
+                api_key,
+                path_tag=model["path_tag"],
+                retries=1,
+            )
+            assert rejected.status_code in (401, 403), (
+                f"{case['tenant_label_name']}'s API key must be rejected by "
+                f"{other['tenant_label_name']}'s gateway, got "
+                f"{rejected.status_code}: {redact_sensitive(rejected.text)}"
+            )
 
     def test_unknown_key_rejected_on_both_gateways(self, shared_env, isolated_keys):
         env = shared_env
