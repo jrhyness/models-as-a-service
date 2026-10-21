@@ -2179,6 +2179,67 @@ func TestSelector_ResolvedModelFromAlias(t *testing.T) {
 	}
 }
 
+// A subscription may list several modelRefs sharing one client-facing name
+// (per-tenant modelRefs for a shared model, or distinct models with one
+// client-facing name) while the caller's authorized set covers only some of
+// them. findModelRef returns the first alias match, so authorization must
+// not consider unauthorized refs: an unauthorized ref listed first must not
+// deny a request that a later, authorized ref serves.
+func TestSelect_SharedAliasAuthorizationOrdering(t *testing.T) {
+	log := logger.New(false)
+	sub := createSubscriptionWithModelRefs("sub1", []string{"g1"}, []map[string]any{
+		{"name": "model-a", "namespace": "ns1"},
+		{"name": "model-b", "namespace": "ns2"},
+	})
+	aliased := func(name, ns string) *unstructured.Unstructured {
+		ref := createMaaSModelRef(name, ns, "ExternalModel")
+		if err := unstructured.SetNestedField(ref.Object, "client-name", "status", "resolvedModelAlias"); err != nil {
+			t.Fatalf("SetNestedField: %v", err)
+		}
+		return ref
+	}
+	modelLister := &fakeModelLister{items: []*unstructured.Unstructured{
+		aliased("model-a", "ns1"),
+		aliased("model-b", "ns2"),
+	}}
+	accessChecker := &fakeAccessChecker{
+		authorized: map[authpolicy.ModelKey]bool{
+			{Namespace: "ns2", Name: "model-b"}: true,
+		},
+	}
+	selector := subscription.NewSelector(log, &fakeLister{subscriptions: []*unstructured.Unstructured{sub}}, modelLister, accessChecker)
+
+	t.Run("auto selection allows the authorized carrier", func(t *testing.T) {
+		result, err := selector.Select([]string{"g1"}, "", "", "client-name")
+		if err != nil {
+			t.Fatalf("Select: %v", err)
+		}
+		if !result.AccessAllowed {
+			t.Error("AccessAllowed = false, want true when a later same-alias ref is authorized")
+		}
+	})
+
+	t.Run("explicit selection allows the authorized carrier", func(t *testing.T) {
+		result, err := selector.Select([]string{"g1"}, "", "sub1", "client-name")
+		if err != nil {
+			t.Fatalf("Select: %v", err)
+		}
+		if !result.AccessAllowed {
+			t.Error("AccessAllowed = false, want true when a later same-alias ref is authorized")
+		}
+	})
+
+	t.Run("no authorized carrier denies", func(t *testing.T) {
+		none := &fakeAccessChecker{authorized: map[authpolicy.ModelKey]bool{}}
+		selector := subscription.NewSelector(log, &fakeLister{subscriptions: []*unstructured.Unstructured{sub}}, modelLister, none)
+		_, err := selector.Select([]string{"g1"}, "", "", "client-name")
+		var denied *subscription.AccessDeniedError
+		if !errors.As(err, &denied) {
+			t.Fatalf("expected AccessDeniedError, got %T: %v", err, err)
+		}
+	})
+}
+
 func TestSelect_RateLimitIDOnlyForShortIdentity(t *testing.T) {
 	log := logger.New(false)
 	requestedModel := "ns1/model-a"

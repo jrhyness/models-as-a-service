@@ -252,6 +252,7 @@ func isResolvedModelAuthorized(sub *subscription, requestedModel string, authori
 	if authorizedSet == nil {
 		return false
 	}
+	sub = authorizedSelectionSubscription(sub, authorizedSet)
 	ref := findModelRef(sub, requestedModel)
 	if ref == nil {
 		return false
@@ -577,6 +578,22 @@ func filterAuthorizedModels(refs []ModelRefInfo, authorizedSet map[authpolicy.Mo
 	return out
 }
 
+// authorizedSelectionSubscription returns a shallow copy of sub whose
+// ModelRefs are restricted to the authorized set, so alias resolution —
+// findModelRef returns the first alias match — can only select refs the
+// caller is authorized for. Without this filter, an unauthorized ref listed
+// before an authorized one sharing the same client-facing name would falsely
+// deny the request. Returns sub unchanged when authorization is
+// unrestricted (nil set).
+func authorizedSelectionSubscription(sub *subscription, authorizedSet map[authpolicy.ModelKey]bool) *subscription {
+	if authorizedSet == nil {
+		return sub
+	}
+	filtered := *sub
+	filtered.ModelRefs = filterAuthorizedModels(sub.ModelRefs, authorizedSet)
+	return &filtered
+}
+
 // selectExplicit handles the explicit subscription selection branch of Select.
 // It supports both "namespace/name" and bare "name" formats.
 func (s *Selector) selectExplicit(
@@ -703,11 +720,12 @@ func (s *Selector) SelectWithContext(ctx context.Context, groups []string, usern
 }
 
 func (s *Selector) completeSelection(ctx context.Context, sub *subscription, requestedModel string, authorizedSet map[authpolicy.ModelKey]bool) (*SelectResponse, error) {
-	response, err := s.buildAuthorizedResponse(sub, requestedModel, authorizedSet)
+	selectionSub := authorizedSelectionSubscription(sub, authorizedSet)
+	response, err := s.buildAuthorizedResponse(selectionSub, requestedModel, authorizedSet)
 	if err != nil || requestedModel == "" || !response.AccessAllowed || s.guardrailResolver == nil {
 		return response, err
 	}
-	modelRef := findModelRef(sub, requestedModel)
+	modelRef := findModelRef(selectionSub, requestedModel)
 	if modelRef == nil {
 		return nil, &GuardrailResolutionError{cause: fmt.Errorf("selected model %q is not in subscription", requestedModel)}
 	}
