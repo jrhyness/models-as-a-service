@@ -72,7 +72,10 @@ from typing import Any
 import pytest
 import requests
 from multitenancy_helpers import (
+    ANNOTATION_PAYLOAD_PROCESSING_TYPE,
     GATEWAY_NAMESPACE,
+    TENANT_CONFIG_KIND,
+    TENANT_CR_NAME,
     _oc_run,
     apply_gateway_access_label,
     apply_maas_auth_policy,
@@ -537,6 +540,46 @@ def patch_external_model_gateway_refs(
     if result.returncode != 0:
         raise RuntimeError(
             f"failed to patch gatewayRefs on {EXTERNAL_MODEL_KIND}/{namespace}/{name}: "
+            f"{result.stderr.strip() or result.stdout.strip()}"
+        )
+
+
+def payload_processing_annotation(tenant_namespace: str) -> str | None:
+    """Read the tenant config's payload-processing annotation.
+
+    Returns None when the annotation is absent (backend selected by
+    cluster default rather than an explicit override).
+    """
+    tenant_config = get_json_or_none(TENANT_CONFIG_KIND, TENANT_CR_NAME, tenant_namespace) or {}
+    annotations = (tenant_config.get("metadata") or {}).get("annotations") or {}
+    return annotations.get(ANNOTATION_PAYLOAD_PROCESSING_TYPE)
+
+
+def restore_payload_processing_annotation(tenant_namespace: str, original: str | None) -> None:
+    """Restore the payload-processing annotation to a captured value.
+
+    ``original=None`` removes the annotation — a merge patch with a null
+    value deletes the key — restoring cluster-default backend selection.
+    """
+    patch = json.dumps(
+        {"metadata": {"annotations": {ANNOTATION_PAYLOAD_PROCESSING_TYPE: original}}}
+    )
+    result = _oc_run(
+        [
+            "patch",
+            TENANT_CONFIG_KIND,
+            TENANT_CR_NAME,
+            "-n",
+            tenant_namespace,
+            "--type=merge",
+            "-p",
+            patch,
+        ]
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"failed to restore {ANNOTATION_PAYLOAD_PROCESSING_TYPE}={original!r} on "
+            f"{TENANT_CONFIG_KIND}/{tenant_namespace}/{TENANT_CR_NAME}: "
             f"{result.stderr.strip() or result.stdout.strip()}"
         )
 

@@ -137,7 +137,12 @@ class TestUserNamespaceAttachmentServing:
         env = attachment_env
         model = attached_model["model"]
         tenant_b = env["tenant_b"]
-        routes = wait_for_attachment_httproute(model["namespace"], tenant_b["gateway_name"])
+        # Scope by model name: the lifecycle and listener classes share this
+        # user namespace and gateway, so an unscoped wait could pass on one
+        # of their routes.
+        routes = wait_for_attachment_httproute(
+            model["namespace"], tenant_b["gateway_name"], model_name=model["name"]
+        )
         assert len(routes) == 1, (
             f"expected exactly one HTTPRoute attached to {tenant_b['gateway_name']} "
             f"in {model['namespace']}, got {[r['metadata']['name'] for r in routes]}"
@@ -360,16 +365,27 @@ class TestListenerNotAllowed:
         env = attachment_env
         model = refused_model
         tenant_b = env["tenant_b"]
-        # Give the controller a settle window, then require absence: the
-        # attachment must never publish, so absence must hold, not converge.
-        time.sleep(RECONCILE_WAIT)
-        assert (
-            credential_copy_in(tenant_b["tenant_ns"], model["secret_name"], model["secret_namespace"])
-            is None
-        ), "credential copy must not be delivered while the listener refuses the namespace"
-        assert not destination_rules_referencing(model["name"], tenant_b["tenant_ns"]), (
-            "DestinationRule must not be created while the listener refuses the namespace"
+        # Gate on the refusal being reported first: a bare settle window
+        # could pass before the controller ever reconciles, making absence
+        # trivially true. The test must not rely on its sibling having
+        # already waited for the reason.
+        wait_for_gateway_attachment_reason(
+            model["name"], model["namespace"], tenant_b["gateway_name"], "NotAllowedByListeners"
         )
+        # Then require absence to HOLD across a settle window: the
+        # attachment must never publish, so absence must hold, not converge.
+        deadline = time.time() + RECONCILE_WAIT
+        while True:
+            assert (
+                credential_copy_in(tenant_b["tenant_ns"], model["secret_name"], model["secret_namespace"])
+                is None
+            ), "credential copy must not be delivered while the listener refuses the namespace"
+            assert not destination_rules_referencing(model["name"], tenant_b["tenant_ns"]), (
+                "DestinationRule must not be created while the listener refuses the namespace"
+            )
+            if time.time() >= deadline:
+                break
+            time.sleep(5)
 
     def test_route_not_admitted_and_not_served(self, attachment_env, refused_model):
         env = attachment_env

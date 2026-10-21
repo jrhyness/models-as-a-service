@@ -54,6 +54,7 @@ from tenant_external_model_helpers import (
     serve_external_model_in_tenant,
     wait_for_attachment_httproute,
     wait_for_gateway_attachment_reason,
+    wait_for_no_attachment_httproute,
 )
 
 log = logging.getLogger(__name__)
@@ -125,6 +126,11 @@ class TestModelNameConflict:
             namespace=env["user_ns_1"],
             gateway_refs=[gateway],
         )
+        # Guarantee the challenger is strictly older: creationTimestamp has
+        # one-second resolution, and on a tie the AGC falls back to
+        # namespace/name ordering — the test would risk passing through the
+        # tiebreaker instead of the tenant-own rule.
+        time.sleep(2)
         # ...the younger model lives in the tenant's own namespace.
         tenant_own = provision_external_model_stack(
             env["resources"],
@@ -137,8 +143,13 @@ class TestModelNameConflict:
         wait_for_gateway_attachment_reason(
             older["name"], older["namespace"], tenant_a["gateway_name"], "ModelNameConflict"
         )
-        # The winner serves with its own credential; the loser has no
-        # admitted route and its namespace is in no subscription.
+        # The conflict contract's serving effect: the loser is skipped by
+        # admission, so it must hold no route on the gateway (matched by
+        # route name — the namespace hosts other tests' models).
+        wait_for_no_attachment_httproute(
+            older["namespace"], tenant_a["gateway_name"], model_name=older["name"]
+        )
+        # The winner serves with its own credential.
         response = infer_external_chat(
             tenant_a["gateway_url"],
             tenant_own["namespace"],
@@ -149,6 +160,10 @@ class TestModelNameConflict:
         assert_served_by_provider(
             response, tenant_own["path_tag"], credential=tenant_own["credential"]
         )
+        # Defense in depth only: this key is bound to the winner's
+        # subscription, so auth denies the loser's path identity whether or
+        # not a route lingers — the route absence above is the actual
+        # conflict-suppression proof.
         denied = infer_external_chat(
             tenant_a["gateway_url"],
             older["namespace"],
@@ -191,6 +206,12 @@ class TestModelNameConflict:
         wait_for_gateway_attachment_reason(
             youngest["name"], youngest["namespace"], tenant_a["gateway_name"], "ModelNameConflict"
         )
+        # The conflict contract's serving effect: the loser is skipped by
+        # admission, so it must hold no route on the gateway (matched by
+        # route name — the namespace hosts other tests' models).
+        wait_for_no_attachment_httproute(
+            youngest["namespace"], tenant_a["gateway_name"], model_name=youngest["name"]
+        )
         response = infer_external_chat(
             tenant_a["gateway_url"],
             oldest["namespace"],
@@ -199,6 +220,10 @@ class TestModelNameConflict:
             path_tag=oldest["path_tag"],
         )
         assert_served_by_provider(response, oldest["path_tag"], credential=oldest["credential"])
+        # Defense in depth only: this key is bound to the winner's
+        # subscription, so auth denies the loser's path identity whether or
+        # not a route lingers — the route absence above is the actual
+        # conflict-suppression proof.
         denied = infer_external_chat(
             tenant_a["gateway_url"],
             youngest["namespace"],

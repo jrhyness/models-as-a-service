@@ -288,13 +288,15 @@ class TestGrantRevocation:
         env = crossns_env
         model = _crossns_model(env, name=f"e2e-crossns-narrow-{uuid.uuid4().hex[:6]}")
         gateway = env["tenant"]["gateway_name"]
-        _grant_for(env, model)
+        grant_name = _grant_for(env, model)
         access = _serve(env, model)
         wait_for_gateway_attachment_ready(model["name"], model["namespace"], gateway)
 
         # Narrow the grant to a different source namespace: the model's
-        # reference is no longer covered.
-        _revoke_grant(env, f"{model['name']}-grant", model["provider_namespace"])
+        # reference is no longer covered. The grant name comes from
+        # _grant_for itself — reconstructing it here would silently no-op
+        # the revocation if that naming ever changed.
+        _revoke_grant(env, grant_name, model["provider_namespace"])
         _grant_for(env, model, name_suffix="-narrowed", from_namespace=f"{model['namespace']}-other")
         wait_for_gateway_attachment_not_ready(
             model["name"], model["namespace"], gateway, message_pattern=GRANT_FAILURE_PATTERN
@@ -398,7 +400,11 @@ class TestCredentialSourceSelection:
             model["name"], model["namespace"], gateway, message_pattern=MISSING_SECRET_PATTERN
         )
         external_model = _get_cr(EXTERNAL_MODEL_KIND, model["name"], model["namespace"]) or {}
-        assert external_model.get("status", {}).get("phase") != "Ready"
+        phase = (external_model.get("status") or {}).get("phase")
+        assert phase and phase != "Ready", (
+            f"model must report a present, non-Ready phase after the missing-secret "
+            f"failure, got {phase!r}"
+        )
 
 
 class TestSameNamedProvidersTwoNamespaces:
@@ -408,8 +414,6 @@ class TestSameNamedProvidersTwoNamespaces:
     def test_same_named_providers_both_serve(self, crossns_env):
         env = crossns_env
         case = env["tenant"]
-        provider_ns_1 = new_admitted_user_namespace("e2e-extmod-crossns-p1", case["gateway_name"])
-        provider_ns_2 = new_admitted_user_namespace("e2e-extmod-crossns-p2", case["gateway_name"])
         shared_provider = f"e2e-crossns-twin-{uuid.uuid4().hex[:6]}"
         credential_1 = f"sk-extmod-t1-{uuid.uuid4().hex[:8]}"
         credential_2 = f"sk-extmod-t2-{uuid.uuid4().hex[:8]}"
@@ -420,8 +424,14 @@ class TestSameNamedProvidersTwoNamespaces:
         # whichever provider the gateway selects, so a single client tag is
         # used and the injected credentials distinguish the two providers.
         client_tag = f"{shared_provider}-client"
+        provider_ns_1: str | None = None
+        provider_ns_2: str | None = None
 
         try:
+            # Created inside the try: if the second namespace creation
+            # fails, the first is still cleaned up below.
+            provider_ns_1 = new_admitted_user_namespace("e2e-extmod-crossns-p1", case["gateway_name"])
+            provider_ns_2 = new_admitted_user_namespace("e2e-extmod-crossns-p2", case["gateway_name"])
             for provider_ns, credential in ((provider_ns_1, credential_1), (provider_ns_2, credential_2)):
                 apply_credential_secret(shared_secret, provider_ns, credential)
                 env["resources"].track("secret", shared_secret, provider_ns)
@@ -490,8 +500,10 @@ class TestSameNamedProvidersTwoNamespaces:
                 f"expected both same-named providers to serve, saw {seen}"
             )
         finally:
-            delete_namespace_best_effort(provider_ns_1)
-            delete_namespace_best_effort(provider_ns_2)
+            if provider_ns_1:
+                delete_namespace_best_effort(provider_ns_1)
+            if provider_ns_2:
+                delete_namespace_best_effort(provider_ns_2)
 
 
 def _model_with_provider(

@@ -48,9 +48,11 @@ from tenant_external_model_helpers import (
     infer_external_chat,
     new_admitted_user_namespace,
     patch_external_model_gateway_refs,
+    payload_processing_annotation,
     provider_external_name_service,
     provision_external_model_stack,
     require_legacy_ipp_coexistence_support,
+    restore_payload_processing_annotation,
     serve_external_model_in_tenant,
     wait_for_attachment_httproute,
     wait_for_gateway_attachment_ready,
@@ -99,8 +101,11 @@ class TestOmittedGatewayRefsUnchanged:
         # The route lives in the model (tenant) namespace, attached to the
         # tenant's gateway via tenant-local resolution. The AGC names it
         # external-model-<model> — its own naming, not the <model> name the
-        # pre-AGC legacy flow used.
-        routes = wait_for_attachment_httproute(model["namespace"], tenant_a["gateway_name"])
+        # pre-AGC legacy flow used. Scoped by model name: the conflicts
+        # module also places models in this tenant namespace.
+        routes = wait_for_attachment_httproute(
+            model["namespace"], tenant_a["gateway_name"], model_name=model["name"]
+        )
         return {"model": model, "access": access, "routes": routes}
 
     def test_omitted_gateway_refs_serve_via_tenant_local_resolution(
@@ -205,26 +210,25 @@ def _wait_default_backend(*, praxis: bool, timeout: int = DEFAULT_BACKEND_SWITCH
 def attachment_status_snapshot(model: dict) -> dict:
     """Stable comparable snapshot of a model's attachment status.
 
-    Prefers per-gateway ``status.gateways`` entries; AGC builds that report
-    aggregate status only fall back to the model's top-level conditions, so
-    a legacy-controller write to either shape is still detected.
+    Captures BOTH condition shapes on every call: the model's top-level
+    conditions and each per-gateway ``status.gateways`` entry. AGC builds
+    that report aggregate status only leave ``status.gateways`` empty, and
+    a legacy-controller write may touch either shape — including both in
+    one snapshot means a change to one cannot hide behind the other.
     """
     external_model = get_json_or_none(EXTERNAL_MODEL_KIND, model["name"], model["namespace"]) or {}
     status = external_model.get("status") or {}
-    gateways = status.get("gateways") or []
-    if gateways:
-        return {
-            (entry.get("name"), entry.get("namespace")): sorted(
-                (c.get("type"), c.get("status"), c.get("reason"))
-                for c in entry.get("conditions") or []
-            )
-            for entry in gateways
-        }
-    return {
+    snapshot = {
         ("aggregate", ""): sorted(
             (c.get("type"), c.get("status"), c.get("reason")) for c in status.get("conditions") or []
         )
     }
+    for entry in status.get("gateways") or []:
+        snapshot[(entry.get("name"), entry.get("namespace"))] = sorted(
+            (c.get("type"), c.get("status"), c.get("reason"))
+            for c in entry.get("conditions") or []
+        )
+    return snapshot
 
 
 @pytest.mark.serial
@@ -247,6 +251,11 @@ class TestLegacyIppCoexistence:
                 "default tenant payload-processing is not praxis; the coexistence "
                 "handoff test needs a praxis starting point"
             )
+        # Capture the default tenant's original payload-processing annotation
+        # (including its absence) so teardown restores the cluster state
+        # exactly: praxis may have been selected by cluster default, and
+        # leaving an explicit override behind would change that selection.
+        original_payload_annotation = payload_processing_annotation(default_tenant_ns)
 
         # An AGC-served model in a user namespace on a praxis tenant gateway.
         # Short tenant name: AGC per-tenant resource naming caps tenant names
@@ -285,9 +294,12 @@ class TestLegacyIppCoexistence:
             }
         finally:
             try:
-                # Claim handoff back to praxis; a failure here surfaces as a
-                # fixture teardown error instead of poisoning later tests.
-                ensure_payload_processing_type_on_tenant_config(default_tenant_ns, "praxis")
+                # Claim handoff back to the original backend selection (the
+                # starting backend is praxis — the skip above enforces it —
+                # so praxis must come back either way); a failure here
+                # surfaces as a fixture teardown error instead of poisoning
+                # later tests.
+                restore_payload_processing_annotation(default_tenant_ns, original_payload_annotation)
                 _wait_default_backend(praxis=True)
             finally:
                 resources.cleanup()

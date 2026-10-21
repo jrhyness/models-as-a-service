@@ -142,7 +142,12 @@ class TestSharedModelTwoGateways:
         model = shared_model["model"]
         routes_by_gateway = {}
         for case in (env["tenant_a"], env["tenant_b"]):
-            routes = wait_for_attachment_httproute(model["namespace"], case["gateway_name"])
+            # Scoped by model name: other classes' models share this
+            # namespace, and the exact-two-UIDs assertion below must not
+            # count their routes.
+            routes = wait_for_attachment_httproute(
+                model["namespace"], case["gateway_name"], model_name=model["name"]
+            )
             assert routes, f"no HTTPRoute attached to {case['gateway_name']}"
             routes_by_gateway[case["gateway_name"]] = routes
         route_uids = {

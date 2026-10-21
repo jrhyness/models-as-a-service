@@ -1,3 +1,4 @@
+import logging
 import os
 import socket
 import subprocess
@@ -7,6 +8,8 @@ import requests
 
 from test_helper import MAAS_API_DEPLOYMENT_NAMESPACE
 
+
+log = logging.getLogger(__name__)
 
 _WORKER_ISOLATED_XDIST_GROUPS = frozenset({"api_keys", "models"})
 
@@ -454,8 +457,17 @@ def tenant_external_model_tenants():
             bootstrap_external_model_tenant(case)
         yield {"tenant_a": case_a, "tenant_b": case_b}
     finally:
-        cleanup_discovery_case(case_a)
-        cleanup_discovery_case(case_b)
+        # Attempt both cleanups even if the first fails: one tenant's
+        # teardown error must not leak the other's cluster resources.
+        cleanup_errors: list[Exception] = []
+        for case in (case_a, case_b):
+            try:
+                cleanup_discovery_case(case)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("cleanup failed for tenant %s: %s", case["tenant_ns"], exc)
+                cleanup_errors.append(exc)
+        if cleanup_errors:
+            raise cleanup_errors[0]
 
 
 @pytest.fixture(scope="session")
