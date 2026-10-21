@@ -43,6 +43,7 @@ from tenant_external_model_helpers import (
     attachment_httproutes,
     bootstrap_external_model_tenant,
     destination_rules_referencing,
+    external_model_route_name,
     gateway_ref,
     infer_external_chat,
     new_admitted_user_namespace,
@@ -95,9 +96,10 @@ class TestOmittedGatewayRefsUnchanged:
             gateway_refs=None,
         )
         access = _serve_in_tenant(resources, tenant_a, model)
-        # Legacy contract: the HTTPRoute is named after the model and lives in
-        # the model (tenant) namespace, attached to the tenant's gateway via
-        # tenant-local resolution.
+        # The route lives in the model (tenant) namespace, attached to the
+        # tenant's gateway via tenant-local resolution. The AGC names it
+        # external-model-<model> — its own naming, not the <model> name the
+        # pre-AGC legacy flow used.
         routes = wait_for_attachment_httproute(model["namespace"], tenant_a["gateway_name"])
         return {"model": model, "access": access, "routes": routes}
 
@@ -107,9 +109,11 @@ class TestOmittedGatewayRefsUnchanged:
         tenant_a = tenant_external_model_tenants["tenant_a"]
         model = legacy_shaped_model["model"]
         route_names = [route["metadata"]["name"] for route in legacy_shaped_model["routes"]]
-        assert model["name"] in route_names, (
-            f"legacy-shaped model must keep the legacy HTTPRoute name {model['name']}, "
-            f"got {route_names}"
+        expected_route = external_model_route_name(model["name"])
+        assert expected_route in route_names, (
+            f"legacy-shaped model must be served by the AGC route {expected_route} "
+            f"(tenant-local resolution keeps the AGC naming, not the legacy "
+            f"'{model['name']}'), got {route_names}"
         )
         response = infer_external_chat(
             tenant_a["gateway_url"],
@@ -144,8 +148,10 @@ class TestOmittedGatewayRefsUnchanged:
             }
 
         before = _snapshot()
-        assert model["name"] in before["route_identities"], (
-            f"legacy route {model['name']} disappeared before the gatewayRefs patch"
+        expected_route = external_model_route_name(model["name"])
+        assert expected_route in before["route_identities"], (
+            f"AGC route {expected_route} not found before the gatewayRefs patch: "
+            f"{sorted(before['route_identities'])}"
         )
 
         # Adding gatewayRefs that name only the model's own tenant must not

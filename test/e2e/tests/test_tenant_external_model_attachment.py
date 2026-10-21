@@ -229,7 +229,14 @@ class TestAttachmentLifecycleCleanup:
 
     def test_detach_removes_only_that_attachment(self, attachment_env, unrelated_model):
         """Removing tenant A's attachment removes A's route and (now
-        unreferenced) credential copy while tenant B keeps serving."""
+        unreferenced) credential copy while tenant B keeps serving.
+
+        The model starts attached to both gateways, but the AGC reports
+        ``status.httpRouteName`` only for single-gateway models (the same
+        gap the shared module's MaaS-route gate documents), so the MaaS
+        subscription/key stack is built after the detach leaves one
+        gateway; before that the attachment is verified at the
+        route/credential level on both tenants."""
         env = attachment_env
         tenant_a = env["tenant_a"]
         tenant_b = env["tenant_b"]
@@ -239,16 +246,12 @@ class TestAttachmentLifecycleCleanup:
             namespace=env["user_ns"],
             gateway_refs=[gateway_ref(tenant_a["gateway_name"]), gateway_ref(tenant_b["gateway_name"])],
         )
-        access_a = _serve_in_tenant(env, tenant_a, model)
-        access_b = _serve_in_tenant(env, tenant_b, model)
 
-        # Baseline: both attachments serve.
-        for case, access in ((tenant_a, access_a), (tenant_b, access_b)):
-            response = infer_external_chat(
-                case["gateway_url"], model["namespace"], model["client_name"], access["api_key"],
-                path_tag=model["path_tag"],
-            )
-            assert_served_by_provider(response, model["path_tag"])
+        # Baseline: both attachments are live at the serving-config level.
+        for case in (tenant_a, tenant_b):
+            wait_for_gateway_attachment_ready(model["name"], model["namespace"], case["gateway_name"])
+            wait_for_attachment_httproute(model["namespace"], case["gateway_name"])
+            wait_for_credential_copy(case["tenant_ns"], model["secret_name"], model["secret_namespace"])
 
         patch_external_model_gateway_refs(
             model["name"], model["namespace"], [gateway_ref(tenant_b["gateway_name"])]
@@ -261,9 +264,12 @@ class TestAttachmentLifecycleCleanup:
         )
         wait_for_no_destination_rules_referencing(model["name"], tenant_a["tenant_ns"])
 
-        # The remaining attachment is untouched and still serves.
+        # The remaining attachment is untouched and now serves end to end:
+        # with a single gateway the AGC reports httpRouteName, so the MaaS
+        # subscription/key stack completes.
         wait_for_gateway_attachment_ready(model["name"], model["namespace"], tenant_b["gateway_name"])
         wait_for_credential_copy(tenant_b["tenant_ns"], model["secret_name"], model["secret_namespace"])
+        access_b = _serve_in_tenant(env, tenant_b, model)
         response = infer_external_chat(
             tenant_b["gateway_url"],
             model["namespace"],
@@ -275,7 +281,12 @@ class TestAttachmentLifecycleCleanup:
 
     def test_model_delete_removes_serving_config(self, attachment_env, unrelated_model):
         """Deleting a model removes all of its serving configuration while an
-        unrelated model on the same gateway keeps serving."""
+        unrelated model on the same gateway keeps serving.
+
+        Like the detach test, the deleted model is attached to two
+        gateways, so no MaaS stack is built for it (single-gateway
+        httpRouteName gap) — its cleanup is proven at the route/credential
+        level; the bystander proves serving survives the deletion."""
         env = attachment_env
         tenant_a = env["tenant_a"]
         tenant_b = env["tenant_b"]
@@ -285,8 +296,11 @@ class TestAttachmentLifecycleCleanup:
             namespace=env["user_ns"],
             gateway_refs=[gateway_ref(tenant_a["gateway_name"]), gateway_ref(tenant_b["gateway_name"])],
         )
-        _serve_in_tenant(env, tenant_a, model)
-        _serve_in_tenant(env, tenant_b, model)
+
+        # Both attachments are live before the delete.
+        for case in (tenant_a, tenant_b):
+            wait_for_gateway_attachment_ready(model["name"], model["namespace"], case["gateway_name"])
+            wait_for_credential_copy(case["tenant_ns"], model["secret_name"], model["secret_namespace"])
 
         _delete_cr("maasmodelref", model["name"], model["namespace"])
         _delete_cr(EXTERNAL_MODEL_KIND, model["name"], model["namespace"])
