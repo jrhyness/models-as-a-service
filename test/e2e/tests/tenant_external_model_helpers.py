@@ -691,18 +691,20 @@ def apply_reference_grant(
     provider_namespace: str,
     *,
     from_namespace: str,
-    from_name: str | None = None,
     to_name: str | None = None,
 ) -> dict:
     """Authorize ExternalModels in *from_namespace* to reference providers in
-    the grant's namespace (P1 cross-namespace contract)."""
+    the grant's namespace (P1 cross-namespace contract).
+
+    Grants authorize at namespace granularity only: ReferenceGrant v1beta1's
+    ``from`` has no ``name`` field, and the API server prunes unknown fields,
+    so every ExternalModel in *from_namespace* is covered.
+    """
     grant_from: dict[str, str] = {
         "group": "inference.opendatahub.io",
         "kind": "ExternalModel",
         "namespace": from_namespace,
     }
-    if from_name:
-        grant_from["name"] = from_name
     grant_to: dict[str, str] = {
         "group": "inference.opendatahub.io",
         "kind": "ExternalProvider",
