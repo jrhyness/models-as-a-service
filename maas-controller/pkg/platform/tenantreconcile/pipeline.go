@@ -62,6 +62,33 @@ func RunPlatform(
 	monitoringNamespace string,
 	mcfg *maasv1alpha1.Config,
 ) (*RunResult, error) {
+	return RunPlatformWithReader(ctx, log, c, c, scheme, tenant, platformContext, manifestPath,
+		appNs, controllerNs, clusterAudience, monitoringNamespace, mcfg)
+}
+
+// RunPlatformWithReader is RunPlatform with an uncached API reader for safety-
+// critical migration decisions. The controller's cached client can lag an
+// ExternalModel or IPP ConfigMap update when the one-shot cleanup reconcile is
+// triggered. A stale read must never authorize deletion of legacy translation
+// state.
+func RunPlatformWithReader(
+	ctx context.Context,
+	log logr.Logger,
+	c client.Client,
+	apiReader client.Reader,
+	scheme *runtime.Scheme,
+	tenant client.Object,
+	platformContext PlatformContext,
+	manifestPath string,
+	appNs string,
+	controllerNs string,
+	clusterAudience string,
+	monitoringNamespace string,
+	mcfg *maasv1alpha1.Config,
+) (*RunResult, error) {
+	if apiReader == nil {
+		apiReader = c
+	}
 	manifestPath, err := filepath.Abs(manifestPath)
 	if err != nil {
 		return nil, fmt.Errorf("manifest path: %w", err)
@@ -129,7 +156,7 @@ func RunPlatform(
 	// payload-processing names — ai-gateway-controller owns them for praxis tenants.
 	// A blocked plugins ConfigMap gate skips only that cleanup; apply/sync/readiness
 	// for non-IPP resources still run so the rest of the tenant stays current.
-	switchOutcome, err := reconcilePayloadProcessingSwitch(ctx, c, tenant, &params, mcfg, log)
+	switchOutcome, err := reconcilePayloadProcessingSwitch(ctx, c, apiReader, tenant, &params, mcfg, log)
 	if err != nil {
 		return nil, err
 	}
@@ -166,15 +193,17 @@ func RunPlatform(
 		return &RunResult{DeploymentPending: true, Detail: withMigrationBlockedDetail(detail, switchOutcome.blockedReason), Warnings: params.Warnings,
 			KuadrantDetectionWarning: params.KuadrantDetectionWarning}, nil
 	}
-	if !params.SkipIPP {
-		ready, detail, err = PayloadProcessingEnvoyFilterReady(ctx, c, params.GatewayNamespace, params.GatewayName, tenantID)
-		if err != nil {
-			return nil, fmt.Errorf("payload-processing EnvoyFilter status: %w", err)
-		}
-		if !ready {
-			return &RunResult{DeploymentPending: true, Detail: withMigrationBlockedDetail(detail, switchOutcome.blockedReason), Warnings: params.Warnings,
-				KuadrantDetectionWarning: params.KuadrantDetectionWarning}, nil
-		}
+	// Shared EnvoyFilter shape check for both legacy IPP and praxis (AGC).
+	// Praxis tenants skip *applying* IPP resources (SkipIPP) but still wait on
+	// the same gateway-namespace EnvoyFilter AGC owns — do not gate this on
+	// SkipIPP or Ready deadlocks with AGC's former Active requirement.
+	ready, detail, err = PayloadProcessingEnvoyFilterReady(ctx, c, params.GatewayNamespace, params.GatewayName, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("payload-processing EnvoyFilter status: %w", err)
+	}
+	if !ready {
+		return &RunResult{DeploymentPending: true, Detail: withMigrationBlockedDetail(detail, switchOutcome.blockedReason), Warnings: params.Warnings,
+			KuadrantDetectionWarning: params.KuadrantDetectionWarning}, nil
 	}
 	if switchOutcome.blockedReason != "" {
 		return &RunResult{DeploymentPending: true, Detail: switchOutcome.blockedReason, Warnings: params.Warnings,
@@ -205,6 +234,7 @@ func withMigrationBlockedDetail(detail, blockedReason string) string {
 func reconcilePayloadProcessingSwitch(
 	ctx context.Context,
 	c client.Client,
+	apiReader client.Reader,
 	tenant client.Object,
 	params *PlatformParams,
 	mcfg *maasv1alpha1.Config,
@@ -222,8 +252,15 @@ func reconcilePayloadProcessingSwitch(
 					return payloadProcessingSwitchOutcome{}, fmt.Errorf("clear payload-processing migration annotation: %w", err)
 				}
 			}
+			if err := appendAcceptedAPITranslationMigrationRiskWarning(ctx, apiReader, tenant, params); err != nil {
+				return payloadProcessingSwitchOutcome{}, err
+			}
+		case PayloadProcessingStatusSteady:
+			if err := appendAcceptedAPITranslationMigrationRiskWarning(ctx, apiReader, tenant, params); err != nil {
+				return payloadProcessingSwitchOutcome{}, err
+			}
 		case "":
-			gate, gateErr := evaluatePluginsConfigMapMigration(ctx, c, *params, tenant)
+			gate, gateErr := evaluatePluginsConfigMapMigration(ctx, apiReader, *params, tenant)
 			if gateErr != nil {
 				return payloadProcessingSwitchOutcome{}, fmt.Errorf("evaluate plugins ConfigMap migration: %w", gateErr)
 			}
@@ -238,6 +275,64 @@ func reconcilePayloadProcessingSwitch(
 				return payloadProcessingSwitchOutcome{blockedReason: gate.Reason}, nil
 			}
 			log.Info("plugins ConfigMap migration gate allow", "baseline", gate.Baseline, "reason", gate.Reason)
+			intent, err := persistAPITranslationMigrationIntent(
+				ctx, c, apiReader, tenant, gate.Baseline == "default+response-api-translation",
+			)
+			if err != nil {
+				return payloadProcessingSwitchOutcome{}, fmt.Errorf("prepare API translation migration intent before IPP cleanup: %w", err)
+			}
+			affectedModels, err := legacyIPPTranslationModels(ctx, apiReader, *params, tenant)
+			if err != nil {
+				blockedReason := fmt.Sprintf("cannot assess legacy IPP translation compatibility (%v); keeping the IPP ConfigMap and resources", err)
+				if err := setPayloadProcessingMigrationAnnotation(ctx, c, tenant, PayloadProcessingMigrationBlocked); err != nil {
+					return payloadProcessingSwitchOutcome{}, fmt.Errorf("mark API translation compatibility migration blocked: %w", err)
+				}
+				params.Warnings = append(params.Warnings, blockedReason)
+				return payloadProcessingSwitchOutcome{blockedReason: blockedReason}, nil
+			}
+			if len(affectedModels) > 0 {
+				compatibilityRisk := apiTranslationCompatibilityRisk(affectedModels)
+				switch {
+				case gate.Forced:
+					params.Warnings = append(params.Warnings, forcedMigrationReason(compatibilityRisk, true))
+				case intent.Explicit && !intent.Enabled:
+					params.Warnings = append(params.Warnings, compatibilityRisk+"; explicit spec.apiTranslation.enabled=false accepts this compatibility loss")
+				default:
+					blockedReason := fmt.Sprintf(
+						"%s; keeping the IPP ConfigMap and resources. Set spec.apiTranslation.enabled=false to explicitly accept the loss or set %s=true after reviewing the risk. This does not establish parity.",
+						compatibilityRisk,
+						AnnotationForcePayloadProcessingMigration,
+					)
+					log.Info("blocking IPP→Praxis migration because provider translation is not available", "reason", blockedReason)
+					if err := setPayloadProcessingMigrationAnnotation(ctx, c, tenant, PayloadProcessingMigrationBlocked); err != nil {
+						return payloadProcessingSwitchOutcome{}, fmt.Errorf("mark API translation compatibility migration blocked: %w", err)
+					}
+					params.Warnings = append(params.Warnings, blockedReason)
+					return payloadProcessingSwitchOutcome{blockedReason: blockedReason}, nil
+				}
+			}
+			acceptedRisk := ""
+			if len(affectedModels) > 0 {
+				switch {
+				case gate.Forced:
+					acceptedRisk = APITranslationMigrationRiskForced
+				case intent.Explicit && !intent.Enabled:
+					acceptedRisk = APITranslationMigrationRiskExplicitFalse
+				}
+			} else if gate.Baseline == "force" {
+				// A force migration of a customized IPP ConfigMap is a durable
+				// compatibility choice even when no current ExternalModel needs
+				// provider-format translation.
+				acceptedRisk = APITranslationMigrationRiskForced
+			}
+			if acceptedRisk != "" {
+				if err := persistAPITranslationMigrationRisk(ctx, c, tenant, acceptedRisk); err != nil {
+					return payloadProcessingSwitchOutcome{}, fmt.Errorf("persist accepted API translation migration risk before IPP cleanup: %w", err)
+				}
+			}
+			if gate.Forced {
+				params.Warnings = append(params.Warnings, gate.Reason)
+			}
 			if err := cleanupIPPResources(ctx, c, *params, mcfg.UID, log); err != nil {
 				return payloadProcessingSwitchOutcome{}, fmt.Errorf("cleanup IPP resources: %w", err)
 			}
@@ -1005,6 +1100,46 @@ func cleanupLegacyMaaSAPIGatewayNetworkPolicy(
 		log.V(1).Info("Skipping legacy maas-api gateway NetworkPolicy cleanup; not managed by maas-controller",
 			"name", baseMaaSAPIGatewayNetworkPolicyName, "namespace", appNs)
 		return nil
+	}
+
+	tenantConfigs := &maasv1alpha1.MaasTenantConfigList{}
+	if err := c.List(ctx, tenantConfigs); err != nil {
+		return fmt.Errorf("list MaasTenantConfigs before gateway NetworkPolicy cleanup: %w", err)
+	}
+	for i := range tenantConfigs.Items {
+		tenantConfig := &tenantConfigs.Items[i]
+		if !tenantConfig.DeletionTimestamp.IsZero() {
+			continue
+		}
+		tenantID, err := TenantIdentifierFor(tenantConfig)
+		if err != nil {
+			return fmt.Errorf("resolve tenant identifier for %s/%s before gateway NetworkPolicy cleanup: %w",
+				tenantConfig.Namespace, tenantConfig.Name, err)
+		}
+		scopedName := MaaSAPIGatewayNetworkPolicyName(tenantID)
+		scopedPolicy := &unstructured.Unstructured{}
+		scopedPolicy.SetGroupVersionKind(GVKNetworkPolicy)
+		if err := c.Get(ctx, types.NamespacedName{Namespace: appNs, Name: scopedName}, scopedPolicy); err != nil {
+			if apierrors.IsNotFound(err) {
+				log.Info("Deferring legacy maas-api gateway NetworkPolicy cleanup; tenant scoped policy is missing",
+					"sharedName", baseMaaSAPIGatewayNetworkPolicyName,
+					"scopedName", scopedName,
+					"namespace", appNs,
+					"tenantNamespace", tenantConfig.Namespace,
+					"tenantName", tenantConfig.Name)
+				return nil
+			}
+			return fmt.Errorf("get tenant scoped NetworkPolicy %s/%s: %w", appNs, scopedName, err)
+		}
+		if !isMaaSManagedNetworkPolicy(scopedPolicy, configUID) {
+			log.Info("Deferring legacy maas-api gateway NetworkPolicy cleanup; tenant scoped policy is not managed by maas-controller",
+				"sharedName", baseMaaSAPIGatewayNetworkPolicyName,
+				"scopedName", scopedName,
+				"namespace", appNs,
+				"tenantNamespace", tenantConfig.Namespace,
+				"tenantName", tenantConfig.Name)
+			return nil
+		}
 	}
 
 	log.Info("Deleting legacy shared maas-api gateway NetworkPolicy",
