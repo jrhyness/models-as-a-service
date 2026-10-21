@@ -930,17 +930,21 @@ def external_model_reports_maas_route(model_name: str, model_namespace: str) -> 
 
 # ─── HTTPRoute discovery per attachment ─────────────────────────────────────
 
-EXTERNAL_MODEL_ROUTE_LABEL = "inference.opendatahub.io/external-model"
-
 
 def route_is_for_model(route: dict, model_name: str) -> bool:
     """Whether an AGC-managed HTTPRoute belongs to the given ExternalModel.
 
-    The AGC labels every model route — tenant-local and cross-namespace
-    attachment alike — with the ExternalModel's name.
+    Route names carry the model: ``external-model-<name>`` for tenant-local
+    models and ``external-model-<name>-<hash>`` for cross-namespace
+    attachments. Matching on the name (exact, or at the ``-`` delimiter in
+    front of the attachment hash) keeps models whose names share a prefix
+    distinct. The model-name route label is not present on every AGC
+    build, so the name is the portable contract.
     """
-    labels = (route.get("metadata") or {}).get("labels") or {}
-    return labels.get(EXTERNAL_MODEL_ROUTE_LABEL) == model_name
+    route_name = (route.get("metadata") or {}).get("name") or ""
+    return route_name == f"external-model-{model_name}" or route_name.startswith(
+        f"external-model-{model_name}-"
+    )
 
 
 def attachment_httproutes(
@@ -988,10 +992,10 @@ def wait_for_attachment_httproute(
     ``accepted=False`` waits for the gateway to refuse the route (e.g.
     NotAllowedByListeners when allowedRoutes does not admit the namespace).
 
-    model_name scopes the wait to one ExternalModel's route (the AGC
-    labels routes with the model name): a namespace can host other models
-    attached to the same gateway, and an unscoped wait could pass on
-    their routes.
+    model_name scopes the wait to one ExternalModel's route (routes are
+    named after the model — see route_is_for_model): a namespace can host
+    other models attached to the same gateway, and an unscoped wait could
+    pass on their routes.
     """
     expected_reason = reason
     scope = f" for model {model_name}" if model_name else ""
