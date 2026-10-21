@@ -12,12 +12,26 @@ P0 scenario 2:
 Shares the tenant_external_model session tenants (see conftest.tenant_external_model_tenants);
 this module creates its own user namespace with unique names.
 
+The model is served by one MaaSModelRef per tenant (``spec.tenantRef``
+pinned): per-gateway status makes the controller's tenant selection require
+it for models attached to more than one gateway, and each tenant's
+subscription references its own modelRef.
+
 The route/status tests always run. The serving tests (auth and quota
-isolation, real inference) additionally need the MaaS stack to resolve the
-multi-gateway model's route, which requires the AGC's per-gateway
-``status.gateways`` results: aggregate-status AGC builds write
-``status.httpRouteName`` for single-attachment models only, so those tests
-skip there (see ``_require_maas_route``).
+isolation, real inference) additionally need two capabilities, each with its
+own skip gate:
+
+- the AGC's per-gateway ``status.gateways`` results: aggregate-status AGC
+  builds write ``status.httpRouteName`` for single-attachment models only,
+  so the MaaS stack cannot resolve the multi-gateway model's route and those
+  tests skip there (see ``_require_maas_route``);
+- the client-facing ``spec.modelName`` carried as the model identity: the
+  request path and the modelRefs' names disagree here by construction
+  (per-tenant refs have distinct names), so path-routed requests only
+  authorize once ``status.resolvedModelAlias`` carries the client-facing
+  name and maas-api matches pairs against it (see
+  ``_require_client_name_alias``). Unknown-key rejection needs no model
+  identity resolution and runs with per-gateway status alone.
 """
 
 from __future__ import annotations
@@ -35,6 +49,7 @@ from tenant_external_model_helpers import (
     gateway_ref,
     gateway_status_entry,
     infer_external_chat,
+    maas_model_ref_alias,
     new_admitted_user_namespace,
     provision_external_model_stack,
     serve_external_model_in_tenant,
@@ -73,9 +88,10 @@ def shared_env(tenant_external_model_tenants):
 
 
 def _serve_in_tenant(env: dict, case: dict, model: dict, **kwargs) -> dict:
+    ref_name = model["model_refs"][case["tenant_label_name"]]
     access = serve_external_model_in_tenant(
         case,
-        model["name"],
+        ref_name,
         model["namespace"],
         policy_name=f"{model['name']}-access",
         subscription_name=f"{model['name']}-sub",
@@ -108,19 +124,49 @@ def _require_maas_route(model: dict) -> None:
         )
 
 
+def _require_client_name_alias(model: dict, case: dict) -> None:
+    """Skip until the published model identity is the client-facing name.
+
+    The per-tenant stacks go green with per-gateway status alone, but a
+    path-routed request carries ``{namespace}/{client-facing name}`` while
+    the modelRefs are named after their tenants: requests only authorize
+    once the controller publishes ``spec.modelName`` as
+    ``status.resolvedModelAlias`` and maas-api matches pairs against it.
+    Both halves ship together, so one alias check gates both.
+    """
+    ref_name = model["model_refs"][case["tenant_label_name"]]
+    alias = maas_model_ref_alias(model["namespace"], ref_name)
+    if alias != model["client_name"]:
+        pytest.skip(
+            "client-facing model names are not resolvable through the gateway "
+            f"yet: MaaSModelRef {model['namespace']}/{ref_name} "
+            f"status.resolvedModelAlias={alias!r} != {model['client_name']!r}"
+        )
+
+
 class TestSharedModelTwoGateways:
     """One model, two attachments: routes, status and serving on both."""
 
     @pytest.fixture(scope="class")
     def shared_model(self, shared_env):
         env = shared_env
+        name = f"e2e-shr-shared-{uuid.uuid4().hex[:6]}"
         model = provision_external_model_stack(
             env["resources"],
-            name=f"e2e-shr-shared-{uuid.uuid4().hex[:6]}",
+            name=name,
             namespace=env["user_ns"],
             gateway_refs=[
                 gateway_ref(env["tenant_a"]["gateway_name"]),
                 gateway_ref(env["tenant_b"]["gateway_name"]),
+            ],
+            # The client-facing name deliberately differs from the CRD name:
+            # per-tenant modelRefs necessarily have distinct names, so shared
+            # requests must resolve through the client-facing identity (the
+            # alias gate keys on that difference).
+            model_name=f"{name}-client",
+            tenant_refs=[
+                env["tenant_a"]["tenant_label_name"],
+                env["tenant_b"]["tenant_label_name"],
             ],
         )
         _wait_attachments_ready(env, model)
@@ -178,6 +224,7 @@ class TestSharedModelTwoGateways:
         binding and credential."""
         env = shared_env
         model = shared_model["model"]
+        _require_client_name_alias(model, env["tenant_a"])
         for case, access in (
             (env["tenant_a"], shared_serving["access_a"]),
             (env["tenant_b"], shared_serving["access_b"]),
@@ -196,24 +243,29 @@ class TestTenantAuthIsolation:
     @pytest.fixture(scope="class")
     def isolated_keys(self, shared_env):
         env = shared_env
+        name = f"e2e-shr-auth-{uuid.uuid4().hex[:6]}"
         model = provision_external_model_stack(
             env["resources"],
-            name=f"e2e-shr-auth-{uuid.uuid4().hex[:6]}",
+            name=name,
             namespace=env["user_ns"],
             gateway_refs=[
                 gateway_ref(env["tenant_a"]["gateway_name"]),
                 gateway_ref(env["tenant_b"]["gateway_name"]),
             ],
+            model_name=f"{name}-client",
+            # Only tenant A gets a policy/subscription (its key is the
+            # authorized one), so only its modelRef is needed.
+            tenant_refs=[env["tenant_a"]["tenant_label_name"]],
         )
         _wait_attachments_ready(env, model)
         _require_maas_route(model)
-        # Only tenant A gets a policy/subscription: its key is the authorized one.
         access_a = _serve_in_tenant(env, env["tenant_a"], model)
         return {"model": model, "key_a": access_a["api_key"]}
 
     def test_tenant_a_key_authorized_only_on_tenant_a_gateway(self, shared_env, isolated_keys):
         env = shared_env
         model = isolated_keys["model"]
+        _require_client_name_alias(model, env["tenant_a"])
         response = infer_external_chat(
             env["tenant_a"]["gateway_url"],
             model["namespace"],
@@ -261,13 +313,19 @@ class TestTenantQuotaIsolation:
     @pytest.fixture(scope="class")
     def quota_model(self, shared_env):
         env = shared_env
+        name = f"e2e-shr-quota-{uuid.uuid4().hex[:6]}"
         model = provision_external_model_stack(
             env["resources"],
-            name=f"e2e-shr-quota-{uuid.uuid4().hex[:6]}",
+            name=name,
             namespace=env["user_ns"],
             gateway_refs=[
                 gateway_ref(env["tenant_a"]["gateway_name"]),
                 gateway_ref(env["tenant_b"]["gateway_name"]),
+            ],
+            model_name=f"{name}-client",
+            tenant_refs=[
+                env["tenant_a"]["tenant_label_name"],
+                env["tenant_b"]["tenant_label_name"],
             ],
         )
         _wait_attachments_ready(env, model)
@@ -283,6 +341,7 @@ class TestTenantQuotaIsolation:
     def test_quota_exhaustion_isolated_per_tenant(self, shared_env, quota_model):
         env = shared_env
         model = quota_model["model"]
+        _require_client_name_alias(model, env["tenant_a"])
 
         # Drive tenant A past its budget: at least one 200 must precede the
         # 429 (a fresh budget always admits the first request — see

@@ -591,13 +591,23 @@ def apply_maas_model_ref_for_external(
     *,
     endpoint: str = EXTERNAL_ENDPOINT,
     provider: str = "openai",
+    ref_name: str | None = None,
+    tenant_ref: str | None = None,
 ) -> dict:
-    """Create the MaaSModelRef pointing at an ExternalModel (same name/ns)."""
+    """Create the MaaSModelRef pointing at an ExternalModel (same name/ns).
+
+    ``ref_name`` names the MaaSModelRef differently from the ExternalModel:
+    per-tenant modelRefs for a shared model must have distinct names, since
+    ``spec.modelRef`` resolves within the modelRef's own namespace.
+    ``tenant_ref`` pins the modelRef's tenant selection (``spec.tenantRef``)
+    so a model attached to several gateways resolves one attachment per
+    modelRef instead of an ambiguous multi-gateway selection.
+    """
     model_ref = {
         "apiVersion": "maas.opendatahub.io/v1alpha1",
         "kind": "MaaSModelRef",
         "metadata": {
-            "name": name,
+            "name": ref_name or name,
             "namespace": namespace,
             "annotations": {
                 "maas.opendatahub.io/endpoint": endpoint,
@@ -606,6 +616,8 @@ def apply_maas_model_ref_for_external(
         },
         "spec": {"modelRef": {"kind": "ExternalModel", "name": name}},
     }
+    if tenant_ref:
+        model_ref["spec"]["tenantRef"] = tenant_ref
     _apply_cr(model_ref)
     return model_ref
 
@@ -617,6 +629,7 @@ def provision_external_model_stack(
     namespace: str,
     gateway_refs: list[dict[str, str]] | None = None,
     model_name: str | None = None,
+    tenant_refs: list[str] | None = None,
     provider_name: str | None = None,
     provider_namespace: str | None = None,
     credential: str | None = None,
@@ -631,9 +644,18 @@ def provision_external_model_stack(
     ExternalModel + MaaSModelRef. ``override_credential`` additionally creates
     a model-namespace Secret wired as the per-model auth override.
 
+    ``tenant_refs`` serves a model shared across tenant gateways: instead of
+    one tenantRef-less MaaSModelRef named after the model, it creates one
+    modelRef per tenant (``<name>-<tenant>``, ``spec.tenantRef`` pinned).
+    Per-gateway status makes the controller's tenant selection require
+    ``spec.tenantRef`` for models attached to more than one gateway, and the
+    per-tenant modelRefs each select their own tenant's attachment.
+
     Returns identifiers used by the assertions: metadata/client names, the
     provider binding's echo ``path_tag`` (identifies which provider served a
     request) and the credential markers (identify which Secret was injected).
+    ``model_refs`` maps each tenant to its modelRef name (empty for the
+    default single-modelRef shape).
     """
     suffix = uuid.uuid4().hex[:6]
     credential = credential or f"sk-extmod-{suffix}"
@@ -669,12 +691,27 @@ def provision_external_model_stack(
         credential_secret=override_secret,
     )
     resources.track(EXTERNAL_MODEL_KIND, name, namespace)
-    apply_maas_model_ref_for_external(name, namespace, endpoint=endpoint)
-    resources.track("maasmodelref", name, namespace)
+    model_refs: dict[str, str] = {}
+    if tenant_refs:
+        for tenant_ref in tenant_refs:
+            ref_name = f"{name}-{tenant_ref}"
+            apply_maas_model_ref_for_external(
+                name,
+                namespace,
+                endpoint=endpoint,
+                ref_name=ref_name,
+                tenant_ref=tenant_ref,
+            )
+            resources.track("maasmodelref", ref_name, namespace)
+            model_refs[tenant_ref] = ref_name
+    else:
+        apply_maas_model_ref_for_external(name, namespace, endpoint=endpoint)
+        resources.track("maasmodelref", name, namespace)
     return {
         "name": name,
         "namespace": namespace,
         "client_name": model_name or name,
+        "model_refs": model_refs,
         "provider": provider_name,
         "provider_namespace": provider_namespace,
         "secret_name": secret_name,
