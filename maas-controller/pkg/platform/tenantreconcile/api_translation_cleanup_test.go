@@ -3,6 +3,7 @@ package tenantreconcile
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -81,7 +82,17 @@ func TestRunPlatformBlocksMigrationWhenExternalModelAssessmentFails(t *testing.T
 			require.Contains(t, result.Detail, "cannot assess legacy IPP translation compatibility")
 			require.Contains(t, result.Detail, test.err.Error())
 			require.Contains(t, result.Detail, "keeping the IPP ConfigMap and resources")
-			require.Contains(t, result.Warnings, result.Detail)
+			// The EnvoyFilter readiness check is shared with praxis tenants
+			// (not gated on SkipIPP), so the pending detail composes the
+			// missing EnvoyFilter prerequisite with the migration-block
+			// reason, while the warnings carry the reason itself.
+			require.Contains(t, result.Detail, "migration blocked:")
+			require.Contains(t, result.Detail, fmt.Sprintf(
+				"EnvoyFilter %s/%s not found", gatewayNS, PayloadProcessingEnvoyFilterName(tenantName)))
+			require.Len(t, result.Warnings, 1)
+			require.Contains(t, result.Warnings[0], "cannot assess legacy IPP translation compatibility")
+			require.Contains(t, result.Warnings[0], test.err.Error())
+			require.Contains(t, result.Warnings[0], "keeping the IPP ConfigMap and resources")
 
 			stored := &maasv1alpha1.MaasTenantConfig{}
 			require.NoError(t, base.Get(context.Background(), client.ObjectKeyFromObject(tenant), stored))
