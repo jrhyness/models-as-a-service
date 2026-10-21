@@ -250,7 +250,9 @@ class TestAttachmentLifecycleCleanup:
         # Baseline: both attachments are live at the serving-config level.
         for case in (tenant_a, tenant_b):
             wait_for_gateway_attachment_ready(model["name"], model["namespace"], case["gateway_name"])
-            wait_for_attachment_httproute(model["namespace"], case["gateway_name"])
+            wait_for_attachment_httproute(
+                model["namespace"], case["gateway_name"], model_name=model["name"]
+            )
             wait_for_credential_copy(case["tenant_ns"], model["secret_name"], model["secret_namespace"])
 
         patch_external_model_gateway_refs(
@@ -258,7 +260,9 @@ class TestAttachmentLifecycleCleanup:
         )
 
         wait_for_gateway_attachment_absent(model["name"], model["namespace"], tenant_a["gateway_name"])
-        wait_for_no_attachment_httproute(model["namespace"], tenant_a["gateway_name"])
+        wait_for_no_attachment_httproute(
+            model["namespace"], tenant_a["gateway_name"], model_name=model["name"]
+        )
         wait_for_no_credential_copy(
             tenant_a["tenant_ns"], model["secret_name"], model["secret_namespace"]
         )
@@ -306,7 +310,9 @@ class TestAttachmentLifecycleCleanup:
         _delete_cr(EXTERNAL_MODEL_KIND, model["name"], model["namespace"])
 
         for case in (tenant_a, tenant_b):
-            wait_for_no_attachment_httproute(model["namespace"], case["gateway_name"])
+            wait_for_no_attachment_httproute(
+                model["namespace"], case["gateway_name"], model_name=model["name"]
+            )
             wait_for_no_credential_copy(
                 case["tenant_ns"], model["secret_name"], model["secret_namespace"]
             )

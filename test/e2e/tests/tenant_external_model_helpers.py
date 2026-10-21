@@ -927,6 +927,18 @@ def external_model_reports_maas_route(model_name: str, model_namespace: str) -> 
 
 # ─── HTTPRoute discovery per attachment ─────────────────────────────────────
 
+EXTERNAL_MODEL_ROUTE_LABEL = "inference.opendatahub.io/external-model"
+
+
+def route_is_for_model(route: dict, model_name: str) -> bool:
+    """Whether an AGC-managed HTTPRoute belongs to the given ExternalModel.
+
+    The AGC labels every model route — tenant-local and cross-namespace
+    attachment alike — with the ExternalModel's name.
+    """
+    labels = (route.get("metadata") or {}).get("labels") or {}
+    return labels.get(EXTERNAL_MODEL_ROUTE_LABEL) == model_name
+
 
 def attachment_httproutes(
     route_namespace: str,
@@ -962,6 +974,7 @@ def wait_for_attachment_httproute(
     route_namespace: str,
     gateway_name: str,
     *,
+    model_name: str | None = None,
     gateway_namespace: str = GATEWAY_NAMESPACE,
     accepted: bool = True,
     reason: str | None = None,
@@ -971,12 +984,23 @@ def wait_for_attachment_httproute(
 
     ``accepted=False`` waits for the gateway to refuse the route (e.g.
     NotAllowedByListeners when allowedRoutes does not admit the namespace).
+
+    model_name scopes the wait to one ExternalModel's route (the AGC
+    labels routes with the model name): a namespace can host other models
+    attached to the same gateway, and an unscoped wait could pass on
+    their routes.
     """
     expected_reason = reason
+    scope = f" for model {model_name}" if model_name else ""
 
     def _check() -> list[dict]:
         routes = attachment_httproutes(route_namespace, gateway_name, gateway_namespace)
-        assert routes, f"no HTTPRoute in {route_namespace} attached to {gateway_namespace}/{gateway_name}"
+        if model_name is not None:
+            routes = [r for r in routes if route_is_for_model(r, model_name)]
+        assert routes, (
+            f"no HTTPRoute in {route_namespace} attached to "
+            f"{gateway_namespace}/{gateway_name}{scope}"
+        )
         for route in routes:
             conditions = {
                 c.get("type"): c for c in httproute_parent_conditions(route, gateway_name, gateway_namespace)
@@ -1000,7 +1024,7 @@ def wait_for_attachment_httproute(
     return wait_until(
         _check,
         timeout or TENANT_EXTERNAL_MODEL_READY_TIMEOUT,
-        f"HTTPRoute in {route_namespace} attached to {gateway_namespace}/{gateway_name} "
+        f"HTTPRoute in {route_namespace} attached to {gateway_namespace}/{gateway_name}{scope} "
         f"(accepted={accepted}, reason={expected_reason!r})",
     )
 
@@ -1009,18 +1033,30 @@ def wait_for_no_attachment_httproute(
     route_namespace: str,
     gateway_name: str,
     *,
+    model_name: str | None = None,
     gateway_namespace: str = GATEWAY_NAMESPACE,
     timeout: int | None = None,
 ) -> None:
+    """Wait until no HTTPRoute remains attached to the gateway.
+
+    model_name scopes the wait to one ExternalModel's route: a namespace
+    can legitimately host other models attached to the same gateway (the
+    lifecycle tests share user namespaces and gateways), so an unscoped
+    absence check would fail on their routes.
+    """
+    scope = f" for model {model_name}" if model_name else ""
+
     def _check() -> bool:
         routes = attachment_httproutes(route_namespace, gateway_name, gateway_namespace)
+        if model_name is not None:
+            routes = [r for r in routes if route_is_for_model(r, model_name)]
         assert not routes, f"stale HTTPRoute(s) still attached: {[r['metadata']['name'] for r in routes]}"
         return True
 
     return wait_until(
         _check,
         timeout or TENANT_EXTERNAL_MODEL_READY_TIMEOUT,
-        f"no HTTPRoute in {route_namespace} attached to {gateway_namespace}/{gateway_name}",
+        f"no HTTPRoute in {route_namespace} attached to {gateway_namespace}/{gateway_name}{scope}",
     )
 
 
