@@ -36,14 +36,17 @@ on observable behavior rather than assumed resource names):
   and rewrites the matched prefix to ``/``, so whatever the client appends
   after the model name reaches the provider verbatim (OpenAI-style clients
   append ``/v1/chat/completions``; the echo endpoint serves
-  ``/anything/<tag>``). Body-routed requests keep their original path
-  (hostname rewrite only) and must be sent to ``/v1/*``: only there does
-  the gateway auth derive model identity from the X-Gateway-Model-Name
-  header rather than the URL path. The MaaSModelRef ``status.endpoint`` is
-  never used as a request base: it only identifies the serving gateway (it
-  may be a cluster-local address and carries no model path). The AGC names
-  the provider's ExternalName Service in the model namespace
-  ``provider-<ExternalModelProvider name>``.
+  ``/anything/<tag>``). Models whose client-facing modelName differs from
+  their CRD name cannot be called on this stack: the gateway auth resolves
+  model identities from MaaSModelRef names and
+  ``status.resolvedModelAlias`` (which the controller publishes from the
+  ExternalModel CRD name) while the routes match the client-facing name —
+  the conflicts module gates its same-named serving proof on that gap. The
+  MaaSModelRef ``status.endpoint`` is never used as a request base: it
+  only identifies the serving gateway (it may be a cluster-local address
+  and carries no model path). The AGC names the provider's ExternalName
+  Service in the model namespace ``provider-<ExternalModelProvider
+  name>``.
 
 Environment variables:
 - E2E_EXTERNAL_ENDPOINT: external echo endpoint FQDN (default: httpbingo.org)
@@ -1202,6 +1205,19 @@ def external_model_route_name(model_name: str) -> str:
     return f"external-model-{model_name}"
 
 
+def maas_model_ref_alias(namespace: str, name: str) -> str:
+    """The MaaSModelRef's ``status.resolvedModelAlias``.
+
+    The controller publishes this as the model identity the gateway auth
+    resolves for client-facing names. While it carries the ExternalModel
+    CRD name instead of the client-facing ``spec.modelName``, models whose
+    client-facing name differs from their CRD name cannot be called
+    through the gateway (the routes match the client-facing name).
+    """
+    ref = get_json_or_none("maasmodelref", name, namespace) or {}
+    return ((ref.get("status") or {}).get("resolvedModelAlias")) or ""
+
+
 def echo_provider_path(path_tag: str) -> str:
     """Provider path of an echo binding: the external endpoint echoes any
     request under ``/anything/<tag>``.
@@ -1298,101 +1314,6 @@ def infer_external_chat(
     }
     return _post_with_retries(
         url, headers, body, retries=retries, delay=delay, label=f"inference via {gateway_url}"
-    )
-
-
-def infer_bbr_chat(
-    gateway_url: str,
-    client_model_name: str,
-    api_key: str,
-    *,
-    content: str = "tenant external model e2e",
-    retries: int = 6,
-    delay: int = 5,
-) -> requests.Response:
-    """POST a body-routed chat completion to the gateway's /v1 endpoint.
-
-    Used where the client-facing modelName (not the URL path) selects the
-    model. Two contracts fix the request shape:
-
-    - The gateway auth derives model identity from X-Gateway-Model-Name
-      only on /v1/* paths; any other path with two or more segments is
-      read as a path-routed ``{namespace}/{model}`` identity and the
-      request is denied as an unknown model.
-    - The header-matched route rule forwards the ORIGINAL request path
-      (hostname rewrite only), so the echo endpoint receives
-      ``/v1/chat/completions`` and answers with its 404 page — that body
-      is the proof the request reached the provider (see
-      assert_routed_to_echo_provider).
-
-    Retries until the response carries the echo endpoint's signature or a
-    stable denial; empty-bodied 404s (no route matched yet) retry.
-    """
-    url = f"{gateway_url.rstrip('/')}/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "X-Gateway-Model-Name": client_model_name,
-    }
-    body = {
-        "model": client_model_name,
-        "messages": [{"role": "user", "content": content}],
-        "max_tokens": 8,
-    }
-    response = None
-    for attempt in range(1, retries + 1):
-        response = requests.post(url, headers=headers, json=body, timeout=45, verify=TLS_VERIFY)
-        if _reached_echo_endpoint(response):
-            return response
-        if _bbr_transient(response) and attempt < retries:
-            log.info(
-                "body-routed inference via %s got %d (attempt %d/%d), retrying in %ds",
-                gateway_url,
-                response.status_code,
-                attempt,
-                retries,
-                delay,
-            )
-            time.sleep(delay)
-            continue
-        return response
-    return response
-
-
-def _reached_echo_endpoint(response: requests.Response) -> bool:
-    """The echo endpoint's signature: a 200, or its Go 404 page for a path
-    it does not serve (body-routed requests keep their /v1 path)."""
-    if response.status_code == 200:
-        return True
-    return response.status_code == 404 and "404 page not found" in (response.text or "")
-
-
-def _bbr_transient(response: requests.Response) -> bool:
-    """A body-routed response that has not reached the provider yet: an
-    empty-bodied 404 (no route matched while attachments propagate) or a
-    transient gateway response."""
-    if response.status_code == 404 and "404 page not found" not in (response.text or ""):
-        return True
-    return _looks_transient(response)
-
-
-def assert_routed_to_echo_provider(response: requests.Response) -> None:
-    """Assert a body-routed request was authorized and reached the provider.
-
-    Body-routed requests must use /v1/* paths and the header rule forwards
-    that path unchanged, so the echo endpoint — which serves /anything/* —
-    answers with its 404 page. That body distinguishes "reached the
-    provider" from an unmatched route (empty 404) and an auth denial (403
-    JSON). A credential-level proof is not possible body-routed, and
-    path-based inference is not authorizable for models whose client-facing
-    modelName differs from their CRD name: the gateway auth matches
-    ``{namespace}/{name}`` path identities against MaaSModelRef names only
-    (bare names resolve against spec.modelName, i.e. body-routed only).
-    """
-    assert _reached_echo_endpoint(response), (
-        f"expected the body-routed request to reach the echo provider "
-        f"(200 or its 404 page), got {response.status_code}: "
-        f"{redact_sensitive(response.text)}"
     )
 
 

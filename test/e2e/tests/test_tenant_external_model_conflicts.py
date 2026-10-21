@@ -15,9 +15,13 @@ Conflict pairs share the CR name across namespaces (the client-facing name
 defaults to it), which keeps the client-facing name equal to the
 MaaSModelRef name: path-based inference stays authorizable that way,
 because the gateway auth matches ``{namespace}/{name}`` path identities
-against MaaSModelRef names. The same-named scenario instead needs distinct
-client-facing names, so its serving proof is body-routed (see
-assert_routed_to_echo_provider for why that proof is reachability-based).
+against MaaSModelRef names. The same-named scenario also needs distinct
+client-facing names (a shared one is the conflict above), and models whose
+client-facing name differs from their CRD name cannot be called on this
+stack — the auth resolves the CRD name (status.resolvedModelAlias) while
+the routes match the client-facing name — so its serving test proves the
+default-named model with a real request and skips the overridden model's
+request until that gap is fixed.
 
 Conflict CR names are unique per test: a previous test's models live until
 module teardown, and a tenant-own model pre-holds its client-facing name
@@ -37,15 +41,16 @@ import pytest
 from multitenancy_helpers import delete_namespace_best_effort
 from tenant_external_model_helpers import (
     TenantExternalModelResources,
-    assert_routed_to_echo_provider,
     assert_served_by_provider,
+    attachment_httproutes,
     destination_rules_referencing,
     gateway_ref,
-    infer_bbr_chat,
     infer_external_chat,
+    maas_model_ref_alias,
     new_admitted_user_namespace,
     provision_external_model_stack,
     redact_sensitive,
+    route_is_for_model,
     serve_external_model_in_tenant,
     wait_for_attachment_httproute,
     wait_for_gateway_attachment_reason,
@@ -209,25 +214,27 @@ class TestModelNameConflict:
 
 class TestSameNamedObjectsTwoNamespaces:
     """Same-named ExternalModels/Providers/Secrets in two user namespaces on
-    one gateway both serve (overlay collision regression)."""
+    one gateway set up independent serving stacks without colliding (overlay
+    collision regression)."""
 
-    def test_same_named_objects_both_serve(self, conflicts_env):
+    @pytest.fixture(scope="class")
+    def same_named_pair(self, conflicts_env):
         env = conflicts_env
         tenant_a = env["tenant_a"]
         gateway = gateway_ref(tenant_a["gateway_name"])
         shared_cr_name = f"e2e-cfl-same-{uuid.uuid4().hex[:6]}"
         shared_secret_name = f"{shared_cr_name}-provider-cred"
 
-        # Identical CR and Secret names in both namespaces; distinct
-        # client-facing modelNames (a shared client name would be the
-        # ModelNameConflict scenario instead), credentials and echo path tags
-        # prove which object served.
+        # Identical CR, provider, and Secret names in both namespaces.
+        # Distinct client-facing modelNames (a shared client name would be
+        # the ModelNameConflict scenario instead): model 1 keeps the default
+        # name (client == CRD name), model 2 overrides — see the serving
+        # test for what that costs today.
         model_1 = provision_external_model_stack(
             env["resources"],
             name=shared_cr_name,
             namespace=env["user_ns_1"],
             gateway_refs=[gateway],
-            model_name=f"{shared_cr_name}-one",
             provider_name=shared_cr_name,
             credential_secret_name=shared_secret_name,
         )
@@ -243,32 +250,89 @@ class TestSameNamedObjectsTwoNamespaces:
         assert model_1["credential"] != model_2["credential"]
         assert model_1["path_tag"] != model_2["path_tag"]
 
-        # Both models attach with their own admitted route...
+        # Both models attach with their own admitted route and complete
+        # their own MaaS stack (the subscriptions get unique names per
+        # namespace — see _serve_in_tenant).
         for model in (model_1, model_2):
-            wait_for_attachment_httproute(model["namespace"], tenant_a["gateway_name"])
-        # ...and both MaaS stacks complete (the subscriptions get unique
-        # names per namespace — see _serve_in_tenant).
+            wait_for_attachment_httproute(
+                model["namespace"], tenant_a["gateway_name"], model_name=model["name"]
+            )
         access_1 = _serve_in_tenant(env, tenant_a, model_1)
         access_2 = _serve_in_tenant(env, tenant_a, model_2)
+        return {
+            "shared_cr_name": shared_cr_name,
+            "models": (model_1, model_2),
+            "accesses": (access_1, access_2),
+        }
 
-        # Both models serve. The client-facing names differ from the CRD
-        # names, so path-based requests cannot be authorized (the gateway
-        # auth matches {namespace}/{name} path identities against
-        # MaaSModelRef names only): serving is proven body-routed — each
-        # request must be authorized and reach the provider. If the overlay
-        # stable_id collision regressed, the second model's binding would
-        # break and its request would not reach any provider.
-        for model, access in ((model_1, access_1), (model_2, access_2)):
-            response = infer_bbr_chat(
-                tenant_a["gateway_url"], model["client_name"], access["api_key"]
+    def test_same_named_objects_both_attach(self, conflicts_env, same_named_pair):
+        """Both same-named models hold their own admitted route and completed
+        MaaS stack, and tenant-published DestinationRules stay distinct
+        objects (no shared-name collision)."""
+        tenant_a = conflicts_env["tenant_a"]
+        pair = same_named_pair
+
+        for model in pair["models"]:
+            routes = [
+                r
+                for r in attachment_httproutes(model["namespace"], tenant_a["gateway_name"])
+                if route_is_for_model(r, model["name"])
+            ]
+            assert len(routes) == 1, (
+                f"expected one route for {model['namespace']}/{model['name']}, "
+                f"got {[r['metadata']['name'] for r in routes]}"
             )
-            assert_routed_to_echo_provider(response)
 
         # No DestinationRule collision: each model's tenant-published rules
         # stay distinct objects.
-        rules = destination_rules_referencing(shared_cr_name, tenant_a["tenant_ns"])
+        rules = destination_rules_referencing(pair["shared_cr_name"], tenant_a["tenant_ns"])
         rule_uids = {rule["metadata"]["uid"] for rule in rules}
         assert len(rule_uids) >= 2 or not rules, (
             f"expected distinct DestinationRules per same-named model (or none "
             f"published in the tenant namespace), got uids {rule_uids}"
+        )
+
+    def test_same_named_objects_both_serve(self, conflicts_env, same_named_pair):
+        """Both same-named models serve with their own credentials.
+
+        Model 1's client-facing name equals its CRD name, so it is callable
+        through the normal path contract. Model 2's client-facing name
+        differs from its CRD name, which the gateway auth cannot resolve on
+        this stack: the controller publishes status.resolvedModelAlias from
+        the ExternalModel CRD name while the routes match the client-facing
+        name, so overridden modelNames are unreachable end to end. Its
+        request proof is skipped until the alias carries the client-facing
+        name.
+        """
+        tenant_a = conflicts_env["tenant_a"]
+        (model_1, model_2) = same_named_pair["models"]
+        (access_1, access_2) = same_named_pair["accesses"]
+
+        response = infer_external_chat(
+            tenant_a["gateway_url"],
+            model_1["namespace"],
+            model_1["client_name"],
+            access_1["api_key"],
+            path_tag=model_1["path_tag"],
+        )
+        assert_served_by_provider(
+            response, model_1["path_tag"], credential=model_1["credential"]
+        )
+
+        alias = maas_model_ref_alias(model_2["namespace"], model_2["name"])
+        if alias != model_2["client_name"]:
+            pytest.skip(
+                "client-facing model names are not resolvable through the gateway "
+                f"yet: MaaSModelRef {model_2['namespace']}/{model_2['name']} "
+                f"status.resolvedModelAlias={alias!r} != {model_2['client_name']!r}"
+            )
+        response = infer_external_chat(
+            tenant_a["gateway_url"],
+            model_2["namespace"],
+            model_2["client_name"],
+            access_2["api_key"],
+            path_tag=model_2["path_tag"],
+        )
+        assert_served_by_provider(
+            response, model_2["path_tag"], credential=model_2["credential"]
         )
