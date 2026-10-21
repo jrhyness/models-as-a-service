@@ -65,6 +65,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from typing import Any
@@ -874,8 +875,6 @@ def wait_for_gateway_attachment_not_ready(
     regex) additionally requires the failure to mention e.g. the missing
     ReferenceGrant authorization or Secret.
     """
-    import re
-
     pattern = re.compile(message_pattern, re.IGNORECASE) if message_pattern else None
 
     def _match_condition(conditions: list[dict], where: str):
@@ -973,21 +972,34 @@ def external_model_reports_maas_route(model_name: str, model_namespace: str) -> 
 
 # ─── HTTPRoute discovery per attachment ─────────────────────────────────────
 
+# The AGC's attachment routes append shortHash — exactly 12 lowercase hex
+# characters (sha256 over ns/name/gateway-namespace/gateway-name) — after
+# the model name; see attachmentRouteName in the AGC controller.
+ATTACHMENT_ROUTE_HASH_RE = re.compile(r"[0-9a-f]{12}")
+
 
 def route_is_for_model(route: dict, model_name: str) -> bool:
     """Whether an AGC-managed HTTPRoute belongs to the given ExternalModel.
 
     Route names carry the model: ``external-model-<name>`` for tenant-local
     models and ``external-model-<name>-<hash>`` for cross-namespace
-    attachments. Matching on the name (exact, or at the ``-`` delimiter in
-    front of the attachment hash) keeps models whose names share a prefix
-    distinct. The model-name route label is not present on every AGC
-    build, so the name is the portable contract.
+    attachments, where the hash is the controller's shortHash — exactly 12
+    lowercase hex characters. Requiring that exact shape keeps models whose
+    names share a prefix distinct: model ``demo`` must not match
+    ``external-model-demo-blue``, model ``demo-blue``'s home route. (Names
+    long enough to overflow the 253-character route-name limit degrade to
+    ``external-model--<hash>``, which carries no name to match; the names
+    used here stay far below that limit.) The model-name route label is not
+    present on every AGC build, so the name is the portable contract.
     """
     route_name = (route.get("metadata") or {}).get("name") or ""
-    return route_name == f"external-model-{model_name}" or route_name.startswith(
-        f"external-model-{model_name}-"
-    )
+    base = external_model_route_name(model_name)
+    if route_name == base:
+        return True
+    prefix = f"{base}-"
+    if not route_name.startswith(prefix):
+        return False
+    return ATTACHMENT_ROUTE_HASH_RE.fullmatch(route_name[len(prefix):]) is not None
 
 
 def attachment_httproutes(
