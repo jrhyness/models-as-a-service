@@ -110,6 +110,38 @@ def _serve(env: dict, model: dict, **kwargs) -> dict:
     return access
 
 
+def _model_with_provider(
+    env: dict,
+    *,
+    name: str,
+    provider_name: str,
+    override_secret: str | None = None,
+) -> dict:
+    """Create a cross-ns model bound to a caller-managed provider."""
+    suffix = uuid.uuid4().hex[:6]
+    path_tag = f"{name}-{suffix}"
+    apply_external_model(
+        name,
+        env["model_ns"],
+        provider_name=provider_name,
+        provider_namespace=env["provider_ns"],
+        gateway_refs=[gateway_ref(env["tenant"]["gateway_name"])],
+        path_tag=path_tag,
+        credential_secret=override_secret,
+    )
+    env["resources"].track(EXTERNAL_MODEL_KIND, name, env["model_ns"])
+    apply_maas_model_ref_for_external(name, env["model_ns"])
+    env["resources"].track("maasmodelref", name, env["model_ns"])
+    return {
+        "name": name,
+        "namespace": env["model_ns"],
+        "client_name": name,
+        "provider": provider_name,
+        "provider_namespace": env["provider_ns"],
+        "path_tag": path_tag,
+    }
+
+
 def _crossns_model(env: dict, *, name: str, credential: str | None = None, override: str | None = None) -> dict:
     """A model in the model namespace referencing a provider in the provider
     namespace (no ReferenceGrant — callers add grants per scenario)."""
@@ -118,7 +150,6 @@ def _crossns_model(env: dict, *, name: str, credential: str | None = None, overr
     credential = credential or f"sk-extmod-crossns-{suffix}"
     provider_name = f"{name}-provider"
     secret_name = f"{provider_name}-cred"
-    path_tag = f"{name}-{suffix}"
 
     apply_credential_secret(secret_name, env["provider_ns"], credential)
     resources.track("secret", secret_name, env["provider_ns"])
@@ -131,29 +162,15 @@ def _crossns_model(env: dict, *, name: str, credential: str | None = None, overr
         apply_credential_secret(override_secret, env["model_ns"], override)
         resources.track("secret", override_secret, env["model_ns"])
 
-    apply_external_model(
-        name,
-        env["model_ns"],
-        provider_name=provider_name,
-        provider_namespace=env["provider_ns"],
-        gateway_refs=[gateway_ref(env["tenant"]["gateway_name"])],
-        path_tag=path_tag,
-        credential_secret=override_secret,
+    model = _model_with_provider(
+        env, name=name, provider_name=provider_name, override_secret=override_secret
     )
-    resources.track(EXTERNAL_MODEL_KIND, name, env["model_ns"])
-    apply_maas_model_ref_for_external(name, env["model_ns"])
-    resources.track("maasmodelref", name, env["model_ns"])
     return {
-        "name": name,
-        "namespace": env["model_ns"],
-        "client_name": name,
-        "provider": provider_name,
-        "provider_namespace": env["provider_ns"],
+        **model,
         "secret_name": secret_name,
         "secret_namespace": env["provider_ns"],
         "credential": credential,
         "override_credential": override,
-        "path_tag": path_tag,
     }
 
 
@@ -504,35 +521,3 @@ class TestSameNamedProvidersTwoNamespaces:
                 delete_namespace_best_effort(provider_ns_1)
             if provider_ns_2:
                 delete_namespace_best_effort(provider_ns_2)
-
-
-def _model_with_provider(
-    env: dict,
-    *,
-    name: str,
-    provider_name: str,
-    override_secret: str | None = None,
-) -> dict:
-    """Create a cross-ns model bound to a caller-managed provider."""
-    suffix = uuid.uuid4().hex[:6]
-    path_tag = f"{name}-{suffix}"
-    apply_external_model(
-        name,
-        env["model_ns"],
-        provider_name=provider_name,
-        provider_namespace=env["provider_ns"],
-        gateway_refs=[gateway_ref(env["tenant"]["gateway_name"])],
-        path_tag=path_tag,
-        credential_secret=override_secret,
-    )
-    env["resources"].track(EXTERNAL_MODEL_KIND, name, env["model_ns"])
-    apply_maas_model_ref_for_external(name, env["model_ns"])
-    env["resources"].track("maasmodelref", name, env["model_ns"])
-    return {
-        "name": name,
-        "namespace": env["model_ns"],
-        "client_name": name,
-        "provider": provider_name,
-        "provider_namespace": env["provider_ns"],
-        "path_tag": path_tag,
-    }
