@@ -3,7 +3,6 @@ package tenantreconcile
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/go-logr/logr"
