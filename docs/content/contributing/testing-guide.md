@@ -73,6 +73,7 @@ Tests are organized into **xdist groups** for parallel execution. All tests in a
 | `tenant_external_model` | `test_tenant_external_model_conflicts.py` | Multi-tenant AGC/Praxis external models: modelName conflicts, same-named objects (overlay collision regression) |
 | `tenant_external_model` | `test_tenant_external_model_compat.py` | Multi-tenant AGC/Praxis external models: omitted-gatewayRefs compatibility; legacy IPP coexistence (`serial`, gated on `TENANT_EXTERNAL_MODEL_LEGACY_IPP_E2E`) |
 | `tenant_external_model_crossns` | `test_tenant_external_model_crossns.py` | ReferenceGrant-gated cross-namespace providers (P1; gated on `TENANT_EXTERNAL_MODEL_CROSSNS_E2E`) |
+| `inference_priority` | `test_inference_priority.py` | Subscription `inferencePriority`: InferenceObjective lifecycle, `flowControlStatuses`, gateway flow-control headers (`serial`; skips without the `inferenceobjectives.llm-d.ai` CRD) |
 | `external` | `test_external_oidc.py` | External OIDC token flows (skipped unless `EXTERNAL_OIDC=true`) |
 | `external` | `test_external_models.py` | ExternalModel/ExternalProvider, egress, body routing |
 

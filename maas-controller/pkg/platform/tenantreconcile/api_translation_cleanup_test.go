@@ -81,7 +81,9 @@ func TestRunPlatformBlocksMigrationWhenExternalModelAssessmentFails(t *testing.T
 			require.Contains(t, result.Detail, "cannot assess legacy IPP translation compatibility")
 			require.Contains(t, result.Detail, test.err.Error())
 			require.Contains(t, result.Detail, "keeping the IPP ConfigMap and resources")
-			require.Contains(t, result.Warnings, result.Detail)
+			require.NotEmpty(t, result.Warnings)
+			// Detail may prepend EnvoyFilter readiness; Warnings retain the migration block reason.
+			require.Contains(t, result.Detail, result.Warnings[0])
 
 			stored := &maasv1alpha1.MaasTenantConfig{}
 			require.NoError(t, base.Get(context.Background(), client.ObjectKeyFromObject(tenant), stored))
