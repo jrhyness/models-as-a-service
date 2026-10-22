@@ -250,6 +250,33 @@ func TestIsResolvedModelAuthorizedAmbiguousAliasSubset(t *testing.T) {
 	}
 }
 
+// An exact namespace/name reference identifies the requested model — the
+// same precedence findModelRef documents. When it is unauthorized, an
+// authorized alias carrier in the same namespace must not be substituted
+// for it.
+func TestIsResolvedModelAuthorizedExactRefPrecedence(t *testing.T) {
+	sub := &subscription{
+		Name: "exact-sub",
+		ModelRefs: []ModelRefInfo{
+			{Name: "client-name", Namespace: "tenant-b"},
+			{Name: "modelref-b", Namespace: "tenant-b", ModelName: "client-name"},
+		},
+	}
+	carrierAuthorized := map[authpolicy.ModelKey]bool{
+		{Namespace: "tenant-b", Name: "modelref-b"}: true,
+	}
+	if isResolvedModelAuthorized(sub, "tenant-b/client-name", carrierAuthorized) {
+		t.Fatal("isResolvedModelAuthorized(tenant-b/client-name) = true, want false when the exact reference is unauthorized")
+	}
+	bothAuthorized := map[authpolicy.ModelKey]bool{
+		{Namespace: "tenant-b", Name: "client-name"}: true,
+		{Namespace: "tenant-b", Name: "modelref-b"}:  true,
+	}
+	if !isResolvedModelAuthorized(sub, "tenant-b/client-name", bothAuthorized) {
+		t.Fatal("isResolvedModelAuthorized(tenant-b/client-name) = false, want true when the exact reference is authorized")
+	}
+}
+
 type stubModelRefLister struct {
 	items []*unstructured.Unstructured
 }

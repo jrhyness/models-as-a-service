@@ -252,6 +252,16 @@ func isResolvedModelAuthorized(sub *subscription, requestedModel string, authori
 	if authorizedSet == nil {
 		return false
 	}
+	// An exact namespace/name pair identifies the routed model — the same
+	// precedence findModelRef documents. Never substitute an alias carrier
+	// for it, even when the exact ref is unauthorized.
+	if ns, name, ok := strings.Cut(requestedModel, "/"); ok {
+		for i := range sub.ModelRefs {
+			if sub.ModelRefs[i].Namespace == ns && sub.ModelRefs[i].Name == name {
+				return authorizedSet[authpolicy.ModelKey{Namespace: ns, Name: name}]
+			}
+		}
+	}
 	sub = authorizedSelectionSubscription(sub, authorizedSet)
 	ref := findModelRef(sub, requestedModel)
 	if ref == nil {
@@ -261,13 +271,18 @@ func isResolvedModelAuthorized(sub *subscription, requestedModel string, authori
 }
 
 func (s *Selector) buildAuthorizedResponse(sub *subscription, requestedModel string, authorizedSet map[authpolicy.ModelKey]bool) (*SelectResponse, error) {
-	resp := s.toResponseWithResolvedModel(sub, requestedModel)
+	// Response construction and health checks resolve within the authorized
+	// subset, but the authorization decision itself must see the full
+	// subscription: filtering first would let an authorized alias carrier
+	// substitute for an unauthorized exact namespace/name reference.
+	selectionSub := authorizedSelectionSubscription(sub, authorizedSet)
+	resp := s.toResponseWithResolvedModel(selectionSub, requestedModel)
 	resp.AccessAllowed = isResolvedModelAuthorized(sub, requestedModel, authorizedSet)
 	if authorizedSet != nil {
 		resp.ModelRefs = filterAuthorizedModels(resp.ModelRefs, authorizedSet)
 	}
 	if authorizedSet == nil || resp.AccessAllowed || requestedModel == "" {
-		if err := checkModelHealth(sub, requestedModel); err != nil {
+		if err := checkModelHealth(selectionSub, requestedModel); err != nil {
 			return nil, err
 		}
 	}
@@ -682,7 +697,13 @@ func (s *Selector) SelectWithContext(ctx context.Context, groups []string, usern
 			continue
 		}
 		if userHasAccess(&sub, username, groups) {
-			if requestedModel != "" && !subscriptionIncludesModel(&sub, requestedModel) {
+			// The unfiltered view can be ambiguous (several refs sharing a
+			// client-facing name in one namespace) while the authorized
+			// subset is not: admit the subscription when either view
+			// includes the model and let the authorization filter decide.
+			if requestedModel != "" &&
+				!subscriptionIncludesModel(&sub, requestedModel) &&
+				!subscriptionIncludesModel(authorizedSelectionSubscription(&sub, authorizedSet), requestedModel) {
 				continue
 			}
 			accessibleSubs = append(accessibleSubs, sub)
@@ -720,11 +741,13 @@ func (s *Selector) SelectWithContext(ctx context.Context, groups []string, usern
 }
 
 func (s *Selector) completeSelection(ctx context.Context, sub *subscription, requestedModel string, authorizedSet map[authpolicy.ModelKey]bool) (*SelectResponse, error) {
-	selectionSub := authorizedSelectionSubscription(sub, authorizedSet)
-	response, err := s.buildAuthorizedResponse(selectionSub, requestedModel, authorizedSet)
+	response, err := s.buildAuthorizedResponse(sub, requestedModel, authorizedSet)
 	if err != nil || requestedModel == "" || !response.AccessAllowed || s.guardrailResolver == nil {
 		return response, err
 	}
+	// Guardrail resolution selects within the authorized subset, matching
+	// the reference the authorization decision approved.
+	selectionSub := authorizedSelectionSubscription(sub, authorizedSet)
 	modelRef := findModelRef(selectionSub, requestedModel)
 	if modelRef == nil {
 		return nil, &GuardrailResolutionError{cause: fmt.Errorf("selected model %q is not in subscription", requestedModel)}
