@@ -193,6 +193,10 @@ const (
 	ReadyConditionType                  = "Ready"
 )
 
+// maasAPIDashboardDeploymentLabelValues lists deployment labels for pods that call maas-api
+// from the controller namespace (ODH/RHOAI dashboard + maas-ui BFF).
+var maasAPIDashboardDeploymentLabelValues = []string{"odh-dashboard", "rhods-dashboard", "maas-ui"}
+
 // GVKs used for post-render and readiness (mirrors opendatahub-operator/pkg/cluster/gvk selections).
 var (
 	GVKDeployment           = schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
