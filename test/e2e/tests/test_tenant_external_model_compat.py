@@ -120,22 +120,22 @@ class TestOmittedGatewayRefsUnchanged:
     def legacy_shaped_model(self, tenant_external_model_tenants):
         tenant_a = tenant_external_model_tenants["tenant_a"]
         resources = TenantExternalModelResources()
-        model = provision_external_model_stack(
-            resources,
-            name=f"e2e-cmp-legacy-{uuid.uuid4().hex[:6]}",
-            namespace=tenant_a["tenant_ns"],
-            gateway_refs=None,
-        )
-        access = _serve_in_tenant(resources, tenant_a, model)
-        # The route lives in the model (tenant) namespace, attached to the
-        # tenant's gateway via tenant-local resolution. The AGC names it
-        # external-model-<model> — its own naming, not the <model> name the
-        # pre-AGC legacy flow used. Scoped by model name: the conflicts
-        # module also places models in this tenant namespace.
-        routes = wait_for_attachment_httproute(
-            model["namespace"], tenant_a["gateway_name"], model_name=model["name"]
-        )
         try:
+            model = provision_external_model_stack(
+                resources,
+                name=f"e2e-cmp-legacy-{uuid.uuid4().hex[:6]}",
+                namespace=tenant_a["tenant_ns"],
+                gateway_refs=None,
+            )
+            access = _serve_in_tenant(resources, tenant_a, model)
+            # The route lives in the model (tenant) namespace, attached to the
+            # tenant's gateway via tenant-local resolution. The AGC names it
+            # external-model-<model> — its own naming, not the <model> name the
+            # pre-AGC legacy flow used. Scoped by model name: the conflicts
+            # module also places models in this tenant namespace.
+            routes = wait_for_attachment_httproute(
+                model["namespace"], tenant_a["gateway_name"], model_name=model["name"]
+            )
             yield {"model": model, "access": access, "routes": routes}
         finally:
             resources.cleanup()
@@ -249,10 +249,16 @@ def _wait_default_backend(*, praxis: bool, timeout: int = DEFAULT_BACKEND_SWITCH
     """Wait for the default tenant's payload-processing backend selection."""
 
     def _check() -> bool:
-        deployed = get_json_or_none("deployment", "payload-processing", GATEWAY_NAMESPACE) is not None
-        assert deployed, "default payload-processing deployment not found"
+        deployment = get_json_or_none("deployment", "payload-processing", GATEWAY_NAMESPACE)
+        assert deployment is not None, "default payload-processing deployment not found"
         current = _default_payload_processing_is_praxis()
         assert current == praxis, f"default payload-processing praxis={current}, expected {praxis}"
+        # A spec-only check can pass while the switch is still rolling out;
+        # require a live replica so the selected backend has actually started.
+        status = deployment.get("status") or {}
+        assert status.get("availableReplicas", 0) >= 1, (
+            "default payload-processing deployment has no available replicas"
+        )
         return True
 
     wait_until(
@@ -338,6 +344,10 @@ class TestLegacyIppCoexistence:
             # cleanup/claim handoff) and wait for the legacy stack.
             ensure_payload_processing_type_on_tenant_config(default_tenant_ns, "ipp")
             _wait_default_backend(praxis=False)
+            # A live legacy replica is necessary but not sufficient for the
+            # controller to have acted on the default tenant; settle before
+            # the negative assertions so absence checks are meaningful.
+            time.sleep(RECONCILE_WAIT)
 
             yield {
                 "case_b": case_b,

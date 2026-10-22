@@ -1600,55 +1600,64 @@ def serve_external_model_in_tenant(
     Creates MaaSAuthPolicy + MaaSSubscription in the tenant namespace
     referencing a model that may live in a user namespace, waits for
     reconciliation (including the mirrored TRLP) and mints a tenant API key
-    bound to the subscription.
+    Callers start tracking the policy/subscription only after a successful
+    return, so on failure this call deletes whatever it already applied
+    before the error propagates.
     """
     timeout = timeout or TENANT_EXTERNAL_MODEL_READY_TIMEOUT
     tenant_namespace = case["tenant_ns"]
     policy_name = policy_name or f"{model_name}-access"
     subscription_name = subscription_name or f"{model_name}-sub"
-    apply_maas_auth_policy(
-        policy_name,
-        tenant_namespace,
-        model_ref=model_name,
-        model_namespace=model_namespace,
-    )
-    wait_for_status_phase(
-        "maasauthpolicy",
-        policy_name,
-        tenant_namespace,
-        expected_phase="Active",
-        timeout=timeout,
-    )
-    wait_for_gateway_authpolicy_ready(case["gateway_name"])
-    apply_maas_subscription(
-        subscription_name,
-        tenant_namespace,
-        model_ref=model_name,
-        model_namespace=model_namespace,
-        token_limit=token_limit,
-        window=window,
-    )
-    wait_for_status_phase(
-        "maassubscription",
-        subscription_name,
-        tenant_namespace,
-        expected_phase=("Active", "Degraded"),
-        timeout=timeout,
-    )
-    _wait_for_subscription_trlp_status(
-        subscription_name,
-        expected_ready=True,
-        namespace=tenant_namespace,
-        timeout=timeout,
-    )
-    if wait_model_ready:
-        _wait_for_model_ready(model_name, model_namespace, timeout=timeout)
-    api_key = mint_tenant_api_key(
-        case,
-        key_name or f"e2e-extmod-{uuid.uuid4().hex[:8]}",
-        subscription_name,
-    )
-    return {"policy": policy_name, "subscription": subscription_name, "api_key": api_key}
+    created = TenantExternalModelResources()
+    try:
+        apply_maas_auth_policy(
+            policy_name,
+            tenant_namespace,
+            model_ref=model_name,
+            model_namespace=model_namespace,
+        )
+        created.track("maasauthpolicy", policy_name, tenant_namespace)
+        wait_for_status_phase(
+            "maasauthpolicy",
+            policy_name,
+            tenant_namespace,
+            expected_phase="Active",
+            timeout=timeout,
+        )
+        wait_for_gateway_authpolicy_ready(case["gateway_name"])
+        apply_maas_subscription(
+            subscription_name,
+            tenant_namespace,
+            model_ref=model_name,
+            model_namespace=model_namespace,
+            token_limit=token_limit,
+            window=window,
+        )
+        created.track("maassubscription", subscription_name, tenant_namespace)
+        wait_for_status_phase(
+            "maassubscription",
+            subscription_name,
+            tenant_namespace,
+            expected_phase=("Active", "Degraded"),
+            timeout=timeout,
+        )
+        _wait_for_subscription_trlp_status(
+            subscription_name,
+            expected_ready=True,
+            namespace=tenant_namespace,
+            timeout=timeout,
+        )
+        if wait_model_ready:
+            _wait_for_model_ready(model_name, model_namespace, timeout=timeout)
+        api_key = mint_tenant_api_key(
+            case,
+            key_name or f"e2e-extmod-{uuid.uuid4().hex[:8]}",
+            subscription_name,
+        )
+        return {"policy": policy_name, "subscription": subscription_name, "api_key": api_key}
+    except Exception:
+        created.cleanup()
+        raise
 
 
 def mint_tenant_api_key(case: dict[str, str], key_name: str, subscription_name: str) -> str:
@@ -1680,9 +1689,12 @@ class TenantExternalModelResources:
 
     def cleanup(self) -> None:
         for kind, name, namespace in reversed(self._items):
-            if kind == "maasmodelref":
-                _clear_finalizers_best_effort(kind, name, namespace)
-            _delete_cr(kind, name, namespace)
+            try:
+                if kind == "maasmodelref":
+                    _clear_finalizers_best_effort(kind, name, namespace)
+                _delete_cr(kind, name, namespace)
+            except Exception as exc:  # noqa: BLE001 - one failed item must not abort the rest
+                log.warning("cleanup failed for %s/%s in %s: %s", kind, name, namespace, exc)
 
     def cleanup_namespace(self, namespace: str) -> None:
         from multitenancy_helpers import delete_namespace_best_effort
