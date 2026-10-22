@@ -59,7 +59,10 @@ from tenant_external_model_helpers import (
 
 log = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.xdist_group("tenant_external_model")
+# Serialized with tenant_ipp until the legacy IPP controllers skip
+# gatewayRefs ExternalModels (image pin pending): without that guard they
+# adopt this suite's models and flap status.httpRouteName.
+pytestmark = pytest.mark.xdist_group("tenant_ipp")
 
 
 def _conflict_cr_name() -> str:

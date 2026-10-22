@@ -62,7 +62,10 @@ from test_helper import RECONCILE_WAIT, _ns
 
 log = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.xdist_group("tenant_external_model")
+# Serialized with tenant_ipp until the legacy IPP controllers skip
+# gatewayRefs ExternalModels (image pin pending): without that guard they
+# adopt this suite's models and flap status.httpRouteName.
+pytestmark = pytest.mark.xdist_group("tenant_ipp")
 
 DEFAULT_BACKEND_SWITCH_TIMEOUT = int(os.environ.get("E2E_TENANT_BACKEND_SWITCH_TIMEOUT", "420"))
 
@@ -217,13 +220,13 @@ class TestOmittedGatewayRefsUnchanged:
                 "adding own-tenant gatewayRefs recreated or relabeled HTTPRoutes: "
                 f"{before['route_identities']} -> {after['route_identities']}"
             )
-            # The tenant-publishing and attachment paths name their
-            # Gateway-namespace DestinationRules differently, so uid
-            # continuity across the transition is not contractual — but the
-            # model must keep a provider rule the whole time.
-            assert after["destination_rule_uids"], (
-                f"provider DestinationRule for {model['name']} disappeared from "
-                f"{GATEWAY_NAMESPACE} after the gatewayRefs patch"
+            # The AGC keys the provider DestinationRule by provider and
+            # tenant only — the gateway appears in labels, applied in
+            # place — so the home attachment must not change the rule's
+            # identity. A uid change here is an AGC regression.
+            assert after["destination_rule_uids"] == before["destination_rule_uids"], (
+                "adding own-tenant gatewayRefs recreated DestinationRules: "
+                f"{before['destination_rule_uids']} -> {after['destination_rule_uids']}"
             )
             if time.time() >= deadline:
                 break

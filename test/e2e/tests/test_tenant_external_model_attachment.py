@@ -58,7 +58,10 @@ from test_helper import RECONCILE_WAIT, _delete_cr, _get_cr
 
 log = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.xdist_group("tenant_external_model")
+# Serialized with tenant_ipp until the legacy IPP controllers skip
+# gatewayRefs ExternalModels (image pin pending): without that guard they
+# adopt this suite's models and flap status.httpRouteName.
+pytestmark = pytest.mark.xdist_group("tenant_ipp")
 
 
 @pytest.fixture(scope="module")
