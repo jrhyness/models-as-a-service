@@ -43,9 +43,15 @@ import time
 import uuid
 
 import pytest
-from multitenancy_helpers import delete_namespace_best_effort, redact_sensitive
+from multitenancy_helpers import (
+    delete_namespace_best_effort,
+    get_json_or_none,
+    redact_sensitive,
+    wait_until,
+)
 from tenant_external_model_helpers import (
     TenantExternalModelResources,
+    assert_returns_usage,
     assert_served_by_provider,
     external_model_reports_maas_route,
     gateway_ref,
@@ -58,6 +64,10 @@ from tenant_external_model_helpers import (
     wait_for_attachment_httproute,
     wait_for_gateway_attachment_ready,
 )
+from test_helper import (
+    LLM_D_INFERENCE_SIM_IMAGE,
+    _apply_cr,
+)
 
 log = logging.getLogger(__name__)
 
@@ -67,6 +77,16 @@ pytestmark = pytest.mark.xdist_group("tenant_external_model")
 # tenant B gets a large one (mirrors test_tenant_rate_limit_isolation.py).
 LIMITED_TOKEN_LIMIT = 3
 UNLIMITED_TOKEN_LIMIT = 100
+
+# Token budgets are accounted from usage.total_tokens in inference
+# responses, which the header-echo endpoint never returns — so the quota
+# model's provider is a dedicated in-cluster simulator instead. The gateway
+# envoy verifies provider certificates, so the simulator's Service gets an
+# OpenShift service serving certificate (signed by the cluster service CA),
+# and the provider points envoy at the CA bundle mounted in every pod via
+# spec.config["tls.caCertificates"] — see _usage_provider.
+SA_SERVICE_CA = "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt"
+SERVING_CERT_ANNOTATION = "service.beta.openshift.io/serving-cert-secret-name"
 
 
 @pytest.fixture(scope="module")
@@ -332,14 +352,133 @@ class TestTenantAuthIsolation:
             )
 
 
+def _usage_provider(
+    resources: TenantExternalModelResources, namespace: str, client_model_name: str
+) -> dict:
+    """Deploy the usage-returning provider the quota model binds to.
+
+    A dedicated in-cluster ``llm-d-inference-sim`` (``--mode random``): its
+    responses carry ``usage.total_tokens``, which token budgets are
+    accounted from. The gateway envoy verifies provider certificates, so
+    the simulator cannot serve a self-signed cert: its Service is annotated
+    for an OpenShift service serving certificate (signed by the cluster
+    service CA) and the provider points envoy at the CA bundle mounted in
+    every pod through ``spec.config["tls.caCertificates"]``. The simulator
+    validates the request body's ``model`` field, so it is configured with
+    the client-facing model name the requests will carry.
+
+    The simulator is deployed in the model's namespace and is dedicated to
+    that model, so no rate limits apply on the provider hop: a 429 seen
+    through a tenant gateway can only be that tenant's own budget.
+    """
+    suffix = uuid.uuid4().hex[:6]
+    sim = f"e2e-usage-sim-{suffix}"
+    cert_secret = f"{sim}-cert"
+    dns_name = f"{sim}.{namespace}.svc.cluster.local"
+    _apply_cr(
+        {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+                "name": sim,
+                "namespace": namespace,
+                "annotations": {SERVING_CERT_ANNOTATION: cert_secret},
+            },
+            "spec": {
+                "selector": {"app": sim},
+                # The ExternalProvider CRD rejects endpoints carrying a port
+                # and the AGC dials 443, so the Service listens on 443 and
+                # maps to the simulator's container port.
+                "ports": [{"port": 443, "targetPort": 8000, "name": "https"}],
+            },
+        }
+    )
+    resources.track("service", sim, namespace)
+
+    def _cert_injected() -> bool:
+        secret = get_json_or_none("secret", cert_secret, namespace) or {}
+        return bool((secret.get("data") or {}).get("tls.crt"))
+
+    wait_until(_cert_injected, 120, f"service-ca cert secret {namespace}/{cert_secret}")
+
+    _apply_cr(
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {"name": sim, "namespace": namespace},
+            "spec": {
+                "replicas": 1,
+                "selector": {"matchLabels": {"app": sim}},
+                "template": {
+                    "metadata": {"labels": {"app": sim}},
+                    "spec": {
+                        "containers": [
+                            {
+                                "name": "sim",
+                                "image": LLM_D_INFERENCE_SIM_IMAGE,
+                                "command": ["/app/llm-d-inference-sim"],
+                                "args": [
+                                    "--port", "8000",
+                                    "--model", client_model_name,
+                                    "--mode", "random",
+                                    "--no-mm-encoder-only",
+                                    "--ssl-certfile", "/etc/sim/tls/tls.crt",
+                                    "--ssl-keyfile", "/etc/sim/tls/tls.key",
+                                ],
+                                "ports": [
+                                    {"containerPort": 8000, "name": "https", "protocol": "TCP"}
+                                ],
+                                "readinessProbe": {
+                                    "httpGet": {
+                                        "path": "/ready",
+                                        "port": "https",
+                                        "scheme": "HTTPS",
+                                    }
+                                },
+                                "volumeMounts": [
+                                    {"name": "tls", "mountPath": "/etc/sim/tls", "readOnly": True}
+                                ],
+                            }
+                        ],
+                        "volumes": [{"name": "tls", "secret": {"secretName": cert_secret}}],
+                    },
+                },
+            },
+        }
+    )
+    resources.track("deployment", sim, namespace)
+
+    def _ready() -> bool:
+        deployment = get_json_or_none("deployment", sim, namespace) or {}
+        status = deployment.get("status") or {}
+        return (status.get("availableReplicas") or 0) >= 1
+
+    wait_until(_ready, 240, f"usage simulator deployment {namespace}/{sim}")
+    return {
+        "endpoint": dns_name,
+        "provider_path": "/v1/chat/completions",
+        "credential": f"sk-usage-{suffix}",
+        "provider_config": {"tls.caCertificates": SA_SERVICE_CA},
+    }
+
+
 class TestTenantQuotaIsolation:
     """Quota consumption is tracked per tenant: exhausting tenant A's token
-    budget leaves tenant B's untouched."""
+    budget leaves tenant B's untouched.
+
+    Token budgets are accounted from ``usage.total_tokens`` in inference
+    responses, so this class's model is served by a dedicated in-cluster
+    simulator (see ``_usage_provider``) rather than the header-echo
+    endpoint, whose responses carry no usage and could never exhaust a
+    budget.
+    """
 
     @pytest.fixture(scope="class")
     def quota_model(self, shared_env):
         env = shared_env
         name = f"e2e-shr-quota-{uuid.uuid4().hex[:6]}"
+        client_name = f"{name}-client"
+        usage = _usage_provider(env["resources"], env["user_ns"], client_name)
         model = provision_external_model_stack(
             env["resources"],
             name=name,
@@ -348,11 +487,15 @@ class TestTenantQuotaIsolation:
                 gateway_ref(env["tenant_a"]["gateway_name"]),
                 gateway_ref(env["tenant_b"]["gateway_name"]),
             ],
-            model_name=f"{name}-client",
+            model_name=client_name,
             tenant_refs=[
                 env["tenant_a"]["tenant_label_name"],
                 env["tenant_b"]["tenant_label_name"],
             ],
+            endpoint=usage["endpoint"],
+            provider_path=usage["provider_path"],
+            credential=usage["credential"],
+            provider_config=usage["provider_config"],
         )
         _wait_attachments_ready(env, model)
         _require_maas_route(model)
@@ -362,11 +505,12 @@ class TestTenantQuotaIsolation:
         access_b = _serve_in_tenant(
             env, env["tenant_b"], model, token_limit=UNLIMITED_TOKEN_LIMIT, window="1m"
         )
-        return {"model": model, "access_a": access_a, "access_b": access_b}
+        return {"model": model, "access_a": access_a, "access_b": access_b, "usage": usage}
 
     def test_quota_exhaustion_isolated_per_tenant(self, shared_env, quota_model):
         env = shared_env
         model = quota_model["model"]
+        provider_path = quota_model["usage"]["provider_path"]
         _require_client_name_alias(model, env["tenant_a"])
 
         # Drive tenant A past its budget: at least one 200 must precede the
@@ -381,7 +525,7 @@ class TestTenantQuotaIsolation:
                 model["namespace"],
                 model["client_name"],
                 quota_model["access_a"]["api_key"],
-                path_tag=model["path_tag"],
+                provider_path=provider_path,
             )
             if limited.status_code == 200:
                 successes += 1
@@ -399,15 +543,16 @@ class TestTenantQuotaIsolation:
         )
         assert successes > 0, "tenant A hit 429 before any successful inference (limits not live?)"
 
-        # Tenant B's budget is independent and still serves.
+        # Tenant B's budget is independent and still serves — with usage,
+        # which is what keeps its own budget accountable.
         response = infer_external_chat(
             env["tenant_b"]["gateway_url"],
             model["namespace"],
             model["client_name"],
             quota_model["access_b"]["api_key"],
-            path_tag=model["path_tag"],
+            provider_path=provider_path,
         )
-        assert_served_by_provider(response, model["path_tag"], credential=model["credential"])
+        assert_returns_usage(response)
 
         # And tenant A stays limited while tenant B keeps serving.
         still_limited = infer_external_chat(
@@ -415,7 +560,7 @@ class TestTenantQuotaIsolation:
             model["namespace"],
             model["client_name"],
             quota_model["access_a"]["api_key"],
-            path_tag=model["path_tag"],
+            provider_path=provider_path,
             retries=1,
         )
         assert still_limited.status_code == 429, (
@@ -427,6 +572,6 @@ class TestTenantQuotaIsolation:
             model["namespace"],
             model["client_name"],
             quota_model["access_b"]["api_key"],
-            path_tag=model["path_tag"],
+            provider_path=provider_path,
         )
-        assert_served_by_provider(again_b, model["path_tag"])
+        assert_returns_usage(again_b)

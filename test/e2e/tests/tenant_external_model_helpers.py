@@ -438,6 +438,7 @@ def apply_external_provider(
     credential_secret: str,
     endpoint: str = EXTERNAL_ENDPOINT,
     provider: str = "openai",
+    config: dict[str, str] | None = None,
 ) -> dict:
     """Create an ExternalProvider pointing at the header-echo endpoint.
 
@@ -446,19 +447,31 @@ def apply_external_provider(
     ``apikey``: the AGC resolver only accepts that strategy (openai +
     openai-chat injects the Secret value as ``Authorization: Bearer``), and
     the credential Secret must carry the ``api-key`` key.
+
+    ``endpoint`` is a bare hostname: the CRD's endpoint pattern rejects
+    scheme and port, and the gateway always dials 443 — an in-cluster
+    provider Service must therefore listen on 443.
+
+    ``config`` sets provider-specific ``spec.config`` keys — e.g.
+    ``{"tls.caCertificates": path}`` so envoy verifies a provider whose cert
+    is signed by a CA mounted in the gateway pods (the AGC requires an
+    absolute file path and applies it to the provider DestinationRule).
     """
+    spec: dict[str, Any] = {
+        "provider": provider,
+        "endpoint": endpoint,
+        "auth": {
+            "type": "apikey",
+            "secretRef": {"name": credential_secret},
+        },
+    }
+    if config:
+        spec["config"] = dict(config)
     external_provider = {
         "apiVersion": INFERENCE_API_VERSION,
         "kind": "ExternalProvider",
         "metadata": {"name": name, "namespace": namespace},
-        "spec": {
-            "provider": provider,
-            "endpoint": endpoint,
-            "auth": {
-                "type": "apikey",
-                "secretRef": {"name": credential_secret},
-            },
-        },
+        "spec": spec,
     }
     _apply_cr(external_provider)
     return external_provider
@@ -473,6 +486,7 @@ def apply_external_model(
     gateway_refs: list[dict[str, str]] | None = None,
     model_name: str | None = None,
     path_tag: str | None = None,
+    provider_path: str | None = None,
     credential_secret: str | None = None,
     target_model: str = "gpt-3.5-turbo",
     extra_provider_refs: list[dict] | None = None,
@@ -488,6 +502,9 @@ def apply_external_model(
         model_name: client-facing modelName (defaults to metadata.name).
         path_tag: unique echo-path tag; defaults to a fresh uuid so responses
             identify this binding's provider.
+        provider_path: the path the provider serves, for bindings whose
+            provider is not the header-echo endpoint (e.g. an OpenAI-style
+            simulator behind another gateway). Overrides the echo path.
         credential_secret: per-model auth override Secret (in the model
             namespace). None uses the provider-local Secret.
         extra_provider_refs: additional provider bindings (same shape as the
@@ -501,7 +518,7 @@ def apply_external_model(
         "ref": ref,
         "targetModel": target_model,
         "apiFormat": "openai-chat",
-        "path": echo_provider_path(path_tag),
+        "path": provider_path or echo_provider_path(path_tag),
     }
     if credential_secret:
         binding["auth"] = {
@@ -649,12 +666,23 @@ def provision_external_model_stack(
     override_credential: str | None = None,
     override_secret_name: str | None = None,
     endpoint: str = EXTERNAL_ENDPOINT,
+    provider_path: str | None = None,
+    provider_config: dict[str, str] | None = None,
 ) -> dict:
     """Create the full serving stack for one external model and track cleanup.
 
     Credential Secret (in the provider namespace) + ExternalProvider +
     ExternalModel + MaaSModelRef. ``override_credential`` additionally creates
     a model-namespace Secret wired as the per-model auth override.
+
+    ``endpoint``/``provider_path``/``credential`` re-point the provider away
+    from the header-echo default — e.g. at an OpenAI-style simulator that
+    returns ``usage.total_tokens`` (token accounting needs it; the echo
+    endpoint returns none). ``endpoint`` is a bare hostname: the CRD
+    rejects scheme/port and the gateway dials 443. ``provider_config`` sets
+    the provider's ``spec.config`` — e.g. ``tls.caCertificates`` pointing at
+    a CA file mounted in the gateway pods, needed when the provider's cert
+    is not publicly trusted (see ``apply_external_provider``).
 
     ``tenant_refs`` serves a model shared across tenant gateways: instead of
     one tenantRef-less MaaSModelRef named after the model, it creates one
@@ -683,6 +711,7 @@ def provision_external_model_stack(
         provider_namespace,
         credential_secret=secret_name,
         endpoint=endpoint,
+        config=provider_config,
     )
     resources.track(EXTERNAL_PROVIDER_KIND, provider_name, provider_namespace)
 
@@ -700,6 +729,7 @@ def provision_external_model_stack(
         gateway_refs=gateway_refs,
         model_name=model_name,
         path_tag=path_tag,
+        provider_path=provider_path,
         credential_secret=override_secret,
     )
     resources.track(EXTERNAL_MODEL_KIND, name, namespace)
@@ -1275,14 +1305,26 @@ def wait_for_no_credential_copy(
     )
 
 
-def destination_rules_referencing(model_name: str, *namespaces: str) -> list[dict]:
+def destination_rules_referencing(
+    model_name: str,
+    *namespaces: str,
+    also_matching: tuple[str, ...] = (),
+) -> list[dict]:
     """DestinationRules that reference *model_name* (by name, labels, or
-    ownerReferences) in the given namespaces.
+    ownerReferences) in the given namespaces, additionally requiring every
+    string in *also_matching* to appear in the same metadata — e.g. a
+    gateway name, to scope to one attachment's rules while another gateway
+    still serves the same model.
 
-    AGC's DestinationRule naming for tenant publishing is not part of the
-    shared contract, so discovery matches on references to the model.
+    AGC creates the provider DestinationRules in the Gateway namespace
+    (``GATEWAY_NAMESPACE``), not the tenant's, under hashed names that are
+    not part of the shared contract — so discovery runs against the Gateway
+    namespace and matches on references to the model (the test provider
+    names embed the model name, and the rules carry them in their names and
+    ``external-provider`` labels).
     """
     matches: list[dict] = []
+    needles = [model_name, *also_matching]
     for namespace in namespaces:
         for rule in list_json("destinationrule", namespace):
             metadata = rule.get("metadata") or {}
@@ -1297,7 +1339,7 @@ def destination_rules_referencing(model_name: str, *namespaces: str) -> list[dic
                     "ownerReferences": owners,
                 }
             )
-            if model_name in blob:
+            if all(needle in blob for needle in needles):
                 matches.append(rule)
     return matches
 
@@ -1305,12 +1347,13 @@ def destination_rules_referencing(model_name: str, *namespaces: str) -> list[dic
 def wait_for_no_destination_rules_referencing(
     model_name: str,
     *namespaces: str,
+    also_matching: tuple[str, ...] = (),
     timeout: int | None = None,
 ) -> None:
     def _check() -> bool:
-        rules = destination_rules_referencing(model_name, *namespaces)
+        rules = destination_rules_referencing(model_name, *namespaces, also_matching=also_matching)
         assert not rules, (
-            f"stale DestinationRules referencing {model_name}: "
+            f"stale DestinationRules referencing {model_name} (also matching {also_matching}): "
             f"{[r['metadata']['name'] for r in rules]}"
         )
         return True
@@ -1432,6 +1475,7 @@ def infer_external_chat(
     api_key: str,
     *,
     path_tag: str | None = None,
+    provider_path: str | None = None,
     content: str = "multi-tenant external model e2e",
     retries: int = 6,
     delay: int = 5,
@@ -1441,9 +1485,12 @@ def infer_external_chat(
 
     ``path_tag`` requests the echo binding's provider path — see
     external_chat_url for why the provider's own path must follow the
-    model-name prefix.
+    model-name prefix. ``provider_path`` overrides it for bindings whose
+    provider serves a different path (e.g. an OpenAI-style simulator behind
+    another gateway, whose model path must reach it verbatim).
     """
-    provider_path = echo_provider_path(path_tag) if path_tag else "/v1/chat/completions"
+    if provider_path is None:
+        provider_path = echo_provider_path(path_tag) if path_tag else "/v1/chat/completions"
     url = external_chat_url(
         gateway_url, model_namespace, client_model_name, provider_path=provider_path
     )
@@ -1488,6 +1535,29 @@ def assert_served_by_provider(response: requests.Response, path_tag: str, *, cre
             f"expected credential marker to reach the provider, response: "
             f"{redact_sensitive(response.text)}"
         )
+
+
+def assert_returns_usage(response: requests.Response) -> None:
+    """Assert an inference response carries OpenAI-style usage tokens.
+
+    Token quotas are accounted from ``usage.total_tokens`` in the response,
+    so a provider that returns no usage (e.g. the header-echo endpoint)
+    can never exhaust a budget — quota assertions are only meaningful
+    against responses that pass this check.
+    """
+    assert response.status_code == 200, (
+        f"expected 200 from external model inference, got {response.status_code}: "
+        f"{redact_sensitive(response.text)}"
+    )
+    try:
+        usage = (response.json() or {}).get("usage") or {}
+    except ValueError:
+        usage = {}
+    total_tokens = usage.get("total_tokens")
+    assert isinstance(total_tokens, int) and total_tokens > 0, (
+        "response carries no usage.total_tokens for token accounting: "
+        f"{redact_sensitive(response.text)}"
+    )
 
 
 def echo_headers(response: requests.Response) -> dict[str, str]:

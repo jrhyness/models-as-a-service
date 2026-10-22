@@ -38,7 +38,7 @@ import time
 import uuid
 
 import pytest
-from multitenancy_helpers import delete_namespace_best_effort
+from multitenancy_helpers import GATEWAY_NAMESPACE, delete_namespace_best_effort
 from tenant_external_model_helpers import (
     TenantExternalModelResources,
     assert_served_by_provider,
@@ -308,13 +308,15 @@ class TestSameNamedObjectsTwoNamespaces:
                 f"got {[r['metadata']['name'] for r in routes]}"
             )
 
-        # No DestinationRule collision: each model's tenant-published rules
-        # stay distinct objects.
-        rules = destination_rules_referencing(pair["shared_cr_name"], tenant_a["tenant_ns"])
+        # No DestinationRule collision: AGC keeps each model's provider
+        # DestinationRule in the Gateway namespace under a name hashed over
+        # the gateway and the provider's namespace, so the same-named
+        # providers in two model namespaces must stay distinct objects.
+        rules = destination_rules_referencing(pair["shared_cr_name"], GATEWAY_NAMESPACE)
         rule_uids = {rule["metadata"]["uid"] for rule in rules}
-        assert len(rule_uids) >= 2 or not rules, (
-            f"expected distinct DestinationRules per same-named model (or none "
-            f"published in the tenant namespace), got uids {rule_uids}"
+        assert len(rule_uids) >= 2, (
+            f"expected distinct DestinationRules per same-named model in {GATEWAY_NAMESPACE}, "
+            f"got uids {rule_uids}"
         )
 
     def test_same_named_objects_both_serve(self, conflicts_env, same_named_pair):

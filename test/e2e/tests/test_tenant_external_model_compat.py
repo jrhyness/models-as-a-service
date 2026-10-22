@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 import uuid
 
 import pytest
@@ -57,7 +58,7 @@ from tenant_external_model_helpers import (
     wait_for_attachment_httproute,
     wait_for_gateway_attachment_ready,
 )
-from test_helper import _ns
+from test_helper import RECONCILE_WAIT, _ns
 
 log = logging.getLogger(__name__)
 
@@ -77,6 +78,34 @@ def _serve_in_tenant(resources: TenantExternalModelResources, case: dict, model:
     resources.track("maasauthpolicy", access["policy"], case["tenant_ns"])
     resources.track("maassubscription", access["subscription"], case["tenant_ns"])
     return access
+
+
+def _wait_model_generation_observed(name: str, namespace: str) -> None:
+    """Wait until the AGC has observed the model's current generation.
+
+    Attachment readiness can return on the first poll after a spec patch —
+    the status still reports the previous (already Ready) generation — so a
+    comparison taken right after `wait_for_gateway_attachment_ready` can
+    predate the controller ever reconciling the new spec.
+    """
+
+    def _check() -> bool:
+        model = get_json_or_none(EXTERNAL_MODEL_KIND, name, namespace) or {}
+        metadata = model.get("metadata") or {}
+        status = model.get("status") or {}
+        generation = metadata.get("generation") or 0
+        observed = status.get("observedGeneration") or 0
+        assert observed >= generation, (
+            f"AGC has not observed {namespace}/{name} generation {generation} "
+            f"(observedGeneration={observed})"
+        )
+        return True
+
+    wait_until(
+        _check,
+        max(RECONCILE_WAIT * 3, 60),
+        f"observedGeneration of {namespace}/{name}",
+    )
 
 
 # ─── P0 #4 (runtime half): omitted gatewayRefs ──────────────────────────────
@@ -146,9 +175,11 @@ class TestOmittedGatewayRefsUnchanged:
                     )
                     for route in routes
                 },
+                # AGC keeps the provider DestinationRules in the Gateway
+                # namespace, so that is where they are observable.
                 "destination_rule_uids": {
-                    rule["metadata"]["name"]: rule["metadata"]["uid"]
-                    for rule in destination_rules_referencing(model["name"], tenant_a["tenant_ns"])
+                    rule["metadata"]["uid"]
+                    for rule in destination_rules_referencing(model["name"], GATEWAY_NAMESPACE)
                 },
             }
 
@@ -158,21 +189,42 @@ class TestOmittedGatewayRefsUnchanged:
             f"AGC route {expected_route} not found before the gatewayRefs patch: "
             f"{sorted(before['route_identities'])}"
         )
+        assert before["destination_rule_uids"], (
+            f"provider DestinationRule for {model['name']} must exist in "
+            f"{GATEWAY_NAMESPACE} while the model is serving"
+        )
 
         # Adding gatewayRefs that name only the model's own tenant must not
-        # recreate anything: same objects, same uids, same labels.
+        # recreate anything: same routes, same uids, same labels. Wait for
+        # the AGC to observe the new generation first — attachment readiness
+        # can return on the first poll while the status still reflects the
+        # previous (already Ready) generation, and a recreation a few
+        # seconds later would slip through an immediate comparison.
         patch_external_model_gateway_refs(model["name"], model["namespace"], [gateway_ref(gateway)])
+        _wait_model_generation_observed(model["name"], model["namespace"])
         wait_for_gateway_attachment_ready(model["name"], model["namespace"], gateway)
 
-        after = _snapshot()
-        assert after["route_identities"] == before["route_identities"], (
-            "adding own-tenant gatewayRefs recreated or relabeled HTTPRoutes: "
-            f"{before['route_identities']} -> {after['route_identities']}"
-        )
-        assert after["destination_rule_uids"] == before["destination_rule_uids"], (
-            "adding own-tenant gatewayRefs recreated DestinationRules: "
-            f"{before['destination_rule_uids']} -> {after['destination_rule_uids']}"
-        )
+        # Then require the comparison to HOLD across a settle window (like
+        # test_nothing_published_into_tenant): the home attachment must not
+        # recreate the route at all, so equality must hold, not converge.
+        deadline = time.time() + RECONCILE_WAIT
+        while True:
+            after = _snapshot()
+            assert after["route_identities"] == before["route_identities"], (
+                "adding own-tenant gatewayRefs recreated or relabeled HTTPRoutes: "
+                f"{before['route_identities']} -> {after['route_identities']}"
+            )
+            # The tenant-publishing and attachment paths name their
+            # Gateway-namespace DestinationRules differently, so uid
+            # continuity across the transition is not contractual — but the
+            # model must keep a provider rule the whole time.
+            assert after["destination_rule_uids"], (
+                f"provider DestinationRule for {model['name']} disappeared from "
+                f"{GATEWAY_NAMESPACE} after the gatewayRefs patch"
+            )
+            if time.time() >= deadline:
+                break
+            time.sleep(5)
         response = infer_external_chat(
             tenant_a["gateway_url"],
             model["namespace"],

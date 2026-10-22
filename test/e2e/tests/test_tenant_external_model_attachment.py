@@ -24,7 +24,11 @@ import time
 import uuid
 
 import pytest
-from multitenancy_helpers import delete_namespace_best_effort, redact_sensitive
+from multitenancy_helpers import (
+    GATEWAY_NAMESPACE,
+    delete_namespace_best_effort,
+    redact_sensitive,
+)
 from tenant_external_model_helpers import (
     EXTERNAL_MODEL_KIND,
     TenantExternalModelResources,
@@ -253,12 +257,24 @@ class TestAttachmentLifecycleCleanup:
         )
 
         # Baseline: both attachments are live at the serving-config level.
+        # AGC puts the provider DestinationRules in the Gateway namespace,
+        # labeled with each attachment's gateway — capture both per gateway.
         for case in (tenant_a, tenant_b):
             wait_for_gateway_attachment_ready(model["name"], model["namespace"], case["gateway_name"])
             wait_for_attachment_httproute(
                 model["namespace"], case["gateway_name"], model_name=model["name"]
             )
             wait_for_credential_copy(case["tenant_ns"], model["secret_name"], model["secret_namespace"])
+            assert destination_rules_referencing(
+                model["name"], GATEWAY_NAMESPACE, also_matching=(case["gateway_name"],)
+            ), f"provider DestinationRule for {model['name']} on {case['gateway_name']} must exist while attached"
+
+        tenant_b_rule_uids = {
+            rule["metadata"]["uid"]
+            for rule in destination_rules_referencing(
+                model["name"], GATEWAY_NAMESPACE, also_matching=(tenant_b["gateway_name"],)
+            )
+        }
 
         patch_external_model_gateway_refs(
             model["name"], model["namespace"], [gateway_ref(tenant_b["gateway_name"])]
@@ -271,7 +287,16 @@ class TestAttachmentLifecycleCleanup:
         wait_for_no_credential_copy(
             tenant_a["tenant_ns"], model["secret_name"], model["secret_namespace"]
         )
-        wait_for_no_destination_rules_referencing(model["name"], tenant_a["tenant_ns"])
+        wait_for_no_destination_rules_referencing(
+            model["name"], GATEWAY_NAMESPACE, also_matching=(tenant_a["gateway_name"],)
+        )
+        # The remaining attachment's DestinationRule is untouched.
+        assert {
+            rule["metadata"]["uid"]
+            for rule in destination_rules_referencing(
+                model["name"], GATEWAY_NAMESPACE, also_matching=(tenant_b["gateway_name"],)
+            )
+        } == tenant_b_rule_uids, "detaching tenant A must not recreate tenant B's DestinationRule"
 
         # The remaining attachment is untouched and now serves end to end:
         # with a single gateway the AGC reports httpRouteName, so the MaaS
@@ -310,6 +335,9 @@ class TestAttachmentLifecycleCleanup:
         for case in (tenant_a, tenant_b):
             wait_for_gateway_attachment_ready(model["name"], model["namespace"], case["gateway_name"])
             wait_for_credential_copy(case["tenant_ns"], model["secret_name"], model["secret_namespace"])
+            assert destination_rules_referencing(
+                model["name"], GATEWAY_NAMESPACE, also_matching=(case["gateway_name"],)
+            ), f"provider DestinationRule for {model['name']} on {case['gateway_name']} must exist while attached"
 
         _delete_cr("maasmodelref", model["name"], model["namespace"])
         _delete_cr(EXTERNAL_MODEL_KIND, model["name"], model["namespace"])
@@ -321,7 +349,9 @@ class TestAttachmentLifecycleCleanup:
             wait_for_no_credential_copy(
                 case["tenant_ns"], model["secret_name"], model["secret_namespace"]
             )
-            wait_for_no_destination_rules_referencing(model["name"], case["tenant_ns"])
+        # AGC keeps the provider DestinationRules in the Gateway namespace:
+        # deleting the model must remove them all, on every attachment.
+        wait_for_no_destination_rules_referencing(model["name"], GATEWAY_NAMESPACE)
         assert _get_cr(EXTERNAL_MODEL_KIND, model["name"], model["namespace"]) is None
 
         # The unrelated model on the same gateway is unaffected.
@@ -374,13 +404,15 @@ class TestListenerNotAllowed:
         )
         # Then require absence to HOLD across a settle window: the
         # attachment must never publish, so absence must hold, not converge.
+        # AGC keeps the provider DestinationRules in the Gateway namespace,
+        # so that is where "never created" is observable.
         deadline = time.time() + RECONCILE_WAIT
         while True:
             assert (
                 credential_copy_in(tenant_b["tenant_ns"], model["secret_name"], model["secret_namespace"])
                 is None
             ), "credential copy must not be delivered while the listener refuses the namespace"
-            assert not destination_rules_referencing(model["name"], tenant_b["tenant_ns"]), (
+            assert not destination_rules_referencing(model["name"], GATEWAY_NAMESPACE), (
                 "DestinationRule must not be created while the listener refuses the namespace"
             )
             if time.time() >= deadline:
