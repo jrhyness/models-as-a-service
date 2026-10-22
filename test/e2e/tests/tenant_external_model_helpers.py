@@ -28,9 +28,11 @@ on observable behavior rather than assumed resource names):
   value as ``Authorization: Bearer``). Providers in user namespaces stay
   ``Pending``/``TenantNotReady`` by design: the attachment path validates
   them directly and does not gate on their own status.
-- DestinationRules and credential copies published into the tenant are found
-  by ownership/content (controller ownerReferences, matching ``api-key``
-  Secret data) instead of hard-coded names.
+- Provider DestinationRules are found by content, not hard-coded names: the
+  AGC publishes them into the Gateway namespace under hashed names labeled
+  with the provider, gateway, and tenant (they carry no ownerReferences).
+  Credential copies delivered into the tenant are found by matching
+  ``api-key`` Secret data.
 - The inference URL is ``{gateway}/{model-namespace}/{modelName}`` plus the
   provider's own path: the AGC's attachment route matches that path prefix
   and rewrites the matched prefix to ``/``, so whatever the client appends
@@ -230,11 +232,18 @@ def require_tenant_external_model_support() -> dict[str, bool]:
             f"(capabilities: {capabilities}); AGC gatewayRefs support not distributed"
         )
     if find_agc_deployment() is None:
-        pytest.skip(
+        message = (
             f"ai-gateway-controller deployment not found "
             f"({AGC_DEPLOYMENT_NAME} in {AGC_DEPLOYMENT_NAMESPACE}); "
             "AGC companion not installed"
         )
+        # The prow smoke path always deploys AGC (deploy-platform defaults
+        # AI_GATEWAY_CONTROLLER_IMAGE): a missing deployment there means the
+        # deploy failed, and skipping would report green CI with the whole
+        # suite skipped.
+        if os.environ.get("AI_GATEWAY_CONTROLLER_IMAGE"):
+            pytest.fail(message)
+        pytest.skip(message)
     return capabilities
 
 
@@ -1310,11 +1319,12 @@ def destination_rules_referencing(
     *namespaces: str,
     also_matching: tuple[str, ...] = (),
 ) -> list[dict]:
-    """DestinationRules that reference *model_name* (by name, labels, or
-    ownerReferences) in the given namespaces, additionally requiring every
+    """DestinationRules that reference *model_name* (by name or labels) in
+    the given namespaces, additionally requiring every
     string in *also_matching* to appear in the same metadata — e.g. a
     gateway name, to scope to one attachment's rules while another gateway
-    still serves the same model.
+    still serves the same model. (The match blob also includes
+    ownerReferences, but the AGC sets none on these rules.)
 
     AGC creates the provider DestinationRules in the Gateway namespace
     (``GATEWAY_NAMESPACE``), not the tenant's, under hashed names that are

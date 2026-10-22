@@ -135,7 +135,10 @@ class TestOmittedGatewayRefsUnchanged:
         routes = wait_for_attachment_httproute(
             model["namespace"], tenant_a["gateway_name"], model_name=model["name"]
         )
-        return {"model": model, "access": access, "routes": routes}
+        try:
+            yield {"model": model, "access": access, "routes": routes}
+        finally:
+            resources.cleanup()
 
     def test_omitted_gateway_refs_serve_via_tenant_local_resolution(
         self, tenant_external_model_tenants, legacy_shaped_model

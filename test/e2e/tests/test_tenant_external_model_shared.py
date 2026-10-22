@@ -370,6 +370,11 @@ def _usage_provider(
     The simulator is deployed in the model's namespace and is dedicated to
     that model, so no rate limits apply on the provider hop: a 429 seen
     through a tenant gateway can only be that tenant's own budget.
+
+    An echo endpoint cannot stand in even with a synthetic usage field: the
+    telemetry pipeline drops reports whose body does not name the model and
+    cannot read gzip-compressed responses (which httpbingo serves) — the
+    simulator's plain OpenAI-shaped bodies satisfy all of it.
     """
     suffix = uuid.uuid4().hex[:6]
     sim = f"e2e-usage-sim-{suffix}"

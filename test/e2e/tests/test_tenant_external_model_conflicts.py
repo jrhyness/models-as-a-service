@@ -255,20 +255,28 @@ class TestSameNamedObjectsTwoNamespaces:
         # the ModelNameConflict scenario instead): model 1 keeps the default
         # name (client == CRD name), model 2 overrides — see the serving
         # test for what that costs today.
-        model_1 = provision_external_model_stack(
-            env["resources"],
-            name=shared_cr_name,
-            namespace=env["user_ns_1"],
-            gateway_refs=[gateway],
-            provider_name=shared_cr_name,
-            credential_secret_name=shared_secret_name,
-        )
+        # Model 2 is created and admitted first: on a build whose attachment
+        # stable_ids collide (the overlay bug this test regresses) the first
+        # attachment keeps the shared id, so the callable model 1 would lose
+        # its route and fail the serving proof — with model 1 first, the
+        # collision would pass silently.
         model_2 = provision_external_model_stack(
             env["resources"],
             name=shared_cr_name,
             namespace=env["user_ns_2"],
             gateway_refs=[gateway],
             model_name=f"{shared_cr_name}-two",
+            provider_name=shared_cr_name,
+            credential_secret_name=shared_secret_name,
+        )
+        wait_for_attachment_httproute(
+            model_2["namespace"], tenant_a["gateway_name"], model_name=model_2["name"]
+        )
+        model_1 = provision_external_model_stack(
+            env["resources"],
+            name=shared_cr_name,
+            namespace=env["user_ns_1"],
+            gateway_refs=[gateway],
             provider_name=shared_cr_name,
             credential_secret_name=shared_secret_name,
         )
