@@ -2307,6 +2307,56 @@ func TestEnqueueSiblingsWithAlias(t *testing.T) {
 	}
 }
 
+// A resolved-tenant change alone can flip a sibling's ModelIdentityUnique
+// condition while the alias stays the same, so the sibling watch must requeue
+// on ResolvedTenantRef changes too, not only alias changes.
+func TestSiblingConflictFieldsChanged(t *testing.T) {
+	base := func(alias, tenant string) *maasv1alpha1.MaaSModelRef {
+		return &maasv1alpha1.MaaSModelRef{
+			ObjectMeta: metav1.ObjectMeta{Name: "model-a", Namespace: "default"},
+			Status:     maasv1alpha1.MaaSModelStatus{ResolvedModelAlias: alias, ResolvedTenantRef: tenant},
+		}
+	}
+	tests := []struct {
+		name string
+		old  *maasv1alpha1.MaaSModelRef
+		new  *maasv1alpha1.MaaSModelRef
+		want bool
+	}{
+		{
+			name: "no change",
+			old:  base("alias-a", "tenant-a"),
+			new:  base("alias-a", "tenant-a"),
+			want: false,
+		},
+		{
+			name: "alias change",
+			old:  base("alias-a", "tenant-a"),
+			new:  base("alias-b", "tenant-a"),
+			want: true,
+		},
+		{
+			name: "tenant change with same alias",
+			old:  base("alias-a", "tenant-a"),
+			new:  base("alias-a", "tenant-b"),
+			want: true,
+		},
+		{
+			name: "tenant cleared",
+			old:  base("alias-a", "tenant-a"),
+			new:  base("alias-a", ""),
+			want: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := siblingConflictFieldsChanged(tc.old, tc.new); got != tc.want {
+				t.Errorf("siblingConflictFieldsChanged() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestMaaSModelRef_AliasChangeConvergesSiblingConditions(t *testing.T) {
 	const namespace = "default"
 	const previousAlias = "models/previous"

@@ -49,8 +49,13 @@ type MaaSModelSpec struct {
 	// TenantRef is the name of the AITenant this model belongs to.
 	// When omitted, the controller auto-resolves the tenant from the
 	// HTTPRoute's gateway parentRef via reverse lookup against AITenants.
-	// Set this only as an advanced override; prefer letting the controller
-	// resolve the tenant automatically.
+	// It can also be set as an explicit override — for example to pin a
+	// model to a specific tenant regardless of gateway attachment.
+	// Auto-resolution requires the model to be attached to exactly one
+	// gateway: an ExternalModel attached to several gateways (e.g. one per
+	// tenant) cannot be disambiguated and reconciliation fails until
+	// TenantRef is set to select the tenant. Single-gateway models can
+	// leave it unset and let the controller resolve the tenant.
 	// +optional
 	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`

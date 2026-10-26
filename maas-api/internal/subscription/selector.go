@@ -1502,13 +1502,20 @@ func (s *Selector) toResponseWithResolvedModel(sub *subscription, resolvedModel 
 	resp := toResponse(sub)
 	resp.ResolvedModel = resolvedModel
 	resp.FairnessID = s.tenantName
-	if sub != nil {
-		if sub.UseShortRateLimitID {
-			resp.RateLimitID = RateLimitIDFor(sub.Namespace, sub.Name, resolvedModel)
-		}
-		if ref := findModelRef(sub, resolvedModel); ref != nil {
-			resp.Objective = sub.Objectives[ref.Namespace+"/"+ref.Name]
-		}
+	if sub == nil {
+		return resp
+	}
+	// TRLP limits are keyed on the modelref, not the requested identity: a
+	// request carrying a client-facing alias (bare or as a pair's name
+	// segment) must resolve to the matched ref's namespace/name so its rate
+	// limits apply. An exact pair already equals the ref's identity.
+	if ref := findModelRef(sub, resolvedModel); ref != nil {
+		resolvedModel = ref.Namespace + "/" + ref.Name
+		resp.ResolvedModel = resolvedModel
+		resp.Objective = sub.Objectives[resolvedModel]
+	}
+	if sub.UseShortRateLimitID {
+		resp.RateLimitID = RateLimitIDFor(sub.Namespace, sub.Name, resolvedModel)
 	}
 	return resp
 }

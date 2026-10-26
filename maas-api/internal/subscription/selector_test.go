@@ -2366,6 +2366,93 @@ func TestSelect_RateLimitIDOnlyForShortIdentity(t *testing.T) {
 	})
 }
 
+// TRLP limits are keyed on the modelref, not the requested identity: a
+// request carrying a client-facing alias — bare or as a path pair's name
+// segment — must resolve ResolvedModel (and with it RateLimitID) to the
+// matched ref's namespace/name so the modelref's rate limits apply.
+func TestSelect_RateLimitIDUsesMatchedRefOnAliasPath(t *testing.T) {
+	log := logger.New(false)
+	sub := createSubscriptionWithModelRefs("fresh-sub", []string{"g1"}, []map[string]any{
+		{"name": "model-a", "namespace": "ns1"},
+	})
+	if status, ok := sub.Object["status"].(map[string]any); ok {
+		status["rateLimitIdentity"] = constant.RateLimitIdentityShort
+	} else {
+		sub.Object["status"] = map[string]any{
+			"rateLimitIdentity": constant.RateLimitIdentityShort,
+		}
+	}
+	modelRef := createMaaSModelRef("model-a", "ns1", "ExternalModel")
+	if err := unstructured.SetNestedField(modelRef.Object, "client-name", "status", "resolvedModelAlias"); err != nil {
+		t.Fatalf("SetNestedField: %v", err)
+	}
+	selector := subscription.NewSelector(
+		log,
+		&fakeLister{subscriptions: []*unstructured.Unstructured{sub}},
+		&fakeModelLister{items: []*unstructured.Unstructured{modelRef}},
+		nil,
+	)
+
+	wantModel := "ns1/model-a"
+	wantRateLimitID := subscription.RateLimitIDFor("test-ns", "fresh-sub", wantModel)
+
+	for _, requested := range []string{"ns1/client-name", "client-name"} {
+		t.Run("request "+requested, func(t *testing.T) {
+			//nolint:unqueryvet,nolintlint // False positive - not a SQL query
+			result, err := selector.Select([]string{"g1"}, "", "", requested)
+			if err != nil {
+				t.Fatalf("Select: %v", err)
+			}
+			if result.ResolvedModel != wantModel {
+				t.Errorf("ResolvedModel = %q, want %q", result.ResolvedModel, wantModel)
+			}
+			if result.RateLimitID != wantRateLimitID {
+				t.Errorf("RateLimitID = %q, want %q", result.RateLimitID, wantRateLimitID)
+			}
+		})
+	}
+	t.Run("bare alias with several carriers resolves to the matched ref", func(t *testing.T) {
+		sharedSub := createSubscriptionWithModelRefs("fresh-sub", []string{"g1"}, []map[string]any{
+			{"name": "model-a", "namespace": "ns1"},
+			{"name": "model-b", "namespace": "ns2"},
+		})
+		if status, ok := sharedSub.Object["status"].(map[string]any); ok {
+			status["rateLimitIdentity"] = constant.RateLimitIdentityShort
+		} else {
+			sharedSub.Object["status"] = map[string]any{
+				"rateLimitIdentity": constant.RateLimitIdentityShort,
+			}
+		}
+		aliased := func(name, ns string) *unstructured.Unstructured {
+			ref := createMaaSModelRef(name, ns, "ExternalModel")
+			if err := unstructured.SetNestedField(ref.Object, "client-name", "status", "resolvedModelAlias"); err != nil {
+				t.Fatalf("SetNestedField: %v", err)
+			}
+			return ref
+		}
+		sharedSelector := subscription.NewSelector(
+			log,
+			&fakeLister{subscriptions: []*unstructured.Unstructured{sharedSub}},
+			&fakeModelLister{items: []*unstructured.Unstructured{
+				aliased("model-a", "ns1"),
+				aliased("model-b", "ns2"),
+			}},
+			nil,
+		)
+		//nolint:unqueryvet,nolintlint // False positive - not a SQL query
+		result, err := sharedSelector.Select([]string{"g1"}, "", "", "client-name")
+		if err != nil {
+			t.Fatalf("Select: %v", err)
+		}
+		if result.ResolvedModel != wantModel {
+			t.Errorf("ResolvedModel = %q, want %q", result.ResolvedModel, wantModel)
+		}
+		if result.RateLimitID != wantRateLimitID {
+			t.Errorf("RateLimitID = %q, want %q", result.RateLimitID, wantRateLimitID)
+		}
+	})
+}
+
 // createSubscriptionWithFlowControl returns a subscription for models ns1/model-a and
 // ns1/model-b with the given status.flowControlStatuses.
 func createSubscriptionWithFlowControl(t *testing.T, statuses ...map[string]any) *unstructured.Unstructured {
