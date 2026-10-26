@@ -171,7 +171,7 @@ type MaaSModelStatus struct {
 	//   - GovernanceAttached: active MaaSSubscription + MaaSAuthPolicy pairing exists.
 	//   - RuntimeReady: backend is healthy and serving.
 	//   - ModelIdentityUnique: no other MaaSModelRef in this namespace resolves to the
-	//     same model alias (see MaaSModelStatus doc for details).
+	//     same model alias and the same tenant (see MaaSModelStatus doc for details).
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
