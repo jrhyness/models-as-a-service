@@ -12,6 +12,13 @@ P0 scenarios:
 3. An attachment to a gateway whose allowedRoutes do not admit the model
    namespace is not served, gets no DestinationRule or credential copy, and
    reports NotAllowedByListeners.
+4. Admission changes recover without editing the model: re-admitting a
+   refused namespace makes its attachment Ready, and narrowing admission
+   (removing the gateway-access label) stops a serving attachment. A
+   refused model in another namespace never breaks the tenant's own models.
+5. The controller-owned credential copy in the tenant namespace follows its
+   user-namespace source: rotating the source key updates the copy and
+   serving traffic with no manual steps.
 
 Shares the tenant_external_model session tenants (see conftest.tenant_external_model_tenants);
 this module creates its own user namespaces with unique names.
@@ -19,6 +26,7 @@ this module creates its own user namespaces with unique names.
 
 from __future__ import annotations
 
+import base64
 import logging
 import time
 import uuid
@@ -26,12 +34,19 @@ import uuid
 import pytest
 from multitenancy_helpers import (
     GATEWAY_NAMESPACE,
+    apply_gateway_access_label,
     delete_namespace_best_effort,
+    get_json_or_none,
     redact_sensitive,
+    remove_gateway_access_label,
+    wait_until,
 )
 from tenant_external_model_helpers import (
+    CREDENTIAL_DATA_KEY,
     EXTERNAL_MODEL_KIND,
+    TENANT_EXTERNAL_MODEL_READY_TIMEOUT,
     TenantExternalModelResources,
+    apply_credential_secret,
     assert_served_by_provider,
     attachment_httproutes,
     credential_copy_in,
@@ -39,6 +54,7 @@ from tenant_external_model_helpers import (
     gateway_ref,
     httproute_parent_conditions,
     infer_external_chat,
+    list_json,
     new_admitted_user_namespace,
     new_unadmitted_namespace,
     patch_external_model_gateway_refs,
@@ -445,3 +461,235 @@ class TestListenerNotAllowed:
             retries=1,
         )
         _assert_not_served(response)
+
+
+# ─── P0 #4: admission changes recover without editing the model ─────────────
+
+
+class TestListenerAdmissionRecovery:
+    """A refused attachment recovers when the namespace is admitted, and a
+    serving attachment stops when admission is narrowed — in both directions
+    without touching the model, and without breaking the tenant's own models.
+
+    The recovery model lives in its own namespace so this class can flip the
+    gateway-access label freely: the module's shared user namespace hosts
+    other classes' routes, and removing its label would break them.
+    """
+
+    @pytest.fixture(scope="class")
+    def recovery_env(self, attachment_env):
+        env = attachment_env
+        tenant_b = env["tenant_b"]
+        refused_ns = new_unadmitted_namespace("e2e-extmod-rec-noaccess")
+        control_ns = new_admitted_user_namespace("e2e-extmod-rec-user", tenant_b["gateway_name"])
+        resources = env["resources"]
+        recovering_model = provision_external_model_stack(
+            resources,
+            name=f"e2e-rec-recover-{uuid.uuid4().hex[:6]}",
+            namespace=refused_ns,
+            gateway_refs=[gateway_ref(tenant_b["gateway_name"])],
+        )
+        control_model = provision_external_model_stack(
+            resources,
+            name=f"e2e-rec-ctrl-{uuid.uuid4().hex[:6]}",
+            namespace=control_ns,
+            gateway_refs=[gateway_ref(tenant_b["gateway_name"])],
+        )
+        control_access = _serve_in_tenant(env, tenant_b, control_model)
+        try:
+            yield {
+                "tenant_b": tenant_b,
+                "refused_ns": refused_ns,
+                "control_ns": control_ns,
+                "resources": resources,
+                "recovering_model": recovering_model,
+                "control_model": control_model,
+                "control_access": control_access,
+            }
+        finally:
+            delete_namespace_best_effort(refused_ns)
+            delete_namespace_best_effort(control_ns)
+
+    def test_refused_model_does_not_break_tenant_models(self, attachment_env, recovery_env):
+        """While the gateway refuses the recovering model's namespace, the
+        attachment reports NotAllowedByListeners and a healthy model on the
+        same gateway keeps serving end to end."""
+        env = recovery_env
+        tenant_b = env["tenant_b"]
+        model = env["recovering_model"]
+        wait_for_gateway_attachment_reason(
+            model["name"], model["namespace"], tenant_b["gateway_name"], "NotAllowedByListeners"
+        )
+        control = env["control_model"]
+        response = infer_external_chat(
+            tenant_b["gateway_url"],
+            control["namespace"],
+            control["client_name"],
+            env["control_access"]["api_key"],
+            path_tag=control["path_tag"],
+        )
+        assert_served_by_provider(response, control["path_tag"], credential=control["credential"])
+
+    def test_readmission_recovers_attachment_without_model_edit(self, attachment_env, recovery_env):
+        """Labeling the refused namespace (admitting it into the gateway's
+        allowedRoutes) makes the attachment Ready and serving — without any
+        change to the ExternalModel itself."""
+        env = recovery_env
+        tenant_b = env["tenant_b"]
+        model = env["recovering_model"]
+        spec_before = (get_json_or_none(EXTERNAL_MODEL_KIND, model["name"], model["namespace"]) or {}).get("spec")
+
+        apply_gateway_access_label(env["refused_ns"], tenant_b["gateway_name"])
+
+        wait_for_gateway_attachment_ready(model["name"], model["namespace"], tenant_b["gateway_name"])
+        wait_for_credential_copy(
+            tenant_b["tenant_ns"], model["secret_name"], model["secret_namespace"]
+        )
+        spec_after = (get_json_or_none(EXTERNAL_MODEL_KIND, model["name"], model["namespace"]) or {}).get("spec")
+        assert spec_after == spec_before, (
+            "recovery must not edit the model: spec changed from "
+            f"{spec_before} to {spec_after}"
+        )
+
+        # The recovered attachment now carries the full MaaS stack (it is a
+        # single-gateway model, so the route resolves for subscriptions).
+        access = _serve_in_tenant(env, tenant_b, model)
+        response = infer_external_chat(
+            tenant_b["gateway_url"],
+            model["namespace"],
+            model["client_name"],
+            access["api_key"],
+            path_tag=model["path_tag"],
+        )
+        assert_served_by_provider(response, model["path_tag"], credential=model["credential"])
+
+    def test_narrowing_admission_stops_serving(self, attachment_env, recovery_env):
+        """Removing the gateway-access label (narrowing allowedRoutes) makes
+        the gateway refuse the route again: the attachment reports
+        NotAllowedByListeners, requests are refused, and the healthy model in
+        an admitted namespace keeps serving."""
+        env = recovery_env
+        tenant_b = env["tenant_b"]
+        model = env["recovering_model"]
+
+        remove_gateway_access_label(env["refused_ns"], tenant_b["gateway_name"])
+
+        wait_for_gateway_attachment_reason(
+            model["name"], model["namespace"], tenant_b["gateway_name"], "NotAllowedByListeners"
+        )
+        routes = attachment_httproutes(model["namespace"], tenant_b["gateway_name"])
+        for route in routes:
+            conditions = httproute_parent_conditions(route, tenant_b["gateway_name"])
+            accepted = next((c for c in conditions if c.get("type") == "Accepted"), None)
+            assert accepted is not None and accepted.get("status") == "False", (
+                f"route {route['metadata']['name']} must not stay admitted: {conditions}"
+            )
+        response = infer_external_chat(
+            tenant_b["gateway_url"],
+            model["namespace"],
+            model["client_name"],
+            api_key=f"sk-extmod-unused-{uuid.uuid4().hex[:8]}",
+            path_tag=model["path_tag"],
+            retries=1,
+        )
+        _assert_not_served(response)
+
+        control = env["control_model"]
+        served = infer_external_chat(
+            tenant_b["gateway_url"],
+            control["namespace"],
+            control["client_name"],
+            env["control_access"]["api_key"],
+            path_tag=control["path_tag"],
+        )
+        assert_served_by_provider(served, control["path_tag"], credential=control["credential"])
+
+
+# ─── P0 #5: the tenant credential copy follows its source ──────────────────
+
+
+class TestCredentialRotationFollowsSource:
+    """Rotating the key in the user-namespace source Secret updates the
+    controller-owned copy in the tenant namespace and serving traffic uses
+    the new key, with no manual steps.
+
+    A stale copy (old key still in use, nothing visible to the user) is the
+    failure this catches: the assertions check both that a copy carrying the
+    new key exists and that no Secret in the tenant namespace still holds
+    the old one.
+    """
+
+    @pytest.fixture(scope="class")
+    def rotation_model(self, attachment_env):
+        env = attachment_env
+        tenant_b = env["tenant_b"]
+        # Its own namespace: the rotation rewrites this Secret in place, and
+        # the module's shared user namespace hosts other classes' models.
+        user_ns = new_admitted_user_namespace("e2e-extmod-rot-user", tenant_b["gateway_name"])
+        model = provision_external_model_stack(
+            env["resources"],
+            name=f"e2e-rot-{uuid.uuid4().hex[:6]}",
+            namespace=user_ns,
+            gateway_refs=[gateway_ref(tenant_b["gateway_name"])],
+        )
+        access = _serve_in_tenant(env, tenant_b, model)
+        try:
+            yield {
+                "tenant_b": tenant_b,
+                "user_ns": user_ns,
+                "model": model,
+                "access": access,
+            }
+        finally:
+            delete_namespace_best_effort(user_ns)
+
+    def test_rotation_updates_copy_and_serving(self, attachment_env, rotation_model):
+        env = rotation_model
+        tenant_b = env["tenant_b"]
+        model = env["model"]
+
+        # Baseline: serving with the original key.
+        response = infer_external_chat(
+            tenant_b["gateway_url"],
+            model["namespace"],
+            model["client_name"],
+            env["access"]["api_key"],
+            path_tag=model["path_tag"],
+        )
+        assert_served_by_provider(response, model["path_tag"], credential=model["credential"])
+
+        rotated_credential = f"sk-extmod-rotated-{uuid.uuid4().hex[:10]}"
+        apply_credential_secret(model["secret_name"], model["secret_namespace"], rotated_credential)
+
+        # The copy must catch up with the new key...
+        wait_for_credential_copy(
+            tenant_b["tenant_ns"], model["secret_name"], model["secret_namespace"]
+        )
+        # ...and no Secret in the tenant namespace may keep the old one.
+        stale_credential = base64.b64encode(model["credential"].encode()).decode()
+
+        def _no_stale_copy() -> bool:
+            stale = [
+                secret["metadata"]["name"]
+                for secret in list_json("secret", tenant_b["tenant_ns"])
+                if (secret.get("data") or {}).get(CREDENTIAL_DATA_KEY) == stale_credential
+            ]
+            assert not stale, f"stale credential copies still present in tenant namespace: {stale}"
+            return True
+
+        wait_until(
+            _no_stale_copy,
+            TENANT_EXTERNAL_MODEL_READY_TIMEOUT,
+            f"no stale credential copy of {model['secret_namespace']}/{model['secret_name']} "
+            f"in {tenant_b['tenant_ns']}",
+        )
+
+        # Serving traffic carries the rotated key with no manual steps.
+        response = infer_external_chat(
+            tenant_b["gateway_url"],
+            model["namespace"],
+            model["client_name"],
+            env["access"]["api_key"],
+            path_tag=model["path_tag"],
+        )
+        assert_served_by_provider(response, model["path_tag"], credential=rotated_credential)
