@@ -855,7 +855,14 @@ func (r *MaaSSubscriptionReconciler) updateExistingTRLP(
 	updateErr := retry.OnError(retry.DefaultBackoff, apierrors.IsConflict, func() error {
 		existing := &unstructured.Unstructured{}
 		existing.SetGroupVersionKind(policy.GroupVersionKind())
-		if err := r.Get(ctx, client.ObjectKeyFromObject(policy), existing); err != nil {
+		// Read through the APIReader: after a conflict the informer cache can
+		// still serve the stale resourceVersion that just lost the race, which
+		// would make every retry conflict again.
+		reader := r.APIReader
+		if reader == nil {
+			reader = r.Client
+		}
+		if err := reader.Get(ctx, client.ObjectKeyFromObject(policy), existing); err != nil {
 			return err
 		}
 		if !isManaged(existing) {
