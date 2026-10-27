@@ -21,13 +21,13 @@ from multitenancy_helpers import (
     apply_gateway_access_label,
     bootstrap_aitenant_tenant,
     cleanup_discovery_case,
+    gateway_route_host,
     new_named_tenant_case,
     per_tenant_gateway_policy_names,
     require_aitenant_crd,
     wait_for_deployment_available,
     wait_for_gateway_authpolicy_ready,
     wait_for_llmisvc_backend_ready,
-    wait_for_route_admitted,
 )
 from test_helper import (
     PREMIUM_SIMULATOR_SUBSCRIPTION,
@@ -150,11 +150,7 @@ def build_worker_tenant_case(worker_suffix: str) -> WorkerTenantContext:
 
 
 def _route_host(case: dict[str, str]) -> str:
-    route = wait_for_route_admitted(f"{case['gateway_name']}-route")
-    host = route.get("spec", {}).get("host")
-    if not host:
-        raise RuntimeError(f"Route {case['gateway_name']}-route missing spec.host")
-    return host
+    return gateway_route_host(case["gateway_name"])
 
 
 def _apply_baseline_stack(context: WorkerTenantContext) -> None:

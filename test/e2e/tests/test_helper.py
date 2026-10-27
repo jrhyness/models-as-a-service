@@ -661,6 +661,30 @@ def _request_with_gateway_retry(method, url, retries=None, delay=None, deadline=
     return r
 
 
+def create_api_key_at(base_url: str, oc_token: str, name: str, *, subscription: str | None = None):
+    """Create an API key against a maas-api base URL (any tenant's).
+
+    Shared by the default-tenant helpers and the tenant-scoped maas-api
+    callers. Retries empty 403 / Authorino AUTH_FAILURE while gateway
+    AuthPolicy enforcement catches up.
+    """
+    body = {"name": name}
+    if subscription:
+        body["subscription"] = subscription
+
+    return _request_with_gateway_retry(
+        requests.post,
+        f"{base_url}/v1/api-keys",
+        headers={
+            "Authorization": f"Bearer {oc_token}",
+            "Content-Type": "application/json",
+        },
+        json=body,
+        timeout=TIMEOUT,
+        verify=TLS_VERIFY,
+    )
+
+
 def _create_api_key_raw(oc_token: str, name: str = None, subscription: str = None):
     """Create an API key and return the raw response (for testing error cases).
 
@@ -676,24 +700,9 @@ def _create_api_key_raw(oc_token: str, name: str = None, subscription: str = Non
     Returns:
         requests.Response object
     """
-    url = f"{_maas_api_url()}/v1/api-keys"
     key_name = name or f"e2e-test-{uuid.uuid4().hex[:8]}"
 
-    body = {"name": key_name}
-    if subscription:
-        body["subscription"] = subscription
-
-    return _request_with_gateway_retry(
-        requests.post,
-        url,
-        headers={
-            "Authorization": f"Bearer {oc_token}",
-            "Content-Type": "application/json",
-        },
-        json=body,
-        timeout=TIMEOUT,
-        verify=TLS_VERIFY,
-    )
+    return create_api_key_at(_maas_api_url(), oc_token, key_name, subscription=subscription)
 
 
 def _create_api_key(oc_token: str, name: str = None, subscription: str = None) -> str:
