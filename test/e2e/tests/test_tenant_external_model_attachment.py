@@ -567,11 +567,33 @@ class TestListenerAdmissionRecovery:
         """Removing the gateway-access label (narrowing allowedRoutes) makes
         the gateway refuse the route again: the attachment reports
         NotAllowedByListeners, requests are refused, and the healthy model in
-        an admitted namespace keeps serving."""
+        an admitted namespace keeps serving.
+
+        Self-contained on purpose: this test establishes the serving state
+        (admitted attachment + valid API key) itself rather than relying on
+        the readmission test having run first, and proves serving stopped
+        with the key that was valid before the narrowing — a 401 from an
+        invalid key would not distinguish "no longer admitted" from "never
+        served"."""
         env = recovery_env
         tenant_b = env["tenant_b"]
         model = env["recovering_model"]
 
+        # Establish serving (no-op label apply if the readmission test
+        # already ran; the MaaS stack apply is idempotent).
+        apply_gateway_access_label(env["refused_ns"], tenant_b["gateway_name"])
+        wait_for_gateway_attachment_ready(model["name"], model["namespace"], tenant_b["gateway_name"])
+        access = _serve_in_tenant(env, tenant_b, model)
+        served = infer_external_chat(
+            tenant_b["gateway_url"],
+            model["namespace"],
+            model["client_name"],
+            access["api_key"],
+            path_tag=model["path_tag"],
+        )
+        assert_served_by_provider(served, model["path_tag"], credential=model["credential"])
+
+        # Narrow: the gateway must refuse the route again.
         remove_gateway_access_label(env["refused_ns"], tenant_b["gateway_name"])
 
         wait_for_gateway_attachment_reason(
@@ -584,25 +606,29 @@ class TestListenerAdmissionRecovery:
             assert accepted is not None and accepted.get("status") == "False", (
                 f"route {route['metadata']['name']} must not stay admitted: {conditions}"
             )
+        # The key that just served must now be refused: a non-200 here is
+        # the narrowing verdict, not an authorization failure.
         response = infer_external_chat(
             tenant_b["gateway_url"],
             model["namespace"],
             model["client_name"],
-            api_key=f"sk-extmod-unused-{uuid.uuid4().hex[:8]}",
+            access["api_key"],
             path_tag=model["path_tag"],
             retries=1,
         )
         _assert_not_served(response)
 
         control = env["control_model"]
-        served = infer_external_chat(
+        control_served = infer_external_chat(
             tenant_b["gateway_url"],
             control["namespace"],
             control["client_name"],
             env["control_access"]["api_key"],
             path_tag=control["path_tag"],
         )
-        assert_served_by_provider(served, control["path_tag"], credential=control["credential"])
+        assert_served_by_provider(
+            control_served, control["path_tag"], credential=control["credential"]
+        )
 
 
 # ─── P0 #5: the tenant credential copy follows its source ──────────────────

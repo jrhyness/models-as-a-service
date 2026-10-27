@@ -40,7 +40,11 @@ import time
 import uuid
 
 import pytest
-from multitenancy_helpers import GATEWAY_NAMESPACE, delete_namespace_best_effort
+from multitenancy_helpers import (
+    GATEWAY_NAMESPACE,
+    delete_namespace_best_effort,
+    wait_for_not_found,
+)
 from tenant_external_model_helpers import (
     EXTERNAL_MODEL_KIND,
     EXTERNAL_PROVIDER_KIND,
@@ -453,6 +457,10 @@ class TestForeignBrokenModelIsolation:
         tenant_a = env["tenant_a"]
         broken_ns = env["user_ns_2"]
         _delete_cr(EXTERNAL_MODEL_KIND, broken_pair["broken_name"], broken_ns)
+        # _delete_cr only logs on failure: confirm the object is gone before
+        # the absence checks, so a failed deletion cannot pass vacuously
+        # (the broken model may have held no route to begin with).
+        wait_for_not_found(EXTERNAL_MODEL_KIND, broken_pair["broken_name"], broken_ns)
         wait_for_no_attachment_httproute(
             broken_ns, tenant_a["gateway_name"], model_name=broken_pair["broken_name"]
         )

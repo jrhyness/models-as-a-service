@@ -70,6 +70,7 @@ from multitenancy_helpers import (
     _oc_run,
     extproc_deployment_uses_praxis,
     make_tenant_model_accessible,
+    wait_for_not_found,
 )
 from tenant_external_model_helpers import (
     TENANT_EXTERNAL_MODEL_READY_TIMEOUT,
@@ -418,6 +419,10 @@ class TestPartialWithdrawal:
             # Delete provider B while the requests are running.
             time.sleep(2)
             _delete_cr(EXTERNAL_PROVIDER_KIND, provider_b["name"], model["namespace"])
+            # _delete_cr only logs on failure: confirm the provider is gone
+            # so a failed deletion cannot silently pass the convergence
+            # check below on a still-serving B.
+            wait_for_not_found(EXTERNAL_PROVIDER_KIND, provider_b["name"], model["namespace"])
         finally:
             thread.join()
 
@@ -468,6 +473,10 @@ class TestLastProviderWithdrawal:
         # serve no route. A stale 200 from the old revision is the bug
         # (issue #106); transient propagation is absorbed by the retries.
         _delete_cr(EXTERNAL_PROVIDER_KIND, provider_a["name"], model["namespace"])
+        # _delete_cr only logs on failure: confirm the provider is gone
+        # before asserting no-route, so a failed deletion cannot produce a
+        # vacuous pass.
+        wait_for_not_found(EXTERNAL_PROVIDER_KIND, provider_a["name"], model["namespace"])
 
         def _no_route() -> bool:
             response = _infer(env, model, api_key, retries=1)
