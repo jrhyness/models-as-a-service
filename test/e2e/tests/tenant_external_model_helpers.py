@@ -1195,9 +1195,9 @@ def serve_external_model_in_tenant(
     Creates MaaSAuthPolicy + MaaSSubscription in the tenant namespace
     referencing a model that may live in a user namespace, waits for
     reconciliation (including the mirrored TRLP) and mints a tenant API key
-    Callers start tracking the policy/subscription only after a successful
-    return, so on failure this call deletes whatever it already applied
-    before the error propagates.
+    for the subscription. Resources are tracked before they are applied, so
+    a failure partway through reconciliation still cleans up whatever was
+    already created.
     """
     timeout = timeout or TENANT_EXTERNAL_MODEL_READY_TIMEOUT
     tenant_namespace = case["tenant_ns"]
@@ -1205,6 +1205,10 @@ def serve_external_model_in_tenant(
     subscription_name = subscription_name or f"{model_name}-sub"
     created = TenantExternalModelResources()
     try:
+        # Tracked before applying: cleanup must cover a reconciliation that
+        # fails after the policy/subscription were already created.
+        created.track("maasauthpolicy", policy_name, tenant_namespace)
+        created.track("maassubscription", subscription_name, tenant_namespace)
         # Shared policy/subscription/reconciliation flow (make_tenant_model_
         # accessible), pointed at the user-namespace model via model_namespace.
         make_tenant_model_accessible(
@@ -1220,8 +1224,6 @@ def serve_external_model_in_tenant(
             require_model_ready=wait_model_ready,
             model_ready_timeout=timeout,
         )
-        created.track("maasauthpolicy", policy_name, tenant_namespace)
-        created.track("maassubscription", subscription_name, tenant_namespace)
         api_key = mint_tenant_api_key(
             case,
             key_name or f"e2e-extmod-{uuid.uuid4().hex[:8]}",

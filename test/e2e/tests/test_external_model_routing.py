@@ -45,12 +45,14 @@ run.
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
 import uuid
 
 import pytest
+import requests
 from external_model_helpers import (
     EXTERNAL_MODEL_KIND,
     EXTERNAL_PROVIDER_KIND,
@@ -70,6 +72,7 @@ from multitenancy_helpers import (
     extproc_deployment_uses_praxis,
     get_json_or_none,
     make_tenant_model_accessible,
+    redact_sensitive,
     wait_for_not_found,
     wait_until,
 )
@@ -169,7 +172,7 @@ def _wait_model_route_name(name: str, namespace: str) -> str:
                     route_name = entry["httpRouteRef"].get("name")
                     break
         assert route_name, (
-            f"no route reported for {namespace}/{name} yet: {status!r:2000}"
+            f"no route reported for {namespace}/{name} yet: {repr(status)[:2000]}"
         )
         return route_name
 
@@ -183,6 +186,10 @@ def _wait_model_route_name(name: str, namespace: str) -> str:
 def _serve(env: dict, model: dict) -> str:
     """Authorization/subscription stack for one model on the default tenant,
     returning an API key bound to its subscription."""
+    # Track before applying: if reconciliation fails midway, cleanup still
+    # removes whatever was already created.
+    env["resources"].track("maasauthpolicy", f"{model['name']}-access", env["subscription_ns"])
+    env["resources"].track("maassubscription", f"{model['name']}-sub", env["subscription_ns"])
     make_tenant_model_accessible(
         model["name"],
         env["subscription_ns"],
@@ -191,8 +198,6 @@ def _serve(env: dict, model: dict) -> str:
         model_namespace=env["model_ns"],
         model_ready_timeout=TENANT_EXTERNAL_MODEL_READY_TIMEOUT,
     )
-    env["resources"].track("maasauthpolicy", f"{model['name']}-access", env["subscription_ns"])
-    env["resources"].track("maassubscription", f"{model['name']}-sub", env["subscription_ns"])
     return _create_api_key(
         _get_cluster_token(),
         f"e2e-extmod-rt-{uuid.uuid4().hex[:8]}",
@@ -269,9 +274,11 @@ def _infer(env: dict, model: dict, api_key: str, **kwargs):
     )
 
 
-def _extproc_pod_uids() -> set[str]:
-    """UIDs of the default tenant's payload-processing ExtProc pods, so
-    provider switching can prove it did not restart the data plane."""
+def _extproc_pod_state() -> dict[str, dict[str, int]]:
+    """Per-pod container restart counts of the default tenant's payload-
+    processing ExtProc pods, keyed by pod UID, so provider switching can
+    prove it neither restarted nor rebound the data plane — including a
+    container restart inside an unchanged pod."""
     result = _oc_run(
         [
             "get",
@@ -281,10 +288,25 @@ def _extproc_pod_uids() -> set[str]:
             "-l",
             f"{LABEL_TENANT_INSTANCE}={PROCESSING_DEPLOYMENT}",
             "-o",
-            "jsonpath={.items[*].metadata.uid}",
+            "json",
         ]
     )
-    return {uid for uid in (result.stdout or "").split() if uid}
+    assert result.returncode == 0, (
+        f"could not list {PROCESSING_DEPLOYMENT} pods in {GATEWAY_NAMESPACE}: "
+        f"{result.stderr or result.stdout}"
+    )
+    pods = (json.loads(result.stdout or "{}").get("items") or [])
+    state: dict[str, dict[str, int]] = {}
+    for pod in pods:
+        uid = (pod.get("metadata") or {}).get("uid")
+        assert uid, f"pod without metadata.uid: {pod.get('metadata', {}).get('name')}"
+        restarts = {
+            container.get("name", "?"): container.get("restartCount", 0)
+            for container in (pod.get("status") or {}).get("containerStatuses") or []
+        }
+        assert restarts, f"pod {uid} reports no container statuses"
+        state[uid] = restarts
+    return state
 
 
 def _wait_for_single_provider(env: dict, model: dict, api_key: str, credential: str) -> None:
@@ -351,8 +373,8 @@ class TestProviderSwitching:
         response = _infer(env, model, api_key)
         assert_served_by_provider(response, client_tag)
 
-        pod_uids_before = _extproc_pod_uids()
-        assert pod_uids_before, "no payload-processing ExtProc pods found for the default tenant"
+        pod_state_before = _extproc_pod_state()
+        assert pod_state_before, "no payload-processing ExtProc pods found for the default tenant"
 
         # Switch to provider B only.
         patch_external_model_provider_refs(
@@ -366,9 +388,13 @@ class TestProviderSwitching:
         )
         _wait_for_single_provider(env, model, api_key, provider_a["credential"])
 
-        # The data plane was never restarted: same ExtProc pods throughout.
-        assert _extproc_pod_uids() == pod_uids_before, (
-            "provider switching must not restart the default tenant's ExtProc pods"
+        # The data plane was never restarted: same ExtProc pods, and none of
+        # their containers restarted, throughout the switches.
+        pod_state_after = _extproc_pod_state()
+        assert pod_state_after == pod_state_before, (
+            "provider switching must not restart the default tenant's ExtProc pods "
+            f"(pods or container restart counts changed: before={pod_state_before}, "
+            f"after={pod_state_after})"
         )
 
 
@@ -404,7 +430,7 @@ class TestEqualProviderSelection:
             response = _infer(env, model, api_key)
             assert response.status_code == 200, (
                 f"inference failed on an equally weighted two-provider model: "
-                f"{response.text[:300]}"
+                f"{redact_sensitive(response.text)[:300]}"
             )
             if credential_a in response.text:
                 counts["a"] += 1
@@ -523,7 +549,7 @@ class TestLastProviderWithdrawal:
             response = _infer(env, model, api_key, retries=1)
             assert response.status_code != 200, (
                 f"request must not be served after the final provider is withdrawn "
-                f"(stale route), got 200: {response.text[:300]}"
+                f"(stale route), got 200: {redact_sensitive(response.text)[:300]}"
             )
             return True
 
@@ -532,7 +558,10 @@ class TestLastProviderWithdrawal:
             try:
                 _no_route()
                 break
-            except AssertionError:
+            except (AssertionError, requests.RequestException):
+                # AssertionError: stale route still serving (issue #106).
+                # RequestException: transport flake while the routing
+                # revision rolls out — not a verdict, keep polling.
                 if time.time() >= deadline:
                     raise
                 time.sleep(5)
