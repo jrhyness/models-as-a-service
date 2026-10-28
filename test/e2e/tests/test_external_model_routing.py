@@ -60,7 +60,6 @@ from external_model_helpers import (
     apply_maas_model_ref_for_external,
     assert_served_by_provider,
     external_model_binding,
-    external_model_route_name,
     infer_external_chat,
     patch_external_model_provider_refs,
 )
@@ -69,8 +68,10 @@ from multitenancy_helpers import (
     LABEL_TENANT_INSTANCE,
     _oc_run,
     extproc_deployment_uses_praxis,
+    get_json_or_none,
     make_tenant_model_accessible,
     wait_for_not_found,
+    wait_until,
 )
 from tenant_external_model_helpers import (
     TENANT_EXTERNAL_MODEL_READY_TIMEOUT,
@@ -141,6 +142,44 @@ def routing_env(gateway_url):
         resources.cleanup()
 
 
+def _wait_model_route_name(name: str, namespace: str) -> str:
+    """The route name the AGC published for a model, from its status.
+
+    On current AGC builds a gatewayRefs-less model in the model namespace
+    is implicitly attached to the default gateway with a hashed attachment
+    route name (``external-model-<name>-<12 hex>``); older builds report
+    the bare name. Constructing the name is wrong either way — read the
+    published ``status.httpRouteName`` (single-attachment models) or the
+    Ready per-gateway ``status.gateways[].httpRouteRef`` instead.
+    """
+
+    def _check() -> str:
+        external_model = get_json_or_none(EXTERNAL_MODEL_KIND, name, namespace)
+        assert external_model is not None, f"{EXTERNAL_MODEL_KIND}/{namespace}/{name} not found"
+        status = external_model.get("status") or {}
+        route_name = status.get("httpRouteName")
+        if not route_name:
+            for entry in status.get("gateways") or []:
+                if not entry.get("httpRouteRef"):
+                    continue
+                if any(
+                    c.get("type") in ("Ready", "Accepted") and c.get("status") == "True"
+                    for c in entry.get("conditions") or []
+                ):
+                    route_name = entry["httpRouteRef"].get("name")
+                    break
+        assert route_name, (
+            f"no route reported for {namespace}/{name} yet: {status!r:2000}"
+        )
+        return route_name
+
+    return wait_until(
+        _check,
+        TENANT_EXTERNAL_MODEL_READY_TIMEOUT,
+        f"route name for {namespace}/{name} in model status",
+    )
+
+
 def _serve(env: dict, model: dict) -> str:
     """Authorization/subscription stack for one model on the default tenant,
     returning an API key bound to its subscription."""
@@ -206,7 +245,9 @@ def _multi_provider_model(env: dict, name: str, provider_specs: list[dict]) -> d
     apply_maas_model_ref_for_external(name, namespace)
     resources.track("maasmodelref", name, namespace)
     _wait_for_httproute_accepted(
-        external_model_route_name(name), namespace=namespace, timeout=TENANT_EXTERNAL_MODEL_READY_TIMEOUT
+        _wait_model_route_name(name, namespace),
+        namespace=namespace,
+        timeout=TENANT_EXTERNAL_MODEL_READY_TIMEOUT,
     )
     return {
         "name": name,
@@ -503,7 +544,7 @@ class TestLastProviderWithdrawal:
             credential_secret=provider_a["secret_name"],
         )
         _wait_for_httproute_accepted(
-            external_model_route_name(model["name"]),
+            _wait_model_route_name(model["name"], model["namespace"]),
             namespace=model["namespace"],
             timeout=TENANT_EXTERNAL_MODEL_READY_TIMEOUT,
         )

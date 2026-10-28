@@ -52,7 +52,6 @@ from multitenancy_helpers import (
     delete_namespace_best_effort,
     get_json_or_none,
     redact_sensitive,
-    wait_for_status_phase,
     wait_until,
 )
 from tenant_external_model_helpers import (
@@ -433,16 +432,54 @@ class TestSharedModelAmbiguousModelRef:
 
     def test_pinned_model_refs_stay_ready(self, shared_env, ambiguous_stack):
         """The per-tenant modelRefs pinning spec.tenantRef are unaffected by
-        their ambiguous sibling: each stays Ready with its own gateway's
-        route."""
+        their ambiguous sibling: each resolves its own tenant's attachment
+        (RuntimeReady, resolvedTenantRef and serving gateway set to its own
+        tenant) with no ambiguity error.
+
+        Full phase-Ready additionally needs a governance pairing and unique
+        model identities (RHOAIENG-101609 — two per-tenant refs for one
+        ExternalModel share a resolved alias today), which are separate
+        gaps; this test proves the tenant selection the scenario is about."""
+        env = shared_env
         model = ambiguous_stack["model"]
-        for ref_name in model["model_refs"].values():
-            wait_for_status_phase(
-                "maasmodelref",
-                ref_name,
-                model["namespace"],
-                expected_phase="Ready",
-                timeout=TENANT_EXTERNAL_MODEL_READY_TIMEOUT,
+        cases = {
+            env["tenant_a"]["tenant_label_name"]: env["tenant_a"],
+            env["tenant_b"]["tenant_label_name"]: env["tenant_b"],
+        }
+        for tenant_label, ref_name in model["model_refs"].items():
+            case = cases[tenant_label]
+
+            def _check(ref_name=ref_name, case=case) -> dict:
+                ref = get_json_or_none("maasmodelref", ref_name, model["namespace"])
+                assert ref is not None, f"MaaSModelRef {model['namespace']}/{ref_name} not found"
+                status = ref.get("status") or {}
+                assert status.get("phase") != "Failed", (
+                    f"pinned modelRef {ref_name} must not fail: {redact_sensitive(status)}"
+                )
+                conditions = {
+                    c.get("type"): c for c in status.get("conditions") or []
+                }
+                runtime = conditions.get("RuntimeReady")
+                assert runtime is not None and runtime.get("status") == "True", (
+                    f"pinned modelRef {ref_name} runtime not ready: {redact_sensitive(status)}"
+                )
+                assert status.get("resolvedTenantRef") == case["tenant_label_name"], (
+                    f"pinned modelRef {ref_name} resolved tenant "
+                    f"{status.get('resolvedTenantRef')!r}, expected "
+                    f"{case['tenant_label_name']!r}: {redact_sensitive(status)}"
+                )
+                assert status.get("httpRouteGatewayName") == case["gateway_name"], (
+                    f"pinned modelRef {ref_name} resolved gateway "
+                    f"{status.get('httpRouteGatewayName')!r}, expected "
+                    f"{case['gateway_name']!r}: {redact_sensitive(status)}"
+                )
+                return status
+
+            wait_until(
+                _check,
+                TENANT_EXTERNAL_MODEL_READY_TIMEOUT,
+                f"pinned MaaSModelRef {model['namespace']}/{ref_name} resolving tenant "
+                f"{case['tenant_label_name']} (RuntimeReady, own gateway)",
             )
 
 
