@@ -2049,6 +2049,7 @@ class TestE2ESubscriptionFlow:
                 namespace=ns,
                 model_namespace=MODEL_NAMESPACE,
                 timeout=180,
+                require_enforced_trlp=False,
             )
 
             # API key bound to this subscription at mint (inference does not send x-maas-subscription)
@@ -2203,6 +2204,7 @@ class TestE2ESubscriptionFlow:
                 model_namespace=context.model_namespace,
                 namespace=context.tenant_namespace,
                 timeout=180,
+                require_enforced_trlp=False,
             )
 
             # Exactly one subscription for this user → mint can auto-bind it without explicit name
@@ -2250,12 +2252,14 @@ class TestE2ESubscriptionFlow:
                 MODEL_REF,
                 model_namespace=MODEL_NAMESPACE,
                 timeout=180,
+                require_enforced_trlp=False,
             )
             _wait_for_subscription_inference_ready(
                 subscription_2,
                 MODEL_REF,
                 model_namespace=MODEL_NAMESPACE,
                 timeout=180,
+                require_enforced_trlp=False,
             )
 
             key1 = _create_api_key(
@@ -2377,6 +2381,7 @@ class TestE2ESubscriptionFlow:
                 MODEL_REF,
                 model_namespace=MODEL_NAMESPACE,
                 timeout=180,
+                require_enforced_trlp=False,
             )
 
             api_key = _create_api_key(
