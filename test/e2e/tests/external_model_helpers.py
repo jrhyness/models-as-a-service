@@ -418,7 +418,12 @@ def infer_external_chat(
     }
     response = None
     for attempt in range(1, retries + 1):
-        response = _request_with_gateway_retry(requests.post, url, headers=headers, json=body)
+        # The caller's budget bounds transient gateway/auth retries too —
+        # negative tests pass retries=1 to get the refusal verdict from a
+        # single attempt instead of riding out propagation windows.
+        response = _request_with_gateway_retry(
+            requests.post, url, headers=headers, json=body, retries=retries, delay=delay
+        )
         if response.status_code == 200:
             return response
         if response.status_code == 404 and attempt < retries:

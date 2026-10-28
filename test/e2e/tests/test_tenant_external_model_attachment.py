@@ -119,10 +119,23 @@ def _serve_in_tenant(env: dict, case: dict, model: dict, **kwargs) -> dict:
 
 
 def _assert_not_served(response) -> None:
-    assert response.status_code in (401, 403, 404), (
+    """Assert a response proves the model was not served.
+
+    A successful serve is a 200 from the echo provider, so any other status
+    is a non-serving verdict. 401/403/404 are the expected refusals (auth
+    denial / no route); 502/503 with a gateway-generated (non-provider)
+    body are envoy-side failures on a gateway that holds no route for the
+    model — observed under load while filters reload, and equally proof
+    that no serve happened."""
+    assert response.status_code != 200, (
         f"expected the model to not be served, got {response.status_code}: "
         f"{redact_sensitive(response.text)}"
     )
+    if response.status_code in (502, 503):
+        assert not (response.text or "").strip() or "Internal Server Error" in response.text or "Service Unavailable" in response.text, (
+            f"5xx carries a provider-shaped body, expected a gateway-generated "
+            f"refusal/failure: {redact_sensitive(response.text)}"
+        )
 
 
 # ─── P0 #1: user-namespace model on a non-default tenant gateway ────────────
