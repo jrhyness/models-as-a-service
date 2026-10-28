@@ -276,6 +276,24 @@ def require_legacy_ipp_coexistence_support() -> None:
         )
 
 
+_WITHDRAWAL_ISSUE_FLAGS = {
+    "#106": "TENANT_EXTERNAL_MODEL_LAST_PROVIDER_WITHDRAWAL_E2E",
+    "#108": "TENANT_EXTERNAL_MODEL_PARTIAL_WITHDRAWAL_E2E",
+}
+
+
+def withdrawal_gate_enabled(issue: str) -> bool:
+    """The effective per-issue withdrawal gate state.
+
+    A scenario is enabled by its per-issue flag or by the umbrella
+    TENANT_EXTERNAL_MODEL_WITHDRAWAL_E2E flag — the same resolution the
+    gate and the evidence artifact must agree on, so it lives here once.
+    """
+    return env_bool(_WITHDRAWAL_ISSUE_FLAGS[issue]) or env_bool(
+        "TENANT_EXTERNAL_MODEL_WITHDRAWAL_E2E"
+    )
+
+
 def require_provider_withdrawal_support(issue: str) -> None:
     """Gate provider-withdrawal scenarios per issue (praxis release pending).
 
@@ -295,12 +313,8 @@ def require_provider_withdrawal_support(issue: str) -> None:
     ``TENANT_EXTERNAL_MODEL_WITHDRAWAL_E2E`` remains as an umbrella alias
     enabling both.
     """
-    flags = {
-        "#106": "TENANT_EXTERNAL_MODEL_LAST_PROVIDER_WITHDRAWAL_E2E",
-        "#108": "TENANT_EXTERNAL_MODEL_PARTIAL_WITHDRAWAL_E2E",
-    }
-    flag = flags[issue]
-    if not (env_bool(flag) or env_bool("TENANT_EXTERNAL_MODEL_WITHDRAWAL_E2E")):
+    flag = _WITHDRAWAL_ISSUE_FLAGS[issue]
+    if not withdrawal_gate_enabled(issue):
         pytest.skip(
             f"provider withdrawal E2E for {issue} is gated; set {flag}=true to enable "
             f"(with it set, the {issue} contract is expected to hold and a violation "
@@ -342,12 +356,13 @@ def record_tenant_external_model_evidence() -> dict:
         "gates": {
             "TENANT_EXTERNAL_MODEL_CROSSNS_E2E": env_bool("TENANT_EXTERNAL_MODEL_CROSSNS_E2E"),
             "TENANT_EXTERNAL_MODEL_LEGACY_IPP_E2E": env_bool("TENANT_EXTERNAL_MODEL_LEGACY_IPP_E2E"),
-            "TENANT_EXTERNAL_MODEL_LAST_PROVIDER_WITHDRAWAL_E2E": env_bool(
-                "TENANT_EXTERNAL_MODEL_LAST_PROVIDER_WITHDRAWAL_E2E"
-            ),
-            "TENANT_EXTERNAL_MODEL_PARTIAL_WITHDRAWAL_E2E": env_bool(
-                "TENANT_EXTERNAL_MODEL_PARTIAL_WITHDRAWAL_E2E"
-            ),
+            # Effective gate state (per-issue flag OR umbrella), matching
+            # what actually gated the run — the umbrella flag alone enables
+            # both scenarios, so recording only the raw per-issue flags
+            # would misreport that configuration.
+            "TENANT_EXTERNAL_MODEL_LAST_PROVIDER_WITHDRAWAL_E2E": withdrawal_gate_enabled("#106"),
+            "TENANT_EXTERNAL_MODEL_PARTIAL_WITHDRAWAL_E2E": withdrawal_gate_enabled("#108"),
+            "TENANT_EXTERNAL_MODEL_WITHDRAWAL_E2E": env_bool("TENANT_EXTERNAL_MODEL_WITHDRAWAL_E2E"),
         },
         "externalEndpoint": EXTERNAL_ENDPOINT,
     }
