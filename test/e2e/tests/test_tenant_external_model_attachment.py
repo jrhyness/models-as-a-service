@@ -754,6 +754,10 @@ class TestCredentialRotationFollowsSource:
                         f"{redact_sensitive(response.text)[:300]}"
                     )
             else:
+                # Serving broke after a stale 200 was seen: the skip must
+                # apply only when the last observed state is the stale-key
+                # symptom — a total outage at the deadline fails red.
+                stale_serving_observed = False
                 last_error_excerpt = redact_sensitive(response.text)[:300]
             if time.time() >= deadline:
                 if stale_serving_observed:

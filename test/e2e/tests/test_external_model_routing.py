@@ -326,7 +326,14 @@ def _wait_for_single_provider(env: dict, model: dict, api_key: str, credential: 
     def _round() -> bool:
         responses = []
         for _ in range(CONVERGENCE_REQUESTS_PER_ROUND):
-            response = _infer(env, model, api_key)
+            try:
+                response = _infer(env, model, api_key)
+            except requests.RequestException as exc:
+                log.info(
+                    "convergence probe: transport error %s (not converged)",
+                    type(exc).__name__,
+                )
+                return False
             if response.status_code != 200:
                 log.info("convergence probe: status %d (not converged)", response.status_code)
                 return False
