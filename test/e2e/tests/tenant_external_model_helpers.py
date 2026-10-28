@@ -57,7 +57,9 @@ Environment variables:
   (requires an AGC build with cross-namespace provider support packaged)
 - TENANT_EXTERNAL_MODEL_LEGACY_IPP_E2E: opt-in for the legacy IPP coexistence scenario
   (requires the MaaS IPP image pin containing the legacy-controller exclusion guard)
-- TENANT_EXTERNAL_MODEL_WITHDRAWAL_E2E: opt-in for provider-withdrawal scenarios
+- TENANT_EXTERNAL_MODEL_WITHDRAWAL_E2E: umbrella opt-in for both provider-withdrawal
+  scenarios; per-issue flags TENANT_EXTERNAL_MODEL_LAST_PROVIDER_WITHDRAWAL_E2E (#106)
+  and TENANT_EXTERNAL_MODEL_PARTIAL_WITHDRAWAL_E2E (#108) enable them independently
   (requires the praxis release containing the partial/last-provider withdrawal
   fixes for issues #108/#106)
 - AGC_DEPLOYMENT_NAME / AGC_DEPLOYMENT_NAMESPACE: overrides for locating the
@@ -274,19 +276,35 @@ def require_legacy_ipp_coexistence_support() -> None:
         )
 
 
-def require_provider_withdrawal_support() -> None:
-    """Gate provider-withdrawal scenarios (praxis release pending).
+def require_provider_withdrawal_support(issue: str) -> None:
+    """Gate provider-withdrawal scenarios per issue (praxis release pending).
 
-    Partial withdrawal (issue #108: an old gateway pod may keep selecting a
-    removed provider and error) and last-provider withdrawal (issue #106: an
-    old route may keep serving instead of the empty routing revision
-    producing no-route) depend on praxis fixes that are not released yet.
+    The flags are per issue so they can be flipped independently as the
+    fixes land — and because they assert an expectation, not just an opt-in:
+    with a flag set, the corresponding test fails red if the contract does
+    not hold, so a post-fix regression cannot hide behind a skip.
+
+    - issue #106 (last-provider withdrawal: an old route may keep serving
+      instead of the empty routing revision producing no-route) — verified
+      passing on current builds; safe to enable now.
+    - issue #108 (partial withdrawal: an old gateway pod may keep selecting
+      a removed provider / routing may disrupt instead of failing over) —
+      enable only on clusters carrying the AGC seamless-failover fix;
+      until then the test fails red on a disruptive withdrawal.
+
+    ``TENANT_EXTERNAL_MODEL_WITHDRAWAL_E2E`` remains as an umbrella alias
+    enabling both.
     """
-    if not env_bool("TENANT_EXTERNAL_MODEL_WITHDRAWAL_E2E"):
+    flags = {
+        "#106": "TENANT_EXTERNAL_MODEL_LAST_PROVIDER_WITHDRAWAL_E2E",
+        "#108": "TENANT_EXTERNAL_MODEL_PARTIAL_WITHDRAWAL_E2E",
+    }
+    flag = flags[issue]
+    if not (env_bool(flag) or env_bool("TENANT_EXTERNAL_MODEL_WITHDRAWAL_E2E")):
         pytest.skip(
-            "provider withdrawal E2E is gated until the praxis release containing "
-            "the partial/last-provider withdrawal fixes (issues #108/#106); set "
-            "TENANT_EXTERNAL_MODEL_WITHDRAWAL_E2E=true to enable"
+            f"provider withdrawal E2E for {issue} is gated; set {flag}=true to enable "
+            f"(with it set, the {issue} contract is expected to hold and a violation "
+            "fails red)"
         )
 
 
@@ -324,7 +342,12 @@ def record_tenant_external_model_evidence() -> dict:
         "gates": {
             "TENANT_EXTERNAL_MODEL_CROSSNS_E2E": env_bool("TENANT_EXTERNAL_MODEL_CROSSNS_E2E"),
             "TENANT_EXTERNAL_MODEL_LEGACY_IPP_E2E": env_bool("TENANT_EXTERNAL_MODEL_LEGACY_IPP_E2E"),
-            "TENANT_EXTERNAL_MODEL_WITHDRAWAL_E2E": env_bool("TENANT_EXTERNAL_MODEL_WITHDRAWAL_E2E"),
+            "TENANT_EXTERNAL_MODEL_LAST_PROVIDER_WITHDRAWAL_E2E": env_bool(
+                "TENANT_EXTERNAL_MODEL_LAST_PROVIDER_WITHDRAWAL_E2E"
+            ),
+            "TENANT_EXTERNAL_MODEL_PARTIAL_WITHDRAWAL_E2E": env_bool(
+                "TENANT_EXTERNAL_MODEL_PARTIAL_WITHDRAWAL_E2E"
+            ),
         },
         "externalEndpoint": EXTERNAL_ENDPOINT,
     }

@@ -725,12 +725,15 @@ class TestCredentialRotationFollowsSource:
 
         # Serving traffic carries the rotated key with no manual steps. The
         # data plane may lag the updated copy (envoy/secret-store refresh),
-        # so probe within a bounded window; if the new key never reaches the
-        # provider while the old one keeps serving, that is the known gap
-        # this scenario tracks — report it as a skip with the observation,
-        # not a red test (see the suite's skip-gate conventions).
+        # so probe within a bounded window. Only the exact known-gap symptom
+        # is tolerated as a skip — a 200 that still carries the OLD key
+        # (stale injection; the scenario's "nothing visible to the user"
+        # failure). Anything else — serving broke entirely (non-200s), or a
+        # 200 carrying neither key — is a different bug and fails red.
         deadline = time.time() + TENANT_EXTERNAL_MODEL_READY_TIMEOUT
+        stale_serving_observed = False
         response = None
+        last_error_excerpt = ""
         while True:
             response = infer_external_chat(
                 tenant_b["gateway_url"],
@@ -739,15 +742,36 @@ class TestCredentialRotationFollowsSource:
                 env["access"]["api_key"],
                 path_tag=model["path_tag"],
             )
-            if response.status_code == 200 and rotated_credential in response.text:
-                break
+            if response.status_code == 200:
+                if rotated_credential in response.text:
+                    break
+                if model["credential"] in response.text:
+                    stale_serving_observed = True
+                else:
+                    pytest.fail(
+                        "serving returned 200 with neither the rotated nor the "
+                        "original credential after rotation: "
+                        f"{redact_sensitive(response.text)[:300]}"
+                    )
+            else:
+                last_error_excerpt = redact_sensitive(response.text)[:300]
             if time.time() >= deadline:
-                pytest.skip(
-                    "credential rotation did not reach serving traffic within "
-                    f"{TENANT_EXTERNAL_MODEL_READY_TIMEOUT}s: the controller-owned copy "
-                    "in the tenant namespace updated, but the gateway kept injecting "
-                    "the previous key (data-plane credential propagation gap; rerun "
-                    "when the Secret-watch propagation ships)"
+                if stale_serving_observed:
+                    pytest.skip(
+                        "credential rotation did not reach serving traffic within "
+                        f"{TENANT_EXTERNAL_MODEL_READY_TIMEOUT}s: requests kept "
+                        "succeeding with the OLD key (stale data-plane injection — "
+                        "the known data-plane credential propagation gap this "
+                        "scenario tracks; the controller-owned copy in the tenant "
+                        "namespace did update); rerun when the Secret-watch "
+                        "propagation ships"
+                    )
+                pytest.fail(
+                    "serving broke entirely after credential rotation (no "
+                    "successful request carried the rotated key within "
+                    f"{TENANT_EXTERNAL_MODEL_READY_TIMEOUT}s; last response "
+                    f"{response.status_code}: {last_error_excerpt}) — distinct "
+                    "from the known stale-key gap"
                 )
             time.sleep(5)
         assert_served_by_provider(response, model["path_tag"], credential=rotated_credential)

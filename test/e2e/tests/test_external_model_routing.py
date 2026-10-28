@@ -37,10 +37,14 @@ Not covered from the same sheet, deliberately:
   internally by the AGC/Praxis stack with no object the e2e layer can
   republish with a chosen digest; there is no lever to pull from here.
 
-The withdrawal scenarios are gated on TENANT_EXTERNAL_MODEL_WITHDRAWAL_E2E
-until the praxis release containing the fixes for issues #106/#108 (see
-require_provider_withdrawal_support); switching and equal-selection always
-run.
+The withdrawal scenarios are gated per issue:
+TENANT_EXTERNAL_MODEL_LAST_PROVIDER_WITHDRAWAL_E2E (#106, verified passing
+on current builds — safe to enable) and TENANT_EXTERNAL_MODEL_PARTIAL_
+WITHDRAWAL_E2E (#108, enable only on clusters carrying the AGC
+seamless-failover fix). TENANT_EXTERNAL_MODEL_WITHDRAWAL_E2E enables both.
+With a flag set the contract is *expected to hold*: a disruptive partial
+withdrawal fails red with the observation, so a post-fix regression cannot
+hide behind a skip. Switching and equal-selection always run.
 """
 
 from __future__ import annotations
@@ -451,14 +455,15 @@ class TestPartialWithdrawal:
     request succeeding through the survivor; after convergence the
     withdrawn provider is never selected again.
 
-    On builds without the seamless-failover fix (issue #108, unreleased),
-    withdrawal disrupts traffic instead. That known gap is reported as a
-    skip — but only after proving the disruption is bounded: the survivor
-    must serve again. A survivor that never recovers fails red."""
+    The per-issue gate means the contract is expected to hold: a disruptive
+    withdrawal fails red with the full observation, so a regression after
+    the seamless-failover fix ships cannot hide behind a skip. The
+    observation distinguishes a bounded disruption (survivor recovers) from
+    permanent breakage."""
 
     @pytest.fixture(scope="class")
     def withdrawal_model(self, routing_env):
-        require_provider_withdrawal_support()
+        require_provider_withdrawal_support("#108")
         env = routing_env
         model = _multi_provider_model(
             env, f"e2e-rt-pw-{uuid.uuid4().hex[:6]}", [{"key": "a"}, {"key": "b"}]
@@ -500,22 +505,28 @@ class TestPartialWithdrawal:
 
         failed = [status for status, _ in results if status != 200]
         if errors or failed:
-            # Issue #108's gap signal: withdrawing one of two providers
-            # disrupts routing instead of failing over seamlessly. Prove
-            # the disruption is bounded — the survivor must serve again
-            # (this raises, failing red, if it never does) — then report
-            # the observed behavior as a skip per the suite's convention
-            # for known gaps; it auto-upgrades to the full proof when
-            # seamless failover ships.
-            _wait_for_single_provider(env, model, api_key, provider_a["credential"])
+            # The #108 contract did not hold: fail red with the full
+            # observation. Recovery is probed first (bounded vs permanent
+            # disruption) so the message tells the fixer which failure mode
+            # it is. If this cluster predates the AGC seamless-failover
+            # fix, unset TENANT_EXTERNAL_MODEL_PARTIAL_WITHDRAWAL_E2E.
+            recovered = True
+            try:
+                _wait_for_single_provider(env, model, api_key, provider_a["credential"])
+            except pytest.fail.Exception:
+                # pytest.fail() in _wait_for_single_provider: the survivor
+                # never converged within the timeout.
+                recovered = False
             error_types = sorted({type(exc).__name__ for exc in errors})
-            pytest.skip(
+            pytest.fail(
                 "provider withdrawal disrupted traffic instead of failing over "
                 "seamlessly (issue #108): "
                 f"{len(failed)} of {len(results)} requests failed "
                 f"(statuses {sorted(set(failed)) or 'n/a'}), {len(errors)} transport "
-                f"errors {error_types or 'n/a'}; provider A resumed serving after "
-                "convergence — rerun when the seamless-failover fix ships"
+                f"errors {error_types or 'n/a'}; the survivor "
+                f"{'resumed serving after convergence (bounded disruption)' if recovered else 'NEVER recovered (permanent breakage)'}. "
+                "If this cluster predates the AGC seamless-failover fix for #108, "
+                "unset TENANT_EXTERNAL_MODEL_PARTIAL_WITHDRAWAL_E2E."
             )
         # After convergence, only A is selected — B's credential never
         # serves again, and every request still succeeds.
@@ -537,7 +548,7 @@ class TestLastProviderWithdrawal:
 
     @pytest.fixture(scope="class")
     def last_provider_model(self, routing_env):
-        require_provider_withdrawal_support()
+        require_provider_withdrawal_support("#106")
         env = routing_env
         model = _multi_provider_model(env, f"e2e-rt-lw-{uuid.uuid4().hex[:6]}", [{"key": "a"}])
         api_key = _serve(env, model)
