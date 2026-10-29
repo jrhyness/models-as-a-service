@@ -495,21 +495,24 @@ class TestListenerAdmissionRecovery:
         tenant_b = env["tenant_b"]
         refused_ns = new_unadmitted_namespace("e2e-extmod-rec-noaccess")
         control_ns = new_admitted_user_namespace("e2e-extmod-rec-user", tenant_b["gateway_name"])
-        resources = env["resources"]
-        recovering_model = provision_external_model_stack(
-            resources,
-            name=f"e2e-rec-recover-{uuid.uuid4().hex[:6]}",
-            namespace=refused_ns,
-            gateway_refs=[gateway_ref(tenant_b["gateway_name"])],
-        )
-        control_model = provision_external_model_stack(
-            resources,
-            name=f"e2e-rec-ctrl-{uuid.uuid4().hex[:6]}",
-            namespace=control_ns,
-            gateway_refs=[gateway_ref(tenant_b["gateway_name"])],
-        )
-        control_access = _serve_in_tenant(env, tenant_b, control_model)
+        # try/finally starts right after namespace creation: pytest runs no
+        # teardown after a failed setup, so provisioning or serving failures
+        # must still delete the namespaces.
         try:
+            resources = env["resources"]
+            recovering_model = provision_external_model_stack(
+                resources,
+                name=f"e2e-rec-recover-{uuid.uuid4().hex[:6]}",
+                namespace=refused_ns,
+                gateway_refs=[gateway_ref(tenant_b["gateway_name"])],
+            )
+            control_model = provision_external_model_stack(
+                resources,
+                name=f"e2e-rec-ctrl-{uuid.uuid4().hex[:6]}",
+                namespace=control_ns,
+                gateway_refs=[gateway_ref(tenant_b["gateway_name"])],
+            )
+            control_access = _serve_in_tenant(env, tenant_b, control_model)
             yield {
                 "tenant_b": tenant_b,
                 "refused_ns": refused_ns,
@@ -620,16 +623,29 @@ class TestListenerAdmissionRecovery:
                 f"route {route['metadata']['name']} must not stay admitted: {conditions}"
             )
         # The key that just served must now be refused: a non-200 here is
-        # the narrowing verdict, not an authorization failure.
-        response = infer_external_chat(
-            tenant_b["gateway_url"],
-            model["namespace"],
-            model["client_name"],
-            access["api_key"],
-            path_tag=model["path_tag"],
-            retries=1,
+        # the narrowing verdict, not an authorization failure. The control
+        # plane (attachment reason, route Accepted=False) can report the
+        # refusal while envoy still serves the old route briefly, so poll
+        # until the data plane catches up; _assert_not_served keeps the
+        # failure message specific if the narrowing never takes effect.
+        def _refused() -> bool:
+            response = infer_external_chat(
+                tenant_b["gateway_url"],
+                model["namespace"],
+                model["client_name"],
+                access["api_key"],
+                path_tag=model["path_tag"],
+                retries=1,
+            )
+            _assert_not_served(response)
+            return True
+
+        wait_until(
+            _refused,
+            TENANT_EXTERNAL_MODEL_READY_TIMEOUT,
+            f"previously valid key no longer serves {model['namespace']}/{model['name']} "
+            "after admission narrowing",
         )
-        _assert_not_served(response)
 
         control = env["control_model"]
         control_served = infer_external_chat(
@@ -665,14 +681,17 @@ class TestCredentialRotationFollowsSource:
         # Its own namespace: the rotation rewrites this Secret in place, and
         # the module's shared user namespace hosts other classes' models.
         user_ns = new_admitted_user_namespace("e2e-extmod-rot-user", tenant_b["gateway_name"])
-        model = provision_external_model_stack(
-            env["resources"],
-            name=f"e2e-rot-{uuid.uuid4().hex[:6]}",
-            namespace=user_ns,
-            gateway_refs=[gateway_ref(tenant_b["gateway_name"])],
-        )
-        access = _serve_in_tenant(env, tenant_b, model)
+        # try/finally starts right after namespace creation: pytest runs no
+        # teardown after a failed setup, so provisioning or serving failures
+        # must still delete the namespace.
         try:
+            model = provision_external_model_stack(
+                env["resources"],
+                name=f"e2e-rot-{uuid.uuid4().hex[:6]}",
+                namespace=user_ns,
+                gateway_refs=[gateway_ref(tenant_b["gateway_name"])],
+            )
+            access = _serve_in_tenant(env, tenant_b, model)
             yield {
                 "tenant_b": tenant_b,
                 "user_ns": user_ns,
